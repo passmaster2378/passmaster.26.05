@@ -477,6 +477,39 @@ app.post("/api/auth/login", async (req, res) => {
   return res.json({ token, expiresAt, user });
 });
 
+app.patch("/api/auth/password", requireAuth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ message: "현재 비밀번호와 새 비밀번호를 모두 입력해 주세요." });
+  }
+  if (String(newPassword).length < 8) {
+    return res.status(400).json({ message: "새 비밀번호는 8자 이상이어야 합니다." });
+  }
+  if (currentPassword === newPassword) {
+    return res.status(400).json({ message: "새 비밀번호는 현재 비밀번호와 달라야 합니다." });
+  }
+
+  const row = await get("SELECT id, password FROM public.users WHERE id = ?", [req.auth.sub]);
+  if (!row) {
+    return res.status(404).json({ message: "사용자를 찾을 수 없습니다." });
+  }
+
+  let passwordMatched = false;
+  if (row.password.startsWith("$2")) {
+    passwordMatched = await bcrypt.compare(currentPassword, row.password);
+  } else if (row.password === currentPassword) {
+    // Legacy plain-text record migration path.
+    passwordMatched = true;
+  }
+  if (!passwordMatched) {
+    return res.status(401).json({ message: "현재 비밀번호가 올바르지 않습니다." });
+  }
+
+  const newHash = await bcrypt.hash(String(newPassword), 10);
+  await run("UPDATE public.users SET password = ? WHERE id = ?", [newHash, row.id]);
+  return res.json({ ok: true, message: "비밀번호가 변경되었습니다." });
+});
+
 app.get("/api/auth/me", requireAuth, async (req, res) => {
   const user = await get("SELECT id, name, email, role, created_at FROM public.users WHERE id = ?", [
     req.auth.sub,

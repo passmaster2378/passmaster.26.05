@@ -270,6 +270,32 @@ h1 {
   font-size: 14px;
   font-weight: 700;
 }
+.auth-form-grid {
+  display: grid;
+  gap: 12px;
+}
+.auth-form-grid label {
+  display: inline-block;
+  margin-bottom: 6px;
+  color: #2c4f86;
+  font-weight: 700;
+}
+.auth-form-grid input,
+.auth-form-grid select,
+.auth-form-grid textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #d4e3ff;
+  background: #fbfdff;
+  color: #244677;
+}
+.auth-form-grid textarea {
+  min-height: 110px;
+  resize: vertical;
+}
 .auth-message.info {
   background: #eef4ff;
   color: #2f579d;

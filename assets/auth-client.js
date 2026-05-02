@@ -172,6 +172,51 @@
     }
   }
 
+  async function handlePasswordChangeSubmit(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const currentPassword = form.currentPassword.value;
+    const newPassword = form.newPassword.value;
+    const newPasswordConfirm = form.newPasswordConfirm.value;
+    const messageNode = form.querySelector("[data-auth-message]");
+    const submitButton = form.querySelector("[data-auth-submit]");
+
+    if (!currentPassword || !newPassword || !newPasswordConfirm) {
+      showMessage(messageNode, "모든 비밀번호 항목을 입력해 주세요.", "error");
+      return;
+    }
+    if (newPassword.length < 8) {
+      showMessage(messageNode, "새 비밀번호는 8자 이상 입력해 주세요.", "error");
+      return;
+    }
+    if (newPassword !== newPasswordConfirm) {
+      showMessage(messageNode, "새 비밀번호 확인 값이 일치하지 않습니다.", "error");
+      return;
+    }
+    if (currentPassword === newPassword) {
+      showMessage(messageNode, "새 비밀번호는 현재 비밀번호와 달라야 합니다.", "error");
+      return;
+    }
+
+    try {
+      submitButton.disabled = true;
+      showMessage(messageNode, "비밀번호를 변경하고 있습니다...", "info");
+      await request("/auth/password", {
+        method: "PATCH",
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      showMessage(messageNode, "변경 완료! 보안을 위해 다시 로그인해 주세요.", "success");
+      localStorage.removeItem("passmaster_auth");
+      setTimeout(() => {
+        window.location.href = getLoginHref();
+      }, 900);
+    } catch (error) {
+      showMessage(messageNode, error.message, "error");
+    } finally {
+      submitButton.disabled = false;
+    }
+  }
+
   function formatDateTime(value) {
     if (!value) return "-";
     const date = new Date(value.replace(" ", "T"));
@@ -487,6 +532,11 @@
         showMessage(messageNode, "문의 등록은 로그인 후 이용 가능합니다.", "info");
       }
       inquiryForm.addEventListener("submit", handleInquirySubmit);
+    }
+
+    const passwordForm = document.querySelector("[data-auth-form='password-change']");
+    if (passwordForm) {
+      passwordForm.addEventListener("submit", handlePasswordChangeSubmit);
     }
 
     mountInquiryList();
