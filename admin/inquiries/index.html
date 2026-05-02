@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PASSmaster | 문의 관리</title>
+    <link rel="stylesheet" href="../../assets/shared.css" />
+    <script defer src="../../assets/shared.js"></script>
+  </head>
+  <body>
+    <div class="pm-shell">
+      <header class="pm-header">
+        <a class="pm-logo" href="../../index.html">PASSmaster</a>
+        <nav class="pm-nav" aria-label="공통 이동">
+          <a href="../../login.html">로그인</a>
+          <a href="../../register.html">회원가입</a>
+          <a href="../../enroll/index.html">수강신청</a>
+          <a href="../../my-courses/index.html">내 강의</a>
+          <a href="../index.html">관리자</a>
+          <a href="../../pages.html">전체 페이지</a>
+        </nav>
+      </header>
+
+      <main class="pm-main">
+        <p class="pm-pill">Admin Flow</p>
+        <h1>문의 관리</h1>
+        <p class="pm-summary">사용자 문의 목록을 확인하고 담당자를 배정합니다.</p>
+        <div class="pm-cta-row">
+          <a class="pm-btn pm-btn-ghost" href="../faqs/detail-001.html">이전 단계</a>
+          <a class="pm-btn pm-btn-primary" href="./detail-001.html">다음 단계</a>
+        </div>
+
+        <section class="pm-card">
+          <h2>문의 필터</h2>
+          <form class="pm-cta-row" data-admin-inquiry-filter-form>
+            <select name="status">
+              <option value="">상태 전체</option>
+              <option value="received">접수</option>
+              <option value="processing">처리중</option>
+              <option value="done">완료</option>
+            </select>
+            <select name="type">
+              <option value="">유형 전체</option>
+              <option value="결제">결제</option>
+              <option value="학습">학습</option>
+              <option value="계정">계정</option>
+              <option value="환불">환불</option>
+              <option value="기타">기타</option>
+            </select>
+            <input name="q" type="text" placeholder="제목/내용/문의자 검색" />
+            <button class="pm-btn pm-btn-primary" type="submit">필터 적용</button>
+          </form>
+        </section>
+
+        <section class="pm-card">
+          <h2>문의 운영 목록</h2>
+          <p class="pm-detail" data-admin-inquiry-summary>조회 중...</p>
+          <div class="pm-table-wrap">
+            <table class="pm-table" aria-label="관리자 문의 목록">
+              <thead>
+                <tr>
+                  <th>문의번호</th>
+                  <th>문의자</th>
+                  <th>유형</th>
+                  <th>제목</th>
+                  <th>상태</th>
+                  <th>등록일</th>
+                </tr>
+              </thead>
+              <tbody data-admin-inquiry-list-body>
+                <tr><td colspan="6">목록을 불러오는 중입니다.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="pm-card">
+          <h2>현재 경로</h2>
+          <p class="pm-route">/admin/inquiries</p>
+        </section>
+
+        <section class="pm-card">
+          <h2>연결 페이지</h2>
+          <ul class="pm-link-list">
+          <li><a href="../../support/inquiry/index.html">/support/inquiry</a></li>
+          </ul>
+        </section>
+      </main>
+
+      <footer class="pm-footer">
+        <a href="../../index.html">메인으로</a>
+        <a href="../../support/index.html">고객센터</a>
+        <a href="../../pages.html">사이트맵</a>
+      </footer>
+    </div>
+    <script defer src="../../assets/auth-client.js"></script>
+  </body>
+</html>

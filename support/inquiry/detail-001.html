@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PASSmaster | 문의 상세</title>
+    <link rel="stylesheet" href="../../assets/shared.css" />
+    <script defer src="../../assets/shared.js"></script>
+  </head>
+  <body>
+    <div class="pm-shell">
+      <header class="pm-header">
+        <a class="pm-logo" href="../../index.html">PASSmaster</a>
+        <nav class="pm-nav" aria-label="공통 이동">
+          <a href="../../login.html">로그인</a>
+          <a href="../../register.html">회원가입</a>
+          <a href="../../enroll/index.html">수강신청</a>
+          <a href="../../my-courses/index.html">내 강의</a>
+          <a href="../../admin/index.html">관리자</a>
+          <a href="../../pages.html">전체 페이지</a>
+        </nav>
+      </header>
+
+      <main class="pm-main">
+        <p class="pm-pill">User Flow</p>
+        <h1>문의 상세</h1>
+        <p class="pm-summary">문의 상세 내용과 운영진 답변, 추가 코멘트를 확인합니다.</p>
+        <div class="pm-cta-row">
+          <a class="pm-btn pm-btn-ghost" href="./new/index.html">이전 단계</a>
+          <a class="pm-btn pm-btn-primary" href="../../mypage/inquiries/index.html">다음 단계</a>
+        </div>
+
+        <section class="pm-card" data-inquiry-detail>
+          <h2>문의 상세 정보</h2>
+          <p class="auth-message info" data-inquiry-error>실제 문의 데이터를 조회 중입니다.</p>
+          <div class="pm-table-wrap">
+            <table class="pm-table" aria-label="문의 상세 정보">
+              <tbody>
+                <tr><th>문의번호</th><td data-inquiry-field="id">-</td></tr>
+                <tr><th>문의유형</th><td data-inquiry-field="type">-</td></tr>
+                <tr><th>처리상태</th><td data-inquiry-field="status">-</td></tr>
+                <tr><th>제목</th><td data-inquiry-field="title">-</td></tr>
+                <tr><th>문의자</th><td data-inquiry-field="userName">-</td></tr>
+                <tr><th>등록일</th><td data-inquiry-field="createdAt">-</td></tr>
+                <tr><th>내용</th><td data-inquiry-field="content">-</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="pm-card">
+          <h2>현재 경로</h2>
+          <p class="pm-route">/support/inquiry/[id]</p>
+        </section>
+
+        <section class="pm-card">
+          <h2>연결 페이지</h2>
+          <ul class="pm-link-list">
+          <li><a href="./index.html">/support/inquiry</a></li>
+          <li><a href="../index.html">/support</a></li>
+          </ul>
+        </section>
+      </main>
+
+      <footer class="pm-footer">
+        <a href="../../index.html">메인으로</a>
+        <a href="../index.html">고객센터</a>
+        <a href="../../pages.html">사이트맵</a>
+      </footer>
+    </div>
+    <script defer src="../../assets/auth-client.js"></script>
+  </body>
+</html>

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PASSmaster | 문의 작성</title>
+    <link rel="stylesheet" href="../../../assets/shared.css" />
+    <script defer src="../../../assets/shared.js"></script>
+    <style>
+      .inquiry-form {
+        display: grid;
+        gap: 12px;
+      }
+      .inquiry-form label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 800;
+        color: #35517f;
+      }
+      .inquiry-form input,
+      .inquiry-form select,
+      .inquiry-form textarea {
+        width: 100%;
+        border: 1px solid #cdddfb;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 15px;
+        font-family: inherit;
+      }
+      .inquiry-form textarea {
+        min-height: 140px;
+        resize: vertical;
+      }
+      .auth-message {
+        margin: 0;
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .auth-message.info {
+        background: #eef4ff;
+        color: #2f579d;
+        border: 1px solid #d7e4fb;
+      }
+      .auth-message.success {
+        background: #e9f9ef;
+        color: #1d7d44;
+        border: 1px solid #cdeed9;
+      }
+      .auth-message.error {
+        background: #fff1f1;
+        color: #b43a3a;
+        border: 1px solid #f4d0d0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="pm-shell">
+      <header class="pm-header">
+        <a class="pm-logo" href="../../../index.html">PASSmaster</a>
+        <nav class="pm-nav" aria-label="공통 이동">
+          <a href="../../../login.html">로그인</a>
+          <a href="../../../register.html">회원가입</a>
+          <a href="../../../enroll/index.html">수강신청</a>
+          <a href="../../../my-courses/index.html">내 강의</a>
+          <a href="../../../admin/index.html">관리자</a>
+          <a href="../../../pages.html">전체 페이지</a>
+        </nav>
+      </header>
+
+      <main class="pm-main">
+        <p class="pm-pill">User Flow</p>
+        <h1>문의 작성</h1>
+        <p class="pm-summary">문의 유형을 선택하고 상세 내용을 작성해 새 티켓을 발행합니다.</p>
+        <div class="pm-cta-row">
+          <a class="pm-btn pm-btn-ghost" href="../index.html">이전 단계</a>
+          <a class="pm-btn pm-btn-primary" href="../detail-001.html">다음 단계</a>
+        </div>
+
+        <section class="pm-card">
+          <h2>1:1 문의 등록</h2>
+          <form class="inquiry-form" data-support-form="inquiry-new" data-success-href="../index.html">
+            <div>
+              <label for="userName">문의자명</label>
+              <input id="userName" name="userName" type="text" placeholder="문의자 이름" />
+            </div>
+            <div>
+              <label for="type">문의 유형</label>
+              <select id="type" name="type">
+                <option value="">유형을 선택하세요</option>
+                <option value="결제">결제</option>
+                <option value="학습">학습</option>
+                <option value="계정">계정</option>
+                <option value="환불">환불</option>
+                <option value="기타">기타</option>
+              </select>
+            </div>
+            <div>
+              <label for="title">문의 제목</label>
+              <input id="title" name="title" type="text" placeholder="문의 제목을 입력해 주세요" />
+            </div>
+            <div>
+              <label for="content">문의 내용</label>
+              <textarea
+                id="content"
+                name="content"
+                placeholder="문제 상황, 발생 시점, 필요한 도움 내용을 자세히 적어주세요."
+              ></textarea>
+            </div>
+            <button class="pm-btn pm-btn-primary" type="submit" data-auth-submit>문의 접수하기</button>
+            <p class="auth-message info" data-auth-message>로그인 상태에서 문의를 등록할 수 있습니다.</p>
+          </form>
+        </section>
+
+        <section class="pm-card">
+          <h2>현재 경로</h2>
+          <p class="pm-route">/support/inquiry/new</p>
+        </section>
+
+        <section class="pm-card">
+          <h2>연결 페이지</h2>
+          <ul class="pm-link-list">
+          <li><a href="../../faq/index.html">/support/faq</a></li>
+          </ul>
+        </section>
+      </main>
+
+      <footer class="pm-footer">
+        <a href="../../../index.html">메인으로</a>
+        <a href="../../index.html">고객센터</a>
+        <a href="../../../pages.html">사이트맵</a>
+      </footer>
+    </div>
+    <script defer src="../../../assets/auth-client.js"></script>
+  </body>
+</html>

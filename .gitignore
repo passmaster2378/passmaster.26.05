@@ -1,0 +1,19 @@
+# Node modules
+backend/node_modules/
+
+# Local DB / cache
+backend/passmaster.db
+*.sqlite
+*.sqlite3
+
+# Env files
+.env
+.env.*
+backend/.env
+backend/.env.*
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

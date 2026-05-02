@@ -1,0 +1,1323 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PASSmaster | 자격증 필기 합격의 가장 빠른 루트</title>
+    <style>
+      :root {
+        --bg: #f2f6ff;
+        --white: #ffffff;
+        --text: #14223a;
+        --muted: #5f7092;
+        --line: #d5e0f7;
+        --primary: #236bff;
+        --primary-deep: #0f49c2;
+        --secondary: #01b3ff;
+        --primary-soft: #e8f1ff;
+        --mint-soft: #e8fbf4;
+        --sand-soft: #fff5e3;
+        --card-shadow: 0 20px 45px rgba(24, 56, 118, 0.11);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background: radial-gradient(circle at 10% -10%, #dbe9ff 0, #eef4ff 40%, #f2f6ff 72%),
+          linear-gradient(#f6f9ff, #f2f6ff);
+        color: var(--text);
+        font-family: "Pretendard", "Noto Sans KR", "Malgun Gothic", sans-serif;
+        line-height: 1.55;
+        overflow-x: hidden;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .container {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+      }
+
+      .landing {
+        margin: 24px 0 28px;
+        border: 1px solid #d9e4fb;
+        background: var(--white);
+        border-radius: 26px;
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+      }
+
+      .floating {
+        position: fixed;
+        width: 220px;
+        height: 220px;
+        border-radius: 50%;
+        filter: blur(60px);
+        pointer-events: none;
+        z-index: -1;
+        animation: float 8s ease-in-out infinite;
+      }
+
+      .floating.left {
+        background: rgba(35, 107, 255, 0.15);
+        left: -70px;
+        top: 180px;
+      }
+
+      .floating.right {
+        background: rgba(1, 179, 255, 0.14);
+        right: -90px;
+        top: 520px;
+        animation-delay: 1.5s;
+      }
+
+      .header-cta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 18px;
+        padding: 20px 28px;
+        background: linear-gradient(90deg, #0f49c2, #236bff, #01a7ff);
+        color: #f2f7ff;
+      }
+
+      .header-cta strong {
+        font-size: clamp(18px, 2.4vw, 28px);
+        line-height: 1.3;
+        letter-spacing: -0.02em;
+      }
+
+      .header-cta .btn {
+        min-width: 180px;
+        border: 1px solid rgba(255, 255, 255, 0.32);
+      }
+
+      .header {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 28px;
+        border-bottom: 1px solid #ebf0fa;
+        background: rgba(255, 255, 255, 0.94);
+        backdrop-filter: blur(10px);
+      }
+
+      .logo-wrap {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .logo-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #236bff, #01a7ff);
+        color: #fff;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+        box-shadow: 0 10px 22px rgba(35, 107, 255, 0.36);
+      }
+
+      .logo {
+        font-size: 23px;
+        font-weight: 900;
+        letter-spacing: -0.03em;
+        color: var(--primary-deep);
+      }
+
+      .nav {
+        display: flex;
+        gap: 20px;
+        align-items: center;
+      }
+
+      .nav a {
+        font-size: 15px;
+        color: #334662;
+        font-weight: 600;
+      }
+
+      .auth {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .btn {
+        border: 0;
+        cursor: pointer;
+        font-weight: 700;
+        padding: 11px 16px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .btn-ghost {
+        background: #f2f6ff;
+        color: #3e5a8c;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, var(--primary), #5f96ff);
+        color: var(--white);
+        box-shadow: 0 10px 25px rgba(31, 111, 255, 0.28);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.22fr 0.95fr;
+        gap: 18px;
+        padding: 30px 26px 20px;
+      }
+
+      .hero-main {
+        padding: 38px 40px;
+        border-radius: 20px;
+        background: linear-gradient(135deg, #11387c 8%, #236bff 58%, #01a7ff);
+        color: #f6f9ff;
+        position: relative;
+        overflow: hidden;
+        animation: glow 5s ease-in-out infinite alternate;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 330px;
+      }
+
+      .hero-main::after {
+        content: "";
+        position: absolute;
+        width: 250px;
+        height: 250px;
+        right: -80px;
+        top: -80px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.18);
+      }
+
+      .hero-main::before {
+        content: "";
+        position: absolute;
+        width: 160px;
+        height: 160px;
+        left: -55px;
+        bottom: -70px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.14);
+      }
+
+      .hero-badge {
+        display: inline-block;
+        margin-bottom: 18px;
+        padding: 7px 12px;
+        font-size: 13px;
+        font-weight: 700;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.18);
+        width: fit-content;
+      }
+
+      .hero-main h1 {
+        margin: 0 0 2px;
+        font-size: clamp(30px, 3.6vw, 48px);
+        line-height: 1.18;
+        letter-spacing: -0.03em;
+        max-width: 620px;
+      }
+
+      .hero-main p {
+        margin: 16px 0 28px;
+        color: #deebff;
+        max-width: 540px;
+        font-size: 17px;
+      }
+
+      .hero-actions {
+        display: block;
+      }
+
+      .hero-actions .btn {
+        min-width: 260px;
+        min-height: 58px;
+        font-size: 18px;
+        border-radius: 14px;
+        padding: 16px 24px;
+      }
+
+      .hero-panel {
+        border: 1px solid #d7e4ff;
+        border-radius: 20px;
+        background: #f6f9ff;
+        padding: 20px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .hero-image {
+        width: 100%;
+        border-radius: 14px;
+        border: 1px solid #d5e4ff;
+        display: block;
+        object-fit: cover;
+        height: 170px;
+      }
+
+      .hero-panel h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .step-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 8px;
+      }
+
+      .step-list li {
+        background: var(--white);
+        border: 1px solid #d8e4fb;
+        border-radius: 10px;
+        padding: 7px 10px;
+        color: #334f77;
+        font-size: 14px;
+      }
+
+      .section {
+        padding: 33px 26px;
+      }
+
+      .section + .section {
+        margin-top: 10px;
+      }
+
+      .section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .section h2 {
+        margin: 0;
+        font-size: 28px;
+        letter-spacing: -0.02em;
+      }
+
+      .section p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .vision-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .vision-card {
+        background: linear-gradient(160deg, #f4f8ff, #eef4ff);
+        border: 1px solid #d4e2ff;
+        border-radius: 16px;
+        padding: 14px;
+        overflow: hidden;
+        transition: transform 0.26s ease, box-shadow 0.26s ease;
+      }
+
+      .vision-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 16px 32px rgba(26, 60, 124, 0.14);
+      }
+
+      .vision-media {
+        position: relative;
+        margin-bottom: 12px;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #cfdfff;
+        height: 150px;
+      }
+
+      .vision-media img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        transform: scale(1.02);
+        transition: transform 0.35s ease;
+      }
+
+      .vision-card:hover .vision-media img {
+        transform: scale(1.08);
+      }
+
+      .vision-media::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to top, rgba(17, 41, 86, 0.28), rgba(17, 41, 86, 0.02));
+      }
+
+      .vision-card h3 {
+        margin: 0 0 8px;
+        font-size: 20px;
+        color: #1d3f7a;
+      }
+
+      .vision-card p {
+        color: #4d6185;
+      }
+
+      .course-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .course-card {
+        background: var(--primary-soft);
+        border: 1px solid #cfe0ff;
+        border-radius: 16px;
+        padding: 12px 12px 14px;
+        overflow: hidden;
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
+        animation: floatCard 6s ease-in-out infinite;
+      }
+
+      .course-card:nth-child(2n) {
+        animation-delay: 0.6s;
+      }
+
+      .course-card:nth-child(3n) {
+        animation-delay: 1.2s;
+      }
+
+      .course-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 30px rgba(22, 58, 126, 0.12);
+      }
+
+      .course-thumb {
+        height: 118px;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #c9dafc;
+        margin-bottom: 12px;
+        position: relative;
+      }
+
+      .course-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        transform: scale(1.03);
+        transition: transform 0.35s ease;
+      }
+
+      .course-thumb::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to top, rgba(10, 41, 99, 0.26), transparent 58%);
+      }
+
+      .course-card:hover .course-thumb img {
+        transform: scale(1.1);
+      }
+
+      .course-card h3 {
+        margin: 0 0 8px;
+        font-size: 18px;
+      }
+
+      .course-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .course-btn {
+        flex: 1;
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        border-radius: 10px;
+        padding: 9px 10px;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .course-btn.primary {
+        background: linear-gradient(135deg, #236bff, #4f92ff);
+        color: #fff;
+        box-shadow: 0 8px 18px rgba(31, 111, 255, 0.26);
+      }
+
+      .course-btn.ghost {
+        border: 1px solid #b9cdf5;
+        background: #f7faff;
+        color: #2f4b7e;
+      }
+
+      .journey {
+        background: var(--sand-soft);
+        border: 1px solid #eddab7;
+        border-radius: 20px;
+        padding: 18px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .flow-step {
+        background: var(--white);
+        border: 1px solid #efd8b0;
+        border-radius: 12px;
+        padding: 10px 10px;
+        text-align: center;
+        font-size: 14px;
+        font-weight: 600;
+        position: relative;
+      }
+
+      .flow-step::after {
+        content: "";
+        width: 20px;
+        height: 1px;
+        background: #efc27e;
+        position: absolute;
+        right: -16px;
+        top: 50%;
+      }
+
+      .flow-step:nth-child(5)::after,
+      .flow-step:last-child::after {
+        display: none;
+      }
+
+      .review-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .review-card {
+        background: var(--mint-soft);
+        border: 1px solid #c5ebde;
+        border-radius: 16px;
+        padding: 16px;
+        transition: transform 0.24s ease;
+      }
+
+      .review-card:hover {
+        transform: translateY(-4px);
+      }
+
+      .review-card strong {
+        display: block;
+        margin-bottom: 8px;
+      }
+
+      .review-meta {
+        margin-top: 10px;
+        color: #507b73;
+        font-size: 13px;
+      }
+
+      .faq {
+        display: grid;
+        gap: 10px;
+      }
+
+      .faq-item {
+        background: var(--white);
+        border: 1px solid #d8e1f4;
+        border-radius: 14px;
+        overflow: hidden;
+      }
+
+      .faq-trigger {
+        width: 100%;
+        border: 0;
+        background: #f8fbff;
+        text-align: left;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 14px;
+        font-size: 16px;
+        color: #213250;
+        font-weight: 700;
+        padding: 14px 16px;
+        cursor: pointer;
+      }
+
+      .faq-content {
+        display: none;
+        padding: 0 16px 14px;
+        color: #54627c;
+      }
+
+      .faq-item.active .faq-trigger {
+        background: #eef5ff;
+      }
+
+      .faq-item.active .faq-content {
+        display: block;
+      }
+
+      .faq-icon {
+        font-weight: 900;
+        color: #43659e;
+      }
+
+      .footer-cta {
+        margin: 8px 26px 0;
+        border-radius: 20px;
+        padding: 24px;
+        background: linear-gradient(120deg, #12397c, #236bff 60%, #00b3ff);
+        color: #f4f9ff;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .footer-cta strong {
+        font-size: clamp(19px, 2.2vw, 30px);
+        line-height: 1.3;
+      }
+
+      .footer {
+        border-top: 1px solid #d5e2fb;
+        margin-top: 14px;
+        padding: 26px;
+        background: linear-gradient(145deg, #1f2533, #2d3648);
+        color: #dfe5f2;
+        border-radius: 22px 22px 0 0;
+      }
+
+      .footer-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-bottom: 14px;
+      }
+
+      .footer-brand {
+        display: grid;
+        gap: 6px;
+      }
+
+      .footer-brand strong {
+        font-size: 22px;
+        color: #f5f8ff;
+      }
+
+      .footer-brand p {
+        margin: 0;
+        color: #b9c4db;
+        font-size: 14px;
+      }
+
+      .footer-links {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        font-size: 14px;
+      }
+
+      .footer-links a {
+        color: #d9e2f6;
+      }
+
+      .footer-links a:hover {
+        color: #ffffff;
+      }
+
+      .footer-bottom {
+        border-top: 1px solid rgba(214, 223, 242, 0.2);
+        padding-top: 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        color: #aeb8cc;
+        font-size: 13px;
+      }
+
+      .footer-badge {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(222, 231, 248, 0.18);
+        border-radius: 999px;
+        padding: 5px 11px;
+      }
+
+      .fade {
+        animation: fadeUp 0.7s ease both;
+      }
+
+      .d1 {
+        animation-delay: 0.1s;
+      }
+
+      .d2 {
+        animation-delay: 0.2s;
+      }
+
+      .d3 {
+        animation-delay: 0.3s;
+      }
+
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(18px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-18px);
+        }
+      }
+
+      @keyframes glow {
+        from {
+          box-shadow: inset 0 0 0 rgba(255, 255, 255, 0.1);
+        }
+        to {
+          box-shadow: inset 0 0 80px rgba(255, 255, 255, 0.12);
+        }
+      }
+
+      @keyframes floatCard {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-3px);
+        }
+      }
+
+      @media (max-width: 960px) {
+        .header-cta,
+        .header {
+          flex-wrap: wrap;
+          gap: 12px;
+          justify-content: center;
+        }
+
+        .nav {
+          order: 3;
+          justify-content: center;
+          flex-wrap: wrap;
+        }
+
+        .hero {
+          grid-template-columns: 1fr;
+        }
+
+        .hero-main {
+          min-height: auto;
+          padding: 34px 28px;
+        }
+
+        .hero-main p {
+          font-size: 16px;
+          margin-bottom: 24px;
+        }
+
+        .hero-actions .btn {
+          width: 100%;
+          min-width: 0;
+        }
+
+        .course-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .vision-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .review-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .flow {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .flow-step::after {
+          display: none;
+        }
+
+        .footer-cta {
+          margin: 8px 14px 0;
+          padding: 18px;
+          flex-direction: column;
+          text-align: center;
+        }
+
+        .section {
+          padding: 30px 20px;
+        }
+
+        .section + .section {
+          margin-top: 8px;
+        }
+
+        .footer {
+          border-radius: 18px 18px 0 0;
+          padding: 22px 18px;
+        }
+
+        .section h2 {
+          font-size: 24px;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .course-grid,
+        .review-grid,
+        .flow {
+          grid-template-columns: 1fr;
+        }
+
+        .course-actions {
+          flex-direction: column;
+        }
+
+        .course-btn {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="floating left"></div>
+    <div class="floating right"></div>
+    <div class="container">
+      <main class="landing">
+        <section class="header-cta fade">
+          <strong>2026 필기시험 대비 얼리버드 오픈 — 오늘 등록 시 20% 할인</strong>
+          <a class="btn btn-primary" href="./register.html">지금 바로 수강 시작</a>
+        </section>
+
+        <header class="header">
+          <a class="logo-wrap" href="./index.html">
+            <span class="logo-icon">P</span>
+            <span class="logo">PASSmaster</span>
+          </a>
+          <nav class="nav" aria-label="주요 메뉴">
+            <a href="./enroll/index.html">수강신청</a>
+            <a href="./my-courses/index.html">학습플로우</a>
+            <a href="#reviews">수강후기</a>
+            <a href="./support/index.html">고객센터</a>
+          </nav>
+          <div class="auth">
+            <a class="btn btn-ghost" href="./login.html">로그인</a>
+            <a class="btn btn-primary" href="./register.html">회원가입</a>
+          </div>
+        </header>
+
+        <section class="hero fade d1">
+          <article class="hero-main fade d2">
+            <span class="hero-badge">합격 로드맵 기반 커리큘럼</span>
+            <h1>
+              자격증 필기,
+              <br />
+              PASSmaster로 한 번에 끝내세요.
+            </h1>
+            <p>
+              합격 가능성이 높은 순서로 학습 경로를 추천하고, 신청부터 수강 완료까지
+              필요한 모든 단계를 한 화면에서 안내합니다.
+            </p>
+            <div class="hero-actions">
+              <a class="btn btn-primary" href="./register.html">지금 수강 신청</a>
+            </div>
+          </article>
+          <aside class="hero-panel fade d3">
+            <img
+              class="hero-image"
+              src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&q=80"
+              alt="학습 플래닝 이미지"
+            />
+            <h2>수강 신청 6단계</h2>
+            <ol class="step-list">
+              <li>1. 회원가입 및 기본정보 등록</li>
+              <li>2. 로그인 후 학습 대시보드 진입</li>
+              <li>3. 원하는 자격증 과정 선택</li>
+              <li>4. 신청서 입력 및 결제안내 확인</li>
+              <li>5. 입금 후 승인 요청</li>
+              <li>6. 수강 시작 및 진도 관리</li>
+            </ol>
+          </aside>
+        </section>
+
+        <section class="section fade" id="vision">
+          <div class="section-head">
+            <h2>PASSmaster의 목적과 목표 비전</h2>
+            <p>학습자의 합격 확률을 높이는 데이터 기반 자격증 플랫폼</p>
+          </div>
+          <div class="vision-grid">
+            <article class="vision-card">
+              <div class="vision-media">
+                <img
+                  src="https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=1200&q=80"
+                  alt="학습 전략 설계 이미지"
+                />
+              </div>
+              <h3>목적</h3>
+              <p>
+                자격증 필기 준비 과정에서 학습자가 겪는 정보 과부하와 비효율을 줄이고,
+                가장 빠르게 합격에 도달할 수 있는 학습 환경을 제공합니다.
+              </p>
+            </article>
+            <article class="vision-card">
+              <div class="vision-media">
+                <img
+                  src="https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=1200&q=80"
+                  alt="목표 성과 관리 이미지"
+                />
+              </div>
+              <h3>목표</h3>
+              <p>
+                신청부터 학습, 복습, 완료까지 이어지는 전 과정을 한 플랫폼에서 관리하여
+                학습 집중도를 높이고 완주율을 극대화합니다.
+              </p>
+            </article>
+            <article class="vision-card">
+              <div class="vision-media">
+                <img
+                  src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1200&q=80"
+                  alt="미래 교육 비전 이미지"
+                />
+              </div>
+              <h3>비전</h3>
+              <p>
+                대한민국 대표 국가자격증 필기 학습 플랫폼으로 성장해 누구나 체계적인
+                경로로 자격증을 취득할 수 있는 표준 학습 경험을 만듭니다.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section fade" id="courses">
+          <div class="section-head">
+            <h2>운영 중인 국가자격증 필기 과정</h2>
+            <p>인기 과정 중심으로 매월 업데이트</p>
+          </div>
+          <div class="course-grid">
+            <article class="course-card">
+              <div class="course-thumb">
+                <img
+                  src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&q=80"
+                  alt="산업안전기사 과정 이미지"
+                />
+              </div>
+              <h3>산업안전기사</h3>
+              <p>핵심 이론 압축 + 최신 기출 분석</p>
+              <div class="course-actions">
+                <a class="course-btn primary" href="./register.html">수강신청</a>
+                <a class="course-btn ghost" href="#">자격증 자세히 보기</a>
+              </div>
+            </article>
+            <article class="course-card">
+              <div class="course-thumb">
+                <img
+                  src="https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80"
+                  alt="전기기사 과정 이미지"
+                />
+              </div>
+              <h3>전기기사</h3>
+              <p>빈출 공식 중심의 단기 완성반</p>
+              <div class="course-actions">
+                <a class="course-btn primary" href="./register.html">수강신청</a>
+                <a class="course-btn ghost" href="#">자격증 자세히 보기</a>
+              </div>
+            </article>
+            <article class="course-card">
+              <div class="course-thumb">
+                <img
+                  src="https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=1200&q=80"
+                  alt="소방설비기사 과정 이미지"
+                />
+              </div>
+              <h3>소방설비기사</h3>
+              <p>과목별 오답 루프 학습 시스템</p>
+              <div class="course-actions">
+                <a class="course-btn primary" href="./register.html">수강신청</a>
+                <a class="course-btn ghost" href="#">자격증 자세히 보기</a>
+              </div>
+            </article>
+            <article class="course-card">
+              <div class="course-thumb">
+                <img
+                  src="https://images.unsplash.com/photo-1543269865-cbf427effbad?auto=format&fit=crop&w=1200&q=80"
+                  alt="가스기사 과정 이미지"
+                />
+              </div>
+              <h3>가스기사</h3>
+              <p>기초 개념 + 계산 문제 유형별 특강</p>
+              <div class="course-actions">
+                <a class="course-btn primary" href="./register.html">수강신청</a>
+                <a class="course-btn ghost" href="#">자격증 자세히 보기</a>
+              </div>
+            </article>
+            <article class="course-card">
+              <div class="course-thumb">
+                <img
+                  src="https://images.unsplash.com/photo-1456324504439-367cee3b3c32?auto=format&fit=crop&w=1200&q=80"
+                  alt="정보처리기사 과정 이미지"
+                />
+              </div>
+              <h3>정보처리기사</h3>
+              <p>핵심 요약과 기출 회독 자동 추천</p>
+              <div class="course-actions">
+                <a class="course-btn primary" href="./register.html">수강신청</a>
+                <a class="course-btn ghost" href="#">자격증 자세히 보기</a>
+              </div>
+            </article>
+            <article class="course-card">
+              <div class="course-thumb">
+                <img
+                  src="https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=1200&q=80"
+                  alt="건축기사 과정 이미지"
+                />
+              </div>
+              <h3>건축기사</h3>
+              <p>파트별 빈출 키워드 암기 루틴 제공</p>
+              <div class="course-actions">
+                <a class="course-btn primary" href="./register.html">수강신청</a>
+                <a class="course-btn ghost" href="#">자격증 자세히 보기</a>
+              </div>
+            </article>
+            <article class="course-card">
+              <div class="course-thumb">
+                <img
+                  src="https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=1200&q=80"
+                  alt="토목기사 과정 이미지"
+                />
+              </div>
+              <h3>토목기사</h3>
+              <p>비전공자용 기초 보강 모듈 포함</p>
+              <div class="course-actions">
+                <a class="course-btn primary" href="./register.html">수강신청</a>
+                <a class="course-btn ghost" href="#">자격증 자세히 보기</a>
+              </div>
+            </article>
+            <article class="course-card">
+              <div class="course-thumb">
+                <img
+                  src="https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80"
+                  alt="위험물산업기사 과정 이미지"
+                />
+              </div>
+              <h3>위험물산업기사</h3>
+              <p>단원별 기출 압축과 실전 모의고사</p>
+              <div class="course-actions">
+                <a class="course-btn primary" href="./register.html">수강신청</a>
+                <a class="course-btn ghost" href="#">자격증 자세히 보기</a>
+              </div>
+            </article>
+            <article class="course-card">
+              <div class="course-thumb">
+                <img
+                  src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80"
+                  alt="공조냉동기계기사 과정 이미지"
+                />
+              </div>
+              <h3>공조냉동기계기사</h3>
+              <p>핵심 공식 암기카드 + 풀이 루틴</p>
+              <div class="course-actions">
+                <a class="course-btn primary" href="./register.html">수강신청</a>
+                <a class="course-btn ghost" href="#">자격증 자세히 보기</a>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section fade" id="journey">
+          <div class="section-head">
+            <h2>수강 신청부터 학습 완료까지</h2>
+            <p>수강신청안내 + 학습진행방식을 통합한 전체 플로우</p>
+          </div>
+          <div class="journey">
+            <div class="flow">
+              <div class="flow-step">회원가입</div>
+              <div class="flow-step">로그인</div>
+              <div class="flow-step">과정선택</div>
+              <div class="flow-step">신청서 입력</div>
+              <div class="flow-step">결제/입금</div>
+              <div class="flow-step">입금확인</div>
+              <div class="flow-step">승인</div>
+              <div class="flow-step">학습시작</div>
+              <div class="flow-step">복습관리</div>
+              <div class="flow-step">수강완료</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section fade" id="reviews">
+          <div class="section-head">
+            <h2>수강 후기</h2>
+            <p>관리자 승인 후 노출되는 실제 수강 후기 10개</p>
+          </div>
+          <div class="review-grid">
+            <article class="review-card">
+              <strong>산업안전기사 합격</strong>
+              <p>
+                처음엔 범위가 너무 넓어 막막했는데 학습 순서대로 따라가니까
+                5주차부터 점수가 빠르게 올랐어요.
+              </p>
+              <p class="review-meta">김OO · 직장인 · 2026.04.11</p>
+            </article>
+            <article class="review-card">
+              <strong>전기기사 재도전 성공</strong>
+              <p>
+                오답 루프 기능이 특히 좋았습니다. 틀린 문제를 자동으로 다시
+                묶어주니까 실수 패턴이 눈에 보여요.
+              </p>
+              <p class="review-meta">박OO · 대학생 · 2026.03.28</p>
+            </article>
+            <article class="review-card">
+              <strong>소방설비기사 1회 합격</strong>
+              <p>
+                입금 확인부터 승인까지 처리 속도가 빨라서 시작이 편했고,
+                질문 답변도 빨라 학습 리듬이 끊기지 않았습니다.
+              </p>
+              <p class="review-meta">이OO · 취준생 · 2026.02.19</p>
+            </article>
+            <article class="review-card">
+              <strong>가스기사 필기 통과</strong>
+              <p>암기해야 할 부분을 짧은 카드로 반복하게 해줘서 점수가 안정적으로 올랐습니다.</p>
+              <p class="review-meta">최OO · 직장인 · 2026.02.02</p>
+            </article>
+            <article class="review-card">
+              <strong>건축기사 과락 탈출</strong>
+              <p>문제풀이 패턴을 유형별로 정리해 준 게 실제 시험장에서 큰 도움이 됐어요.</p>
+              <p class="review-meta">정OO · 대학생 · 2026.01.26</p>
+            </article>
+            <article class="review-card">
+              <strong>정보처리기사 재수 성공</strong>
+              <p>기출 회독 루트가 자동으로 잡히니까 공부 계획 세우는 시간이 줄었습니다.</p>
+              <p class="review-meta">윤OO · 개발자 · 2026.01.18</p>
+            </article>
+            <article class="review-card">
+              <strong>토목기사 첫 도전 합격</strong>
+              <p>비전공자도 이해되게 설명이 쉬웠고, 질문 답변이 빨라 막히는 구간이 적었습니다.</p>
+              <p class="review-meta">한OO · 취준생 · 2025.12.30</p>
+            </article>
+            <article class="review-card">
+              <strong>위험물산업기사 1회차 통과</strong>
+              <p>모의고사 난이도가 실제와 비슷해서 시험 당일 긴장감이 훨씬 덜했습니다.</p>
+              <p class="review-meta">조OO · 직장인 · 2025.12.24</p>
+            </article>
+            <article class="review-card">
+              <strong>공조냉동기계기사 합격</strong>
+              <p>공식 암기카드가 생각보다 강력했고, 틀린 문제만 집중 복습해서 효율이 좋았어요.</p>
+              <p class="review-meta">오OO · 실무자 · 2025.12.07</p>
+            </article>
+            <article class="review-card">
+              <strong>전기기사 평균 82점</strong>
+              <p>학습 대시보드에서 취약 과목을 바로 보여줘서 공부 방향을 빨리 잡았습니다.</p>
+              <p class="review-meta">서OO · 대학생 · 2025.11.23</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section fade" id="faq">
+          <div class="section-head">
+            <h2>자주 묻는 질문</h2>
+            <p>카테고리별 핵심 질문 정리</p>
+          </div>
+          <div class="faq">
+            <article class="faq-item active">
+              <button class="faq-trigger" type="button">
+                수강신청은 언제까지 가능한가요?
+                <span class="faq-icon">-</span>
+              </button>
+              <div class="faq-content">
+                과정 시작 전날 18시까지 신청 가능합니다. 다만 마감 임박 과정은
+                조기 마감될 수 있어 최소 2~3일 전 신청을 권장합니다.
+              </div>
+            </article>
+            <article class="faq-item">
+              <button class="faq-trigger" type="button">
+                결제/입금 확인은 얼마나 걸리나요?
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-content">
+                평일 기준 평균 10~30분 내 확인되며, 야간/주말 입금은 다음 영업일
+                오전에 순차 처리됩니다.
+              </div>
+            </article>
+            <article class="faq-item">
+              <button class="faq-trigger" type="button">
+                수강현황은 어디에서 확인하나요?
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-content">
+                로그인 후 마이페이지의 수강현황 메뉴에서 신청 상태, 승인 여부,
+                진행률을 실시간으로 확인할 수 있습니다.
+              </div>
+            </article>
+            <article class="faq-item">
+              <button class="faq-trigger" type="button">
+                계정/로그인 문제는 어떻게 해결하나요?
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-content">
+                고객센터 문의 또는 비밀번호 재설정 기능을 먼저 사용해 주세요.
+                본인 인증 후 1:1로 빠르게 도와드립니다.
+              </div>
+            </article>
+            <article class="faq-item">
+              <button class="faq-trigger" type="button">
+                모바일에서도 수강이 가능한가요?
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-content">
+                네, 모바일/태블릿/PC 모두 지원합니다. 동일 계정으로 기기 전환 시 학습 진도도
+                자동 연동됩니다.
+              </div>
+            </article>
+            <article class="faq-item">
+              <button class="faq-trigger" type="button">
+                강의 자료는 다운로드할 수 있나요?
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-content">
+                강의 자료는 PDF 형태로 제공되며, 과정 정책에 따라 일부 과목은 스트리밍 전용으로 운영됩니다.
+              </div>
+            </article>
+            <article class="faq-item">
+              <button class="faq-trigger" type="button">
+                환불 규정은 어떻게 되나요?
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-content">
+                전자상거래법 및 내부 약관을 기준으로 진행률/이용기간에 따라 환불 금액이 산정됩니다.
+              </div>
+            </article>
+            <article class="faq-item">
+              <button class="faq-trigger" type="button">
+                수료 후 재수강 혜택이 있나요?
+                <span class="faq-icon">+</span>
+              </button>
+              <div class="faq-content">
+                일부 과정은 수료 후 30일 복습 기간이 제공되며, 재수강 할인 쿠폰도 지급됩니다.
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="footer-cta fade">
+          <strong>합격까지 남은 건 시작뿐입니다. 지금 등록하고 바로 학습을 시작하세요.</strong>
+          <a class="btn btn-primary" href="./register.html">1:1 상담 후 등록하기</a>
+        </section>
+
+        <footer class="footer">
+          <div class="footer-top">
+            <div class="footer-brand">
+              <strong>PASSmaster</strong>
+              <p>필기 합격의 가장 빠른 루트, 데이터 기반 학습 플랫폼</p>
+            </div>
+            <div class="footer-links">
+              <a href="#">회사정보</a>
+              <a href="#">이용약관</a>
+              <a href="#">개인정보처리방침</a>
+              <a href="#">환불정책</a>
+            </div>
+          </div>
+          <div class="footer-bottom">
+            <span>Copyright 2026 PASSmaster. All rights reserved.</span>
+            <span class="footer-badge">평균 문의 응답 10분 이내</span>
+          </div>
+        </footer>
+      </main>
+    </div>
+
+    <script>
+      const faqItems = document.querySelectorAll(".faq-item");
+      const fadeElements = document.querySelectorAll(".fade");
+
+      faqItems.forEach((item) => {
+        const trigger = item.querySelector(".faq-trigger");
+        const icon = item.querySelector(".faq-icon");
+
+        trigger.addEventListener("click", () => {
+          const isActive = item.classList.contains("active");
+
+          faqItems.forEach((otherItem) => {
+            otherItem.classList.remove("active");
+            const otherIcon = otherItem.querySelector(".faq-icon");
+            if (otherIcon) otherIcon.textContent = "+";
+          });
+
+          if (!isActive) {
+            item.classList.add("active");
+            if (icon) icon.textContent = "-";
+          }
+        });
+      });
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.style.animationPlayState = "running";
+            }
+          });
+        },
+        { threshold: 0.15 }
+      );
+
+      fadeElements.forEach((el) => {
+        el.style.animationPlayState = "paused";
+        observer.observe(el);
+      });
+    </script>
+  </body>
+</html>

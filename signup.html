@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PASSmaster | 회원가입 안내</title>
+    <style>
+      :root {
+        --bg: #f2f6ff;
+        --card: #ffffff;
+        --line: #d6e3fc;
+        --text: #1a2845;
+        --muted: #5f7398;
+        --primary: #2169ff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Pretendard", "Noto Sans KR", "Malgun Gothic", sans-serif;
+        background: radial-gradient(circle at 10% 8%, #dce9ff 0, #edf3ff 44%, var(--bg) 74%);
+        color: var(--text);
+        display: grid;
+        place-items: center;
+        padding: 20px;
+      }
+      .card {
+        width: min(760px, 100%);
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 16px 38px rgba(22, 54, 114, 0.14);
+      }
+      .hero {
+        position: relative;
+        min-height: 200px;
+      }
+      .hero img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .body {
+        padding: 20px;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: clamp(24px, 3.8vw, 32px);
+      }
+      p {
+        margin: 0 0 12px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .btn {
+        min-height: 44px;
+        padding: 10px 14px;
+        border-radius: 12px;
+        font-weight: 800;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .btn-primary {
+        color: #fff;
+        background: linear-gradient(135deg, var(--primary), #5a9aff);
+      }
+      .btn-ghost {
+        color: #37568b;
+        border: 1px solid #c9d8f8;
+        background: #f5f9ff;
+      }
+      .meta {
+        margin-top: 14px;
+        padding: 10px 12px;
+        border: 1px solid #dce7fd;
+        border-radius: 10px;
+        background: #f8fbff;
+        color: #446294;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <section class="hero">
+        <img
+          src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1400&q=80"
+          alt="PASSmaster 회원가입 안내 이미지"
+        />
+      </section>
+      <section class="body">
+        <h1>회원가입 경로가 통합되었습니다.</h1>
+        <p>
+          기존 <code>/signup</code> 경로는 현재 <code>/register</code>로 통합 운영됩니다.
+          아래 버튼을 통해 바로 회원가입을 진행할 수 있습니다.
+        </p>
+        <p>
+          실서비스에서는 기존 링크 유입 사용자를 위해 이 안내 페이지를 유지하고,
+          회원가입 전환 손실을 막기 위해 명확한 이동 경로를 제공합니다.
+        </p>
+        <div class="actions">
+          <a class="btn btn-primary" href="./register.html">회원가입 진행</a>
+          <a class="btn btn-ghost" href="./login.html">로그인 페이지</a>
+          <a class="btn btn-ghost" href="./index.html">메인 페이지</a>
+        </div>
+        <div class="meta">운영 공지: 경로 통합 정책 적용일 2026-05-01</div>
+      </section>
+    </main>
+  </body>
+</html>
