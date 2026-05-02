@@ -10,6 +10,10 @@ const PORT = process.env.PORT || 4000;
 const JWT_SECRET = process.env.JWT_SECRET || "passmaster-dev-secret";
 const JWT_EXPIRES_IN = "8h";
 const DATABASE_URL = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
+const CORS_ORIGINS = (process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 if (!DATABASE_URL) {
   console.error("SUPABASE_DB_URL (or DATABASE_URL) is required.");
@@ -22,7 +26,18 @@ const pool = new Pool({
   ssl: requiresSsl ? { rejectUnauthorized: false } : false,
 });
 
-app.use(cors());
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Allow non-browser clients (server-to-server, curl, health checks).
+      if (!origin) return callback(null, true);
+      if (CORS_ORIGINS.length === 0) return callback(null, true);
+      if (CORS_ORIGINS.includes(origin)) return callback(null, true);
+      return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 function toPgSql(sql) {

@@ -1,0 +1,16 @@
+{
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "${PASSMASTER_BACKEND_ORIGIN}/api/$1",
+      "env": ["PASSMASTER_BACKEND_ORIGIN"]
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ]
+}
