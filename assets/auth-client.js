@@ -1,5 +1,7 @@
 (() => {
   const DEFAULT_REMOTE_API_BASE = "https://passmaster-26-05.onrender.com/api";
+  const DEFAULT_TIMEOUT_MS = 15000;
+  const AUTH_TIMEOUT_MS = 35000;
   const isLocalHost =
     window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
   const isFileProtocol = window.location.protocol === "file:";
@@ -11,6 +13,7 @@
       : isGitHubPages
         ? DEFAULT_REMOTE_API_BASE
         : "/api");
+  let apiWarmupPromise = null;
 
   function getStoredSession() {
     try {
@@ -21,24 +24,49 @@
     }
   }
 
-  async function request(path, options = {}) {
+  async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  async function request(path, options = {}, config = {}) {
+    const { timeoutMs = DEFAULT_TIMEOUT_MS, retryNetworkError = false } = config;
     const session = getStoredSession();
     const authHeader =
       session && session.token ? { Authorization: `Bearer ${session.token}` } : {};
 
+    const fetchOptions = {
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeader,
+      },
+      ...options,
+    };
+
     let response;
-    try {
-      response = await fetch(`${API_BASE}${path}`, {
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader,
-        },
-        ...options,
-      });
-    } catch (_error) {
-      throw new Error(
-        `API 서버에 연결할 수 없습니다. (${API_BASE}) 백엔드 실행 또는 배포 환경변수를 확인해 주세요.`
-      );
+    for (let attempt = 0; attempt < (retryNetworkError ? 2 : 1); attempt += 1) {
+      try {
+        response = await fetchWithTimeout(`${API_BASE}${path}`, fetchOptions, timeoutMs);
+        break;
+      } catch (error) {
+        const isLastAttempt = attempt === (retryNetworkError ? 1 : 0);
+        if (!isLastAttempt) {
+          // Render free tier cold start can cause first request timeout/network failure.
+          await new Promise((resolve) => setTimeout(resolve, 600));
+          continue;
+        }
+        const isTimeout = error && error.name === "AbortError";
+        throw new Error(
+          isTimeout
+            ? `요청 시간이 초과되었습니다. (${API_BASE}) 잠시 후 다시 시도해 주세요.`
+            : `API 서버에 연결할 수 없습니다. (${API_BASE}) 백엔드 실행 또는 배포 환경변수를 확인해 주세요.`
+        );
+      }
     }
 
     const data = await response.json().catch(() => ({}));
@@ -72,6 +100,16 @@
     target.className = `auth-message ${type}`;
   }
 
+  async function warmupApi() {
+    if (apiWarmupPromise) return apiWarmupPromise;
+    apiWarmupPromise = fetchWithTimeout(`${API_BASE}/health`, { method: "GET" }, AUTH_TIMEOUT_MS)
+      .catch(() => null)
+      .finally(() => {
+        apiWarmupPromise = null;
+      });
+    return apiWarmupPromise;
+  }
+
   async function handleLoginSubmit(event) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -87,11 +125,12 @@
 
     try {
       submitButton.disabled = true;
-      showMessage(messageNode, "로그인 처리 중입니다...", "info");
+      showMessage(messageNode, "서버 연결 확인 후 로그인 중입니다...", "info");
+      await warmupApi();
       const data = await request("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
-      });
+      }, { timeoutMs: AUTH_TIMEOUT_MS, retryNetworkError: true });
       localStorage.setItem("passmaster_auth", JSON.stringify(data));
       showMessage(messageNode, `${data.user.name}님, 로그인 되었습니다.`, "success");
       setTimeout(() => {
@@ -125,11 +164,12 @@
 
     try {
       submitButton.disabled = true;
-      showMessage(messageNode, "회원가입 처리 중입니다...", "info");
+      showMessage(messageNode, "서버 연결 확인 후 회원가입 처리 중입니다...", "info");
+      await warmupApi();
       await request("/auth/register", {
         method: "POST",
         body: JSON.stringify({ name, email, password }),
-      });
+      }, { timeoutMs: AUTH_TIMEOUT_MS, retryNetworkError: true });
       showMessage(
         messageNode,
         "회원가입이 완료되었습니다. 로그인 페이지로 이동합니다.",
@@ -218,7 +258,7 @@
       await request("/auth/password", {
         method: "PATCH",
         body: JSON.stringify({ currentPassword, newPassword }),
-      });
+      }, { timeoutMs: AUTH_TIMEOUT_MS, retryNetworkError: true });
       showMessage(messageNode, "변경 완료! 보안을 위해 다시 로그인해 주세요.", "success");
       localStorage.removeItem("passmaster_auth");
       setTimeout(() => {
@@ -526,11 +566,13 @@
   function mountAuthForms() {
     const loginForm = document.querySelector("[data-auth-form='login']");
     if (loginForm) {
+      warmupApi();
       loginForm.addEventListener("submit", handleLoginSubmit);
     }
 
     const registerForm = document.querySelector("[data-auth-form='register']");
     if (registerForm) {
+      warmupApi();
       registerForm.addEventListener("submit", handleRegisterSubmit);
     }
 
