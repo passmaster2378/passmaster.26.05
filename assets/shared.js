@@ -1449,11 +1449,18 @@ function buildQuestionBankSummary(questionBank) {
 }
 
 function loadLiveApiData(route) {
+  const defaultRemoteApiBase = "https://passmaster-26-05.onrender.com/api";
+  const isLocalHost =
+    window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  const isFileProtocol = window.location.protocol === "file:";
+  const isGitHubPages = /\.github\.io$/i.test(window.location.hostname);
   const apiBase =
     window.PASSMASTER_API_BASE ||
-    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    (isLocalHost || isFileProtocol
       ? "http://localhost:4000/api"
-      : "/api");
+      : isGitHubPages
+        ? defaultRemoteApiBase
+        : "/api");
   const sessionRaw = localStorage.getItem("passmaster_auth");
   let token = "";
   if (sessionRaw) {

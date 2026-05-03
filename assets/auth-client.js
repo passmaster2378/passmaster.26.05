@@ -1,9 +1,16 @@
 (() => {
+  const DEFAULT_REMOTE_API_BASE = "https://passmaster-26-05.onrender.com/api";
+  const isLocalHost =
+    window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  const isFileProtocol = window.location.protocol === "file:";
+  const isGitHubPages = /\.github\.io$/i.test(window.location.hostname);
   const API_BASE =
     window.PASSMASTER_API_BASE ||
-    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    (isLocalHost || isFileProtocol
       ? "http://localhost:4000/api"
-      : "/api");
+      : isGitHubPages
+        ? DEFAULT_REMOTE_API_BASE
+        : "/api");
 
   function getStoredSession() {
     try {
@@ -19,13 +26,20 @@
     const authHeader =
       session && session.token ? { Authorization: `Bearer ${session.token}` } : {};
 
-    const response = await fetch(`${API_BASE}${path}`, {
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeader,
-      },
-      ...options,
-    });
+    let response;
+    try {
+      response = await fetch(`${API_BASE}${path}`, {
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        ...options,
+      });
+    } catch (_error) {
+      throw new Error(
+        `API 서버에 연결할 수 없습니다. (${API_BASE}) 백엔드 실행 또는 배포 환경변수를 확인해 주세요.`
+      );
+    }
 
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
