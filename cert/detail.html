@@ -62,8 +62,9 @@
           <ul class="cert-json-list" id="cert-links"></ul>
         </section>
 
-        <div class="pm-cta-row">
+        <div class="pm-cta-row" id="cert-cta-row">
           <a class="pm-btn pm-btn-ghost" href="../index.html#cert-courses">목록으로</a>
+          <a class="pm-btn pm-btn-ghost" id="cert-info-link" href="./info.html" hidden>일반 정보</a>
           <a class="pm-btn pm-btn-primary" href="../enroll/index.html#enroll-openings">수강 신청</a>
         </div>
       </main>
@@ -136,6 +137,10 @@
               `<li><a href="${item.href}" target="_blank" rel="noopener">${item.label}</a></li>`
           )
           .join("");
+
+        const infoLink = document.getElementById("cert-info-link");
+        infoLink.href = `./info.html?slug=${encodeURIComponent(slug)}`;
+        infoLink.hidden = false;
       }
     </script>
   </body>
