@@ -81,27 +81,6 @@
         animation-delay: 1.5s;
       }
 
-      .header-cta {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 18px;
-        padding: 20px 28px;
-        background: linear-gradient(90deg, #0f49c2, #236bff, #01a7ff);
-        color: #f2f7ff;
-      }
-
-      .header-cta strong {
-        font-size: clamp(18px, 2.4vw, 28px);
-        line-height: 1.3;
-        letter-spacing: -0.02em;
-      }
-
-      .header-cta .btn {
-        min-width: 180px;
-        border: 1px solid rgba(255, 255, 255, 0.32);
-      }
-
       .header {
         position: sticky;
         top: 0;
@@ -450,39 +429,6 @@
         font-size: 18px;
       }
 
-      .cert-path-panel {
-        margin-top: 22px;
-        padding: 18px 18px 16px;
-        border-radius: 16px;
-        border: 1px solid #d5e0f5;
-        background: #f8fbff;
-      }
-
-      .cert-path-panel h3 {
-        margin: 0 0 8px;
-        font-size: 17px;
-        color: #1d3f7a;
-      }
-
-      .cert-path-panel .pm-detail {
-        margin: 0 0 12px;
-        color: #5f7092;
-        font-size: 14px;
-      }
-
-      .cert-path-list {
-        margin: 0;
-        padding-left: 1.15em;
-        color: #4d6185;
-        font-size: 14px;
-        line-height: 1.85;
-      }
-
-      .cert-path-list code {
-        font-size: 12.5px;
-        word-break: break-all;
-      }
-
       .course-actions {
         display: flex;
         align-items: center;
@@ -634,18 +580,30 @@
       .footer-cta {
         margin: 8px 26px 0;
         border-radius: 20px;
-        padding: 24px;
-        background: linear-gradient(120deg, #12397c, #236bff 60%, #00b3ff);
-        color: #f4f9ff;
+        padding: 22px 24px;
+        background: linear-gradient(145deg, #eaf3ff 0%, #e0edff 55%, #d6e7ff 100%);
+        border: 1px solid #c8daf8;
+        color: #153565;
         display: flex;
         justify-content: space-between;
         gap: 12px;
         align-items: center;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
       }
 
       .footer-cta strong {
-        font-size: clamp(19px, 2.2vw, 30px);
-        line-height: 1.3;
+        font-size: clamp(17px, 2.2vw, 28px);
+        line-height: 1.35;
+        font-weight: 800;
+        color: #122a4d;
+      }
+
+      .footer-cta .btn-primary {
+        background: linear-gradient(135deg, #1e5fd4, #3b82f6);
+        color: #fff;
+        font-size: 14px;
+        padding: 10px 16px;
+        box-shadow: 0 8px 20px rgba(30, 95, 212, 0.28);
       }
 
       .footer {
@@ -709,11 +667,22 @@
         font-size: 13px;
       }
 
-      .footer-badge {
-        background: rgba(255, 255, 255, 0.06);
-        border: 1px solid rgba(222, 231, 248, 0.18);
-        border-radius: 999px;
-        padding: 5px 11px;
+      .footer-company {
+        margin: 0 0 14px;
+        padding: 14px 0 0;
+        border-top: 1px solid rgba(214, 223, 242, 0.15);
+        font-size: 13px;
+        line-height: 1.65;
+        color: #c5cee0;
+      }
+
+      .footer-company p {
+        margin: 0 0 6px;
+      }
+
+      .footer-company strong {
+        color: #e8edf7;
+        font-weight: 800;
       }
 
       .fade {
@@ -773,7 +742,6 @@
       }
 
       @media (max-width: 960px) {
-        .header-cta,
         .header {
           flex-wrap: wrap;
           gap: 12px;
@@ -872,11 +840,6 @@
     <div class="floating right"></div>
     <div class="container">
       <main class="landing">
-        <section class="header-cta fade">
-          <strong>2026 필기시험 대비 얼리버드 오픈 — 오늘 등록 시 20% 할인</strong>
-          <a class="btn btn-primary" href="./enroll/index.html">지금 바로 수강 시작</a>
-        </section>
-
         <header class="header">
           <a class="logo-wrap" href="./index.html">
             <span class="logo-icon">P</span>
@@ -986,239 +949,212 @@
             <article class="course-card">
               <div class="course-thumb">
                 <img
-                  src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&q=80"
+                  src="https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=1200&q=80"
                   alt="지게차기능사"
                 />
               </div>
               <h3>지게차기능사</h3>
               <div class="course-actions">
-                <a class="course-btn ghost" href="./cert/info.html?slug=forklift">일반 정보</a>
                 <a class="course-btn primary" href="./enroll/index.html#enroll-openings">수강신청</a>
+                <a class="course-btn ghost" href="./cert/info.html?slug=forklift">일반 정보</a>
               </div>
             </article>
             <article class="course-card">
               <div class="course-thumb">
                 <img
-                  src="https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80"
+                  src="https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=1200&q=80"
                   alt="굴착기기능사"
                 />
               </div>
               <h3>굴착기기능사</h3>
               <div class="course-actions">
-                <a class="course-btn ghost" href="./cert/info.html?slug=excavator">일반 정보</a>
                 <a class="course-btn primary" href="./enroll/index.html#enroll-openings">수강신청</a>
+                <a class="course-btn ghost" href="./cert/info.html?slug=excavator">일반 정보</a>
               </div>
             </article>
             <article class="course-card">
               <div class="course-thumb">
                 <img
-                  src="https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=1200&q=80"
+                  src="https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=1200&q=80"
                   alt="전기기능사"
                 />
               </div>
               <h3>전기기능사</h3>
               <div class="course-actions">
-                <a class="course-btn ghost" href="./cert/info.html?slug=electric">일반 정보</a>
                 <a class="course-btn primary" href="./enroll/index.html#enroll-openings">수강신청</a>
+                <a class="course-btn ghost" href="./cert/info.html?slug=electric">일반 정보</a>
               </div>
             </article>
             <article class="course-card">
               <div class="course-thumb">
                 <img
-                  src="https://images.unsplash.com/photo-1543269865-cbf427effbad?auto=format&fit=crop&w=1200&q=80"
+                  src="https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&w=1200&q=80"
                   alt="용접기능사"
                 />
               </div>
               <h3>용접기능사</h3>
               <div class="course-actions">
-                <a class="course-btn ghost" href="./cert/info.html?slug=welding">일반 정보</a>
                 <a class="course-btn primary" href="./enroll/index.html#enroll-openings">수강신청</a>
+                <a class="course-btn ghost" href="./cert/info.html?slug=welding">일반 정보</a>
               </div>
             </article>
             <article class="course-card">
               <div class="course-thumb">
                 <img
-                  src="https://images.unsplash.com/photo-1456324504439-367cee3b3c32?auto=format&fit=crop&w=1200&q=80"
+                  src="https://images.unsplash.com/photo-1581093570221-682cdf00188c?auto=format&fit=crop&w=1200&q=80"
                   alt="위험물산업기사"
                 />
               </div>
               <h3>위험물산업기사</h3>
               <div class="course-actions">
-                <a class="course-btn ghost" href="./cert/info.html?slug=hazmat">일반 정보</a>
                 <a class="course-btn primary" href="./enroll/index.html#enroll-openings">수강신청</a>
+                <a class="course-btn ghost" href="./cert/info.html?slug=hazmat">일반 정보</a>
               </div>
             </article>
             <article class="course-card">
               <div class="course-thumb">
                 <img
-                  src="https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=1200&q=80"
+                  src="https://images.unsplash.com/photo-1487754180451-c456f719a1d4?auto=format&fit=crop&w=1200&q=80"
                   alt="자동차정비기능사"
                 />
               </div>
               <h3>자동차정비기능사</h3>
               <div class="course-actions">
-                <a class="course-btn ghost" href="./cert/info.html?slug=carrepair">일반 정보</a>
                 <a class="course-btn primary" href="./enroll/index.html#enroll-openings">수강신청</a>
+                <a class="course-btn ghost" href="./cert/info.html?slug=carrepair">일반 정보</a>
               </div>
             </article>
             <article class="course-card">
               <div class="course-thumb">
                 <img
-                  src="https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=1200&q=80"
+                  src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=1200&q=80"
                   alt="일반미용사"
                 />
               </div>
               <h3>일반미용사</h3>
               <div class="course-actions">
-                <a class="course-btn ghost" href="./cert/info.html?slug=beautician">일반 정보</a>
                 <a class="course-btn primary" href="./enroll/index.html#enroll-openings">수강신청</a>
+                <a class="course-btn ghost" href="./cert/info.html?slug=beautician">일반 정보</a>
               </div>
             </article>
             <article class="course-card">
               <div class="course-thumb">
                 <img
-                  src="https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80"
+                  src="https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?auto=format&fit=crop&w=1200&q=80"
                   alt="메이크업 미용사"
                 />
               </div>
               <h3>메이크업 미용사</h3>
               <div class="course-actions">
-                <a class="course-btn ghost" href="./cert/info.html?slug=makeup">일반 정보</a>
                 <a class="course-btn primary" href="./enroll/index.html#enroll-openings">수강신청</a>
+                <a class="course-btn ghost" href="./cert/info.html?slug=makeup">일반 정보</a>
               </div>
             </article>
             <article class="course-card">
               <div class="course-thumb">
                 <img
-                  src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80"
+                  src="https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1200&q=80"
                   alt="피부미용사"
                 />
               </div>
               <h3>피부미용사</h3>
               <div class="course-actions">
-                <a class="course-btn ghost" href="./cert/info.html?slug=skin">일반 정보</a>
                 <a class="course-btn primary" href="./enroll/index.html#enroll-openings">수강신청</a>
+                <a class="course-btn ghost" href="./cert/info.html?slug=skin">일반 정보</a>
               </div>
             </article>
             <article class="course-card">
               <div class="course-thumb">
                 <img
-                  src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1200&q=80"
+                  src="https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=1200&q=80"
                   alt="네일미용사"
                 />
               </div>
               <h3>네일미용사</h3>
               <div class="course-actions">
-                <a class="course-btn ghost" href="./cert/info.html?slug=nail">일반 정보</a>
                 <a class="course-btn primary" href="./enroll/index.html#enroll-openings">수강신청</a>
+                <a class="course-btn ghost" href="./cert/info.html?slug=nail">일반 정보</a>
               </div>
             </article>
             <article class="course-card">
               <div class="course-thumb">
                 <img
-                  src="https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=1200&q=80"
+                  src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=1200&q=80"
                   alt="승강기기능사"
                 />
               </div>
               <h3>승강기기능사</h3>
               <div class="course-actions">
-                <a class="course-btn ghost" href="./cert/info.html?slug=elevator">일반 정보</a>
                 <a class="course-btn primary" href="./enroll/index.html#enroll-openings">수강신청</a>
+                <a class="course-btn ghost" href="./cert/info.html?slug=elevator">일반 정보</a>
               </div>
             </article>
             <article class="course-card">
               <div class="course-thumb">
                 <img
-                  src="https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=1200&q=80"
+                  src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1200&q=80"
                   alt="건설기능사"
                 />
               </div>
               <h3>건설기능사</h3>
               <div class="course-actions">
-                <a class="course-btn ghost" href="./cert/info.html?slug=construction">일반 정보</a>
                 <a class="course-btn primary" href="./enroll/index.html#enroll-openings">수강신청</a>
+                <a class="course-btn ghost" href="./cert/info.html?slug=construction">일반 정보</a>
               </div>
             </article>
             <article class="course-card">
               <div class="course-thumb">
                 <img
-                  src="https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=1200&q=80"
+                  src="https://images.unsplash.com/photo-1498654896293-37aacf113fd9?auto=format&fit=crop&w=1200&q=80"
                   alt="한식조리기능사"
                 />
               </div>
               <h3>한식조리기능사</h3>
               <div class="course-actions">
-                <a class="course-btn ghost" href="./cert/info.html?slug=cookkr">일반 정보</a>
                 <a class="course-btn primary" href="./enroll/index.html#enroll-openings">수강신청</a>
+                <a class="course-btn ghost" href="./cert/info.html?slug=cookkr">일반 정보</a>
               </div>
             </article>
             <article class="course-card">
               <div class="course-thumb">
                 <img
-                  src="https://images.unsplash.com/photo-1551218808-94e220e084d2?auto=format&fit=crop&w=1200&q=80"
+                  src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1200&q=80"
                   alt="양식조리기능사"
                 />
               </div>
               <h3>양식조리기능사</h3>
               <div class="course-actions">
-                <a class="course-btn ghost" href="./cert/info.html?slug=cookwest">일반 정보</a>
                 <a class="course-btn primary" href="./enroll/index.html#enroll-openings">수강신청</a>
+                <a class="course-btn ghost" href="./cert/info.html?slug=cookwest">일반 정보</a>
               </div>
             </article>
             <article class="course-card">
               <div class="course-thumb">
                 <img
-                  src="https://images.unsplash.com/photo-1563245377-f50f53b82bfc?auto=format&fit=crop&w=1200&q=80"
+                  src="https://images.unsplash.com/photo-1582878826799-869639175851?auto=format&fit=crop&w=1200&q=80"
                   alt="중식조리기능사"
                 />
               </div>
               <h3>중식조리기능사</h3>
               <div class="course-actions">
-                <a class="course-btn ghost" href="./cert/info.html?slug=cookcn">일반 정보</a>
                 <a class="course-btn primary" href="./enroll/index.html#enroll-openings">수강신청</a>
+                <a class="course-btn ghost" href="./cert/info.html?slug=cookcn">일반 정보</a>
               </div>
             </article>
             <article class="course-card">
               <div class="course-thumb">
                 <img
-                  src="https://images.unsplash.com/photo-1579584425555-c3ce17fd4351?auto=format&fit=crop&w=1200&q=80"
+                  src="https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=1200&q=80"
                   alt="일식조리기능사"
                 />
               </div>
               <h3>일식조리기능사</h3>
               <div class="course-actions">
-                <a class="course-btn ghost" href="./cert/info.html?slug=cookjp">일반 정보</a>
                 <a class="course-btn primary" href="./enroll/index.html#enroll-openings">수강신청</a>
+                <a class="course-btn ghost" href="./cert/info.html?slug=cookjp">일반 정보</a>
               </div>
             </article>
           </div>
-
-          <aside class="cert-path-panel" id="cert-question-paths" aria-labelledby="cert-path-heading">
-            <h3 id="cert-path-heading">문항 JSON 저장 경로</h3>
-            <p class="pm-detail">
-              Git 저장소 기준 루트는 <code>assets/data/questions/</code> 입니다. 대부분 과정은 해당 폴더 안에
-              <code>manifest.json</code>과 <code>questions.json</code>을 둡니다. 메이크업 미용사만
-              <code>shard-01.json</code> ~ <code>shard-04.json</code>으로 나눕니다.
-            </p>
-            <ul class="cert-path-list">
-              <li><strong>지게차기능사</strong> — <code>assets/data/questions/forklift/</code></li>
-              <li><strong>굴착기기능사</strong> — <code>assets/data/questions/excavator/</code></li>
-              <li><strong>전기기능사</strong> — <code>assets/data/questions/electric/</code></li>
-              <li><strong>용접기능사</strong> — <code>assets/data/questions/welding/</code></li>
-              <li><strong>위험물산업기사</strong> — <code>assets/data/questions/hazmat/</code></li>
-              <li><strong>자동차정비기능사</strong> — <code>assets/data/questions/carrepair/</code></li>
-              <li><strong>일반미용사</strong> — <code>assets/data/questions/beautician/</code></li>
-              <li><strong>메이크업 미용사</strong> — <code>assets/data/questions/makeup/</code></li>
-              <li><strong>피부미용사</strong> — <code>assets/data/questions/skin/</code></li>
-              <li><strong>네일미용사</strong> — <code>assets/data/questions/nail/</code></li>
-              <li><strong>승강기기능사</strong> — <code>assets/data/questions/elevator/</code></li>
-              <li><strong>건설기능사</strong> — <code>assets/data/questions/construction/</code></li>
-              <li><strong>한식조리기능사</strong> — <code>assets/data/questions/cookkr/</code></li>
-              <li><strong>양식조리기능사</strong> — <code>assets/data/questions/cookwest/</code></li>
-              <li><strong>중식조리기능사</strong> — <code>assets/data/questions/cookcn/</code></li>
-              <li><strong>일식조리기능사</strong> — <code>assets/data/questions/cookjp/</code></li>
-            </ul>
-          </aside>
         </section>
 
         <section class="section fade" id="journey">
@@ -1409,14 +1345,24 @@
             </div>
             <div class="footer-links">
               <a href="#">회사정보</a>
-              <a href="#">이용약관</a>
-              <a href="#">개인정보처리방침</a>
+              <a href="./terms.html">이용약관</a>
+              <a href="./privacy.html">개인정보처리방침</a>
               <a href="#">환불정책</a>
             </div>
           </div>
+          <div class="footer-company">
+            <p>
+              <strong>주식회사 패스마스터</strong> · 대표이사: 홍길동 · 사업자등록번호: 123-45-67890 · 통신판매업:
+              제2026-서울강남-0000호
+            </p>
+            <p>주소: 서울특별시 강남구 테헤란로 000, 00빌딩 0층 (우: 06234)</p>
+            <p>
+              국가기술자격 필기 학습 콘텐츠 및 수강 운영을 제공하며, 시험 주관·발급은 한국산업인력공단 등
+              공식 기관 절차를 따릅니다. 상기 회사 정보는 예시이며, 실제 사업자 정보로 교체해 사용하세요.
+            </p>
+          </div>
           <div class="footer-bottom">
             <span>Copyright 2026 PASSmaster. All rights reserved.</span>
-            <span class="footer-badge">평균 문의 응답 10분 이내</span>
           </div>
         </footer>
       </main>
