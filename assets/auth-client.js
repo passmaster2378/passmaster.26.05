@@ -84,6 +84,74 @@
     return navLogin ? navLogin.getAttribute("href") : "./login.html";
   }
 
+  function parsePmAuthHashPayload(b64url) {
+    const pad = b64url.length % 4 === 2 ? "==" : b64url.length % 4 === 3 ? "=" : "";
+    const b64 = b64url.replace(/-/g, "+").replace(/_/g, "/") + pad;
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+    const str = new TextDecoder().decode(bytes);
+    return JSON.parse(str);
+  }
+
+  function mountOAuthButtons() {
+    document.querySelectorAll("[data-oauth-provider]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const provider = btn.getAttribute("data-oauth-provider");
+        if (!provider) return;
+        const returnTo = encodeURIComponent(
+          `${window.location.origin}${window.location.pathname}${window.location.search}`
+        );
+        window.location.href = `${API_BASE}/auth/oauth/${provider}/start?returnTo=${returnTo}`;
+      });
+    });
+  }
+
+  function consumeOAuthHashReturn() {
+    const hash = window.location.hash;
+    if (!hash) return false;
+    if (hash.startsWith("#pm_auth=")) {
+      const raw = decodeURIComponent(hash.slice(9));
+      const clean = window.location.pathname + window.location.search;
+      const loginForm = document.querySelector("[data-auth-form='login']");
+      const registerForm = document.querySelector("[data-auth-form='register']");
+      const messageNode =
+        (loginForm && loginForm.querySelector("[data-auth-message]")) ||
+        (registerForm && registerForm.querySelector("[data-auth-message]"));
+      try {
+        const session = parsePmAuthHashPayload(raw);
+        if (session && session.token && session.user) {
+          localStorage.setItem("passmaster_auth", JSON.stringify(session));
+          window.history.replaceState(null, "", clean);
+          const next =
+            session.user.role === "admin" ? "./admin/index.html" : "./my-courses/index.html";
+          window.location.replace(next);
+          return true;
+        }
+      } catch (_error) {
+        /* handled below */
+      }
+      window.history.replaceState(null, "", clean);
+      if (messageNode) {
+        showMessage(messageNode, "로그인 정보를 처리하지 못했습니다. 다시 시도해 주세요.", "error");
+      }
+      return false;
+    }
+    if (hash.startsWith("#pm_oauth_error=")) {
+      const msg = decodeURIComponent(hash.slice(16));
+      const clean = window.location.pathname + window.location.search;
+      window.history.replaceState(null, "", clean);
+      const loginForm = document.querySelector("[data-auth-form='login']");
+      const registerForm = document.querySelector("[data-auth-form='register']");
+      const messageNode =
+        (loginForm && loginForm.querySelector("[data-auth-message]")) ||
+        (registerForm && registerForm.querySelector("[data-auth-message]"));
+      if (messageNode) showMessage(messageNode, msg, "error");
+      return false;
+    }
+    return false;
+  }
+
   function getCurrentUser() {
     const session = getStoredSession();
     if (!session || !session.user) return null;
@@ -190,7 +258,7 @@
         "success"
       );
       setTimeout(() => {
-        window.location.href = "./verify-email.html";
+        window.location.href = "./login.html?registered=1";
       }, 900);
     } catch (error) {
       showMessage(messageNode, error.message, "error");
@@ -1040,6 +1108,25 @@
   }
 
   function mountAuthForms() {
+    mountOAuthButtons();
+    if (consumeOAuthHashReturn() === true) {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("registered") === "1") {
+      const loginFormEarly = document.querySelector("[data-auth-form='login']");
+      const messageEarly = loginFormEarly && loginFormEarly.querySelector("[data-auth-message]");
+      if (messageEarly) {
+        showMessage(messageEarly, "회원가입이 완료되었습니다. 이메일로 로그인해 주세요.", "success");
+      }
+      try {
+        window.history.replaceState(null, "", window.location.pathname);
+      } catch (_error) {
+        /* ignore */
+      }
+    }
+
     const loginForm = document.querySelector("[data-auth-form='login']");
     if (loginForm) {
       warmupApi();

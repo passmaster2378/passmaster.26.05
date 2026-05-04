@@ -9,6 +9,11 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const JWT_SECRET = process.env.JWT_SECRET || "passmaster-dev-secret";
 const JWT_EXPIRES_IN = "8h";
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
+const KAKAO_REST_API_KEY = process.env.KAKAO_REST_API_KEY || "";
+const KAKAO_CLIENT_SECRET = process.env.KAKAO_CLIENT_SECRET || "";
+const FRONTEND_URL = (process.env.FRONTEND_URL || "").replace(/\/$/, "");
 const DATABASE_URL = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || "")
   .split(",")
@@ -98,15 +103,141 @@ function requireAdmin(req, res, next) {
   return next();
 }
 
+function getPublicApiBase(req) {
+  if (process.env.PUBLIC_API_URL) {
+    return String(process.env.PUBLIC_API_URL).replace(/\/$/, "");
+  }
+  const proto = req.get("x-forwarded-proto") || req.protocol || "http";
+  const host = req.get("x-forwarded-host") || req.get("host") || `localhost:${PORT}`;
+  return `${proto}://${host}`;
+}
+
+function sanitizeOAuthReturnTo(raw) {
+  if (!raw || typeof raw !== "string") return null;
+  let url;
+  try {
+    url = new URL(raw);
+  } catch (_error) {
+    return null;
+  }
+  if (!/^https?:$/i.test(url.protocol)) return null;
+  const allowed = CORS_ORIGINS.length ? CORS_ORIGINS : null;
+  if (!allowed) {
+    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") return raw;
+    if (url.hostname.endsWith(".github.io")) return raw;
+    return null;
+  }
+  if (allowed.includes(url.origin)) return raw;
+  return null;
+}
+
+function defaultLoginPageUrl() {
+  if (FRONTEND_URL) return `${FRONTEND_URL}/login.html`;
+  const first = CORS_ORIGINS[0];
+  return first ? `${first}/login.html` : "http://localhost:5500/login.html";
+}
+
+function redirectOAuthError(res, returnTo, message) {
+  const base = sanitizeOAuthReturnTo(returnTo) || defaultLoginPageUrl();
+  const clean = base.split("#")[0];
+  return res.redirect(302, `${clean}#pm_oauth_error=${encodeURIComponent(message)}`);
+}
+
+function sessionPayloadForUser(row) {
+  const user = {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    created_at: row.created_at,
+  };
+  const token = signToken(user);
+  const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
+  return { token, expiresAt, user };
+}
+
+function redirectWithSession(res, returnTo, row) {
+  const base = sanitizeOAuthReturnTo(returnTo) || defaultLoginPageUrl();
+  const clean = base.split("#")[0];
+  const payload = Buffer.from(JSON.stringify(sessionPayloadForUser(row)), "utf8").toString("base64url");
+  return res.redirect(302, `${clean}#pm_auth=${payload}`);
+}
+
+async function findOrCreateOAuthUser({ googleId, kakaoId, email, name }) {
+  const safeName = (String(name || "").trim() || "사용자").slice(0, 80);
+  let safeEmail = email && String(email).trim().toLowerCase();
+  if (!safeEmail || !safeEmail.includes("@")) {
+    if (googleId) safeEmail = `google_${googleId}@oauth.passmaster.local`;
+    else if (kakaoId) safeEmail = `kakao_${kakaoId}@oauth.passmaster.local`;
+    else safeEmail = `oauth_${Date.now()}@oauth.passmaster.local`;
+  }
+
+  if (googleId) {
+    const byG = await get("SELECT * FROM public.users WHERE google_id = ?", [String(googleId)]);
+    if (byG) return byG;
+  }
+  if (kakaoId) {
+    const byK = await get("SELECT * FROM public.users WHERE kakao_id = ?", [String(kakaoId)]);
+    if (byK) return byK;
+  }
+
+  const byEmail = await get("SELECT * FROM public.users WHERE lower(trim(email)) = lower(trim(?))", [safeEmail]);
+  if (byEmail) {
+    if (googleId && !byEmail.google_id) {
+      await run("UPDATE public.users SET google_id = ? WHERE id = ?", [String(googleId), byEmail.id]);
+    }
+    if (kakaoId && !byEmail.kakao_id) {
+      await run("UPDATE public.users SET kakao_id = ? WHERE id = ?", [String(kakaoId), byEmail.id]);
+    }
+    return await get("SELECT * FROM public.users WHERE id = ?", [byEmail.id]);
+  }
+
+  if (googleId) {
+    const result = await run(
+      `INSERT INTO public.users (name, email, password, role, google_id)
+       VALUES (?, ?, NULL, 'user', ?) RETURNING id`,
+      [safeName, safeEmail, String(googleId)]
+    );
+    return await get("SELECT * FROM public.users WHERE id = ?", [result.rows[0].id]);
+  }
+  if (kakaoId) {
+    const result = await run(
+      `INSERT INTO public.users (name, email, password, role, kakao_id)
+       VALUES (?, ?, NULL, 'user', ?) RETURNING id`,
+      [safeName, safeEmail, String(kakaoId)]
+    );
+    return await get("SELECT * FROM public.users WHERE id = ?", [result.rows[0].id]);
+  }
+  return null;
+}
+
+async function migrateAuthOAuthColumns() {
+  try {
+    await run(`ALTER TABLE public.users ALTER COLUMN password DROP NOT NULL`);
+  } catch (_error) {
+    /* ignore if already nullable */
+  }
+  await run(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS google_id TEXT`);
+  await run(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS kakao_id TEXT`);
+  await run(
+    `CREATE UNIQUE INDEX IF NOT EXISTS users_google_id_uidx ON public.users (google_id) WHERE google_id IS NOT NULL`
+  );
+  await run(
+    `CREATE UNIQUE INDEX IF NOT EXISTS users_kakao_id_uidx ON public.users (kakao_id) WHERE kakao_id IS NOT NULL`
+  );
+}
+
 async function initSchema() {
   await run(`
     CREATE TABLE IF NOT EXISTS public.users (
       id BIGSERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       email TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
+      password TEXT,
       role TEXT NOT NULL DEFAULT 'user',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      google_id TEXT,
+      kakao_id TEXT
     )
   `);
 
@@ -376,6 +507,10 @@ app.get("/api/docs", async (req, res) => {
       { method: "POST", path: "/inquiries", auth: true },
       { method: "POST", path: "/auth/register" },
       { method: "POST", path: "/auth/login" },
+      { method: "GET", path: "/auth/oauth/google/start" },
+      { method: "GET", path: "/auth/oauth/google/callback" },
+      { method: "GET", path: "/auth/oauth/kakao/start" },
+      { method: "GET", path: "/auth/oauth/kakao/callback" },
       { method: "GET", path: "/auth/me", auth: true },
       { method: "PATCH", path: "/auth/password", auth: true },
       { method: "GET", path: "/admin/dashboard", auth: true, admin: true },
@@ -584,6 +719,13 @@ app.post("/api/auth/login", async (req, res) => {
   if (!row) {
     return sendError(res, 401, "이메일 또는 비밀번호가 올바르지 않습니다.");
   }
+  if (!row.password) {
+    return sendError(
+      res,
+      401,
+      "이 계정은 구글 또는 카카오 로그인으로 가입되었습니다. 소셜 로그인을 이용해 주세요."
+    );
+  }
 
   let passwordMatched = false;
   if (row.password.startsWith("$2")) {
@@ -609,6 +751,153 @@ app.post("/api/auth/login", async (req, res) => {
   return res.json({ token, expiresAt, user });
 });
 
+app.get("/api/auth/oauth/google/start", (req, res) => {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    return redirectOAuthError(res, req.query.returnTo, "Google 로그인이 아직 구성되지 않았습니다.");
+  }
+  const returnTo = sanitizeOAuthReturnTo(req.query.returnTo) || null;
+  const state = jwt.sign({ v: 1, provider: "google", returnTo }, JWT_SECRET, { expiresIn: "10m" });
+  const redirectUri = `${getPublicApiBase(req)}/api/auth/oauth/google/callback`;
+  const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  url.searchParams.set("client_id", GOOGLE_CLIENT_ID);
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("scope", "openid email profile");
+  url.searchParams.set("state", state);
+  url.searchParams.set("prompt", "select_account");
+  return res.redirect(302, url.toString());
+});
+
+app.get("/api/auth/oauth/google/callback", async (req, res) => {
+  const { code, state, error, error_description: errDesc } = req.query;
+  let returnTo = null;
+  try {
+    const decoded = jwt.verify(String(state || ""), JWT_SECRET);
+    returnTo = decoded.returnTo || null;
+  } catch (_e) {
+    return redirectOAuthError(res, null, "로그인 요청이 만료되었습니다. 다시 시도해 주세요.");
+  }
+  if (error) {
+    return redirectOAuthError(res, returnTo, String(errDesc || error));
+  }
+  if (!code) {
+    return redirectOAuthError(res, returnTo, "Google 인증 코드를 받지 못했습니다.");
+  }
+  try {
+    const redirectUri = `${getPublicApiBase(req)}/api/auth/oauth/google/callback`;
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code: String(code),
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
+      }),
+    });
+    const tokenJson = await tokenRes.json();
+    if (!tokenRes.ok) {
+      return redirectOAuthError(
+        res,
+        returnTo,
+        String(tokenJson.error_description || tokenJson.error || "Google 토큰 교환 실패")
+      );
+    }
+    const ui = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
+      headers: { Authorization: `Bearer ${tokenJson.access_token}` },
+    });
+    const profile = await ui.json();
+    const row = await findOrCreateOAuthUser({
+      googleId: profile.sub,
+      kakaoId: null,
+      email: profile.email,
+      name: profile.name || profile.given_name || profile.email,
+    });
+    if (!row) return redirectOAuthError(res, returnTo, "사용자 정보를 저장하지 못했습니다.");
+    return redirectWithSession(res, returnTo, row);
+  } catch (e) {
+    console.error(e);
+    return redirectOAuthError(res, returnTo, "Google 로그인 처리 중 오류가 발생했습니다.");
+  }
+});
+
+app.get("/api/auth/oauth/kakao/start", (req, res) => {
+  if (!KAKAO_REST_API_KEY) {
+    return redirectOAuthError(res, req.query.returnTo, "카카오 로그인이 아직 구성되지 않았습니다.");
+  }
+  const returnTo = sanitizeOAuthReturnTo(req.query.returnTo) || null;
+  const state = jwt.sign({ v: 1, provider: "kakao", returnTo }, JWT_SECRET, { expiresIn: "10m" });
+  const redirectUri = `${getPublicApiBase(req)}/api/auth/oauth/kakao/callback`;
+  const url = new URL("https://kauth.kakao.com/oauth/authorize");
+  url.searchParams.set("client_id", KAKAO_REST_API_KEY);
+  url.searchParams.set("redirect_uri", redirectUri);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("state", state);
+  url.searchParams.set("scope", "profile_nickname account_email");
+  return res.redirect(302, url.toString());
+});
+
+app.get("/api/auth/oauth/kakao/callback", async (req, res) => {
+  const { code, state, error, error_description: errDesc } = req.query;
+  let returnTo = null;
+  try {
+    const decoded = jwt.verify(String(state || ""), JWT_SECRET);
+    returnTo = decoded.returnTo || null;
+  } catch (_e) {
+    return redirectOAuthError(res, null, "로그인 요청이 만료되었습니다. 다시 시도해 주세요.");
+  }
+  if (error) {
+    return redirectOAuthError(res, returnTo, String(errDesc || error));
+  }
+  if (!code) {
+    return redirectOAuthError(res, returnTo, "카카오 인증 코드를 받지 못했습니다.");
+  }
+  try {
+    const redirectUri = `${getPublicApiBase(req)}/api/auth/oauth/kakao/callback`;
+    const body = new URLSearchParams({
+      grant_type: "authorization_code",
+      client_id: KAKAO_REST_API_KEY,
+      redirect_uri: redirectUri,
+      code: String(code),
+    });
+    if (KAKAO_CLIENT_SECRET) body.set("client_secret", KAKAO_CLIENT_SECRET);
+    const tokenRes = await fetch("https://kauth.kakao.com/oauth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+    const tokenJson = await tokenRes.json();
+    if (!tokenRes.ok || !tokenJson.access_token) {
+      return redirectOAuthError(
+        res,
+        returnTo,
+        String(tokenJson.error_description || tokenJson.error || "카카오 토큰 교환 실패")
+      );
+    }
+    const meRes = await fetch("https://kapi.kakao.com/v2/user/me", {
+      headers: { Authorization: `Bearer ${tokenJson.access_token}` },
+    });
+    const profile = await meRes.json();
+    if (!meRes.ok || !profile.id) {
+      return redirectOAuthError(res, returnTo, "카카오 사용자 정보를 가져오지 못했습니다.");
+    }
+    const acct = profile.kakao_account || {};
+    const nick = acct.profile && acct.profile.nickname ? acct.profile.nickname : "카카오 사용자";
+    const row = await findOrCreateOAuthUser({
+      googleId: null,
+      kakaoId: String(profile.id),
+      email: acct.email || "",
+      name: nick,
+    });
+    if (!row) return redirectOAuthError(res, returnTo, "사용자 정보를 저장하지 못했습니다.");
+    return redirectWithSession(res, returnTo, row);
+  } catch (e) {
+    console.error(e);
+    return redirectOAuthError(res, returnTo, "카카오 로그인 처리 중 오류가 발생했습니다.");
+  }
+});
+
 app.patch("/api/auth/password", requireAuth, async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   if (!currentPassword || !newPassword) {
@@ -624,6 +913,9 @@ app.patch("/api/auth/password", requireAuth, async (req, res) => {
   const row = await get("SELECT id, password FROM public.users WHERE id = ?", [req.auth.sub]);
   if (!row) {
     return sendError(res, 404, "사용자를 찾을 수 없습니다.");
+  }
+  if (!row.password) {
+    return sendError(res, 400, "소셜 로그인 계정은 비밀번호가 없습니다. 구글/카카오로 로그인해 주세요.");
   }
 
   let passwordMatched = false;
@@ -947,6 +1239,7 @@ app.use((error, req, res, _next) => {
 
 async function start() {
   await initSchema();
+  await migrateAuthOAuthColumns();
   await seedData();
   app.listen(PORT, () => {
     console.log(`PASSmaster API server running on http://localhost:${PORT}`);

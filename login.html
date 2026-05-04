@@ -224,8 +224,10 @@
         <p class="desc">카카오톡, 구글, 이메일 중 편한 방식으로 로그인하세요.</p>
         <form data-auth-form="login">
           <div class="social">
-            <button class="btn btn-kakao" type="button">카카오톡으로 로그인</button>
-            <button class="btn btn-google" type="button">구글로 로그인</button>
+            <button class="btn btn-kakao" type="button" data-oauth-provider="kakao">
+              카카오톡으로 로그인
+            </button>
+            <button class="btn btn-google" type="button" data-oauth-provider="google">구글로 로그인</button>
           </div>
           <div class="divider">또는 이메일 로그인</div>
           <div class="field">
@@ -244,7 +246,10 @@
           <div class="actions">
             <button class="btn btn-primary" type="submit" data-auth-submit>이메일로 로그인</button>
           </div>
-          <p class="auth-message info" data-auth-message>테스트 계정: admin@passmaster.kr / admin1234</p>
+          <p class="auth-message info" data-auth-message>
+            카카오·구글은 API 서버에 클라이언트 키가 설정된 경우에만 동작합니다. 이메일 로그인은 항상 가능합니다. (로컬 테스트 계정:
+            admin@passmaster.kr / admin1234)
+          </p>
         </form>
         <a class="sub-link" href="./register.html">계정이 없나요? 회원가입</a>
         <a class="sub-link" href="./forgot-password.html">비밀번호를 잊으셨나요?</a>

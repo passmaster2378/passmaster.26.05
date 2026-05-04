@@ -4,10 +4,15 @@ create table if not exists public.users (
   id bigserial primary key,
   name text not null,
   email text unique not null,
-  password text not null,
+  password text,
   role text not null default 'user',
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  google_id text,
+  kakao_id text
 );
+
+create unique index if not exists users_google_id_uidx on public.users (google_id) where google_id is not null;
+create unique index if not exists users_kakao_id_uidx on public.users (kakao_id) where kakao_id is not null;
 
 create table if not exists public.courses (
   id bigserial primary key,

@@ -54,6 +54,15 @@ Response:
 }
 ```
 
+### OAuth (Google / Kakao)
+
+브라우저에서 다음 URL로 이동합니다. `returnTo`는 허용된 프론트 오리진의 전체 URL이어야 합니다(`CORS_ORIGINS`).
+
+- `GET /auth/oauth/google/start?returnTo=<encodeURIComponent(프론트 URL)>`
+- `GET /auth/oauth/kakao/start?returnTo=...`
+
+콜백 후 프론트는 `#pm_auth=<base64url(JSON)>` 해시로 `{ token, expiresAt, user }`를 전달받습니다. 환경 변수: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`(선택), `PUBLIC_API_URL`, `FRONTEND_URL`.
+
 ### GET `/auth/me` (auth)
 
 Response:
