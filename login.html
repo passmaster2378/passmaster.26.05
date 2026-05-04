@@ -196,6 +196,13 @@
         color: #b43a3a;
         border: 1px solid #f4d0d0;
       }
+      .oauth-api-hint {
+        margin: 8px 0 0;
+        font-size: 12px;
+        line-height: 1.45;
+        color: #6a7c9e;
+        font-weight: 600;
+      }
       @media (max-width: 820px) {
         .auth-wrap {
           grid-template-columns: 1fr;
@@ -229,6 +236,7 @@
             </button>
             <button class="btn btn-google" type="button" data-oauth-provider="google">구글로 로그인</button>
           </div>
+          <p class="oauth-api-hint" data-oauth-server-hint hidden></p>
           <div class="divider">또는 이메일 로그인</div>
           <div class="field">
             <label for="email">이메일</label>
@@ -247,7 +255,7 @@
             <button class="btn btn-primary" type="submit" data-auth-submit>이메일로 로그인</button>
           </div>
           <p class="auth-message info" data-auth-message>
-            카카오·구글은 API 서버에 클라이언트 키가 설정된 경우에만 동작합니다. 이메일 로그인은 항상 가능합니다. (로컬 테스트 계정:
+            이메일 로그인은 항상 가능합니다. 소셜은 Render 환경 변수에 구글·카카오 키를 넣으면 활성화됩니다. (로컬 테스트:
             admin@passmaster.kr / admin1234)
           </p>
         </form>
@@ -258,6 +266,15 @@
         </div>
       </section>
     </main>
+    <script>
+      /**
+       * GitHub Pages 등에서 API가 다른 주소(Render)일 때만 수정하세요.
+       * 값은 반드시 `/api`로 끝나거나, 호스트만 넣으면 자동으로 `/api`가 붙습니다.
+       * 예: window.PASSMASTER_API_BASE = "https://passmaster-26-05.onrender.com/api";
+       */
+      // window.PASSMASTER_API_BASE = "https://YOUR-SERVICE.onrender.com/api";
+      // window.PASSMASTER_OAUTH_API_BASE = window.PASSMASTER_API_BASE;
+    </script>
     <script defer src="./assets/auth-client.js"></script>
   </body>
 </html>

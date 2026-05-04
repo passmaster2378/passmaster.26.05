@@ -507,6 +507,7 @@ app.get("/api/docs", async (req, res) => {
       { method: "POST", path: "/inquiries", auth: true },
       { method: "POST", path: "/auth/register" },
       { method: "POST", path: "/auth/login" },
+      { method: "GET", path: "/auth/oauth/public-config" },
       { method: "GET", path: "/auth/oauth/google/start" },
       { method: "GET", path: "/auth/oauth/google/callback" },
       { method: "GET", path: "/auth/oauth/kakao/start" },
@@ -749,6 +750,16 @@ app.post("/api/auth/login", async (req, res) => {
   const token = signToken(user);
   const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
   return res.json({ token, expiresAt, user });
+});
+
+app.get("/api/auth/oauth/public-config", (_req, res) => {
+  const googleEnabled = Boolean(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
+  const kakaoEnabled = Boolean(KAKAO_REST_API_KEY);
+  res.json({
+    googleEnabled,
+    kakaoEnabled,
+    googleClientId: googleEnabled ? GOOGLE_CLIENT_ID : null,
+  });
 });
 
 app.get("/api/auth/oauth/google/start", (req, res) => {

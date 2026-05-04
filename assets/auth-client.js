@@ -6,13 +6,29 @@
     window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
   const isFileProtocol = window.location.protocol === "file:";
   const isGitHubPages = /\.github\.io$/i.test(window.location.hostname);
+
+  function normalizePassmasterApiBase(raw) {
+    if (raw == null || typeof raw !== "string") return null;
+    let t = raw.trim().replace(/\/+$/, "");
+    if (!t) return null;
+    if (!t.endsWith("/api")) t = `${t}/api`;
+    return t;
+  }
+
   const API_BASE =
-    window.PASSMASTER_API_BASE ||
+    normalizePassmasterApiBase(window.PASSMASTER_API_BASE) ||
     (isLocalHost || isFileProtocol
       ? "http://localhost:4000/api"
       : isGitHubPages
         ? DEFAULT_REMOTE_API_BASE
         : "/api");
+
+  /** OAuth 시작 URL은 API 호스트와 동일해야 합니다. 별도 게이트가 있으면 여기만 지정하세요. */
+  const OAUTH_API_BASE =
+    normalizePassmasterApiBase(window.PASSMASTER_OAUTH_API_BASE) ||
+    normalizePassmasterApiBase(window.PASSMASTER_API_BASE) ||
+    API_BASE;
+
   let apiWarmupPromise = null;
 
   function getStoredSession() {
@@ -94,16 +110,52 @@
     return JSON.parse(str);
   }
 
-  function mountOAuthButtons() {
+  async function mountOAuthButtons() {
+    let googleEnabled = true;
+    let kakaoEnabled = true;
+    try {
+      const r = await fetchWithTimeout(
+        `${API_BASE}/auth/oauth/public-config`,
+        { method: "GET" },
+        8000
+      );
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j && typeof j.googleEnabled === "boolean") {
+        googleEnabled = j.googleEnabled;
+        kakaoEnabled = j.kakaoEnabled;
+      }
+    } catch (_error) {
+      /* 콜드스타트·CORS 등으로 실패해도 버튼은 눌러 볼 수 있게 둠 */
+    }
+
     document.querySelectorAll("[data-oauth-provider]").forEach((btn) => {
+      const provider = btn.getAttribute("data-oauth-provider");
+      const ok =
+        provider === "google" ? googleEnabled : provider === "kakao" ? kakaoEnabled : false;
+      if (!ok) {
+        btn.disabled = true;
+        btn.setAttribute("aria-disabled", "true");
+        btn.title =
+          provider === "google"
+            ? "Render에 GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET을 설정한 뒤 사용할 수 있습니다."
+            : "Render에 KAKAO_REST_API_KEY(및 필요 시 KAKAO_CLIENT_SECRET)를 설정한 뒤 사용할 수 있습니다.";
+        btn.style.opacity = "0.5";
+        btn.style.cursor = "not-allowed";
+      }
       btn.addEventListener("click", () => {
-        const provider = btn.getAttribute("data-oauth-provider");
+        if (btn.disabled) return;
         if (!provider) return;
         const returnTo = encodeURIComponent(
           `${window.location.origin}${window.location.pathname}${window.location.search}`
         );
-        window.location.href = `${API_BASE}/auth/oauth/${provider}/start?returnTo=${returnTo}`;
+        window.location.href = `${OAUTH_API_BASE}/auth/oauth/${provider}/start?returnTo=${returnTo}`;
       });
+    });
+
+    document.querySelectorAll("[data-oauth-server-hint]").forEach((el) => {
+      const host = OAUTH_API_BASE.replace(/\/api\/?$/, "");
+      el.textContent = `소셜 인증은 백엔드(${host})에서 처리됩니다. 구글·카카오 콘솔의 redirect URI도 이 서버 주소로 맞춰 주세요.`;
+      el.removeAttribute("hidden");
     });
   }
 
@@ -1107,8 +1159,8 @@
     }
   }
 
-  function mountAuthForms() {
-    mountOAuthButtons();
+  async function mountAuthForms() {
+    await mountOAuthButtons();
     if (consumeOAuthHashReturn() === true) {
       return;
     }

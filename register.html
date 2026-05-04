@@ -45,6 +45,13 @@
         color: #b43a3a;
         border: 1px solid #f4d0d0;
       }
+      .oauth-api-hint {
+        margin: 10px 0 0;
+        font-size: 13px;
+        line-height: 1.45;
+        color: #5f6f92;
+        font-weight: 600;
+      }
     </style>
   </head>
   <body>
@@ -88,6 +95,7 @@
               구글로 가입
             </button>
           </div>
+          <p class="oauth-api-hint" data-oauth-server-hint hidden></p>
         </section>
 
         <section class="pm-card">
@@ -139,6 +147,10 @@
         <a href="./pages.html">사이트맵</a>
       </footer>
     </div>
+    <script>
+      // window.PASSMASTER_API_BASE = "https://YOUR-SERVICE.onrender.com/api";
+      // window.PASSMASTER_OAUTH_API_BASE = window.PASSMASTER_API_BASE;
+    </script>
     <script defer src="./assets/auth-client.js"></script>
   </body>
 </html>

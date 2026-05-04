@@ -56,12 +56,24 @@ Response:
 
 ### OAuth (Google / Kakao)
 
+#### GET `/auth/oauth/public-config`
+
+프론트가 소셜 버튼 활성 여부를 맞추기 위해 호출합니다. 비밀 값은 내려가지 않습니다.
+
+```json
+{ "googleEnabled": true, "kakaoEnabled": true, "googleClientId": "xxx.apps.googleusercontent.com" }
+```
+
+#### 시작 URL
+
 브라우저에서 다음 URL로 이동합니다. `returnTo`는 허용된 프론트 오리진의 전체 URL이어야 합니다(`CORS_ORIGINS`).
 
 - `GET /auth/oauth/google/start?returnTo=<encodeURIComponent(프론트 URL)>`
 - `GET /auth/oauth/kakao/start?returnTo=...`
 
 콜백 후 프론트는 `#pm_auth=<base64url(JSON)>` 해시로 `{ token, expiresAt, user }`를 전달받습니다. 환경 변수: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET`(선택), `PUBLIC_API_URL`, `FRONTEND_URL`.
+
+정적 사이트(GitHub Pages)에서는 `login.html` 상단 스크립트로 `window.PASSMASTER_API_BASE`를 본인 Render API(`…/api`)로 지정할 수 있습니다.
 
 ### GET `/auth/me` (auth)
 
