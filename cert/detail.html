@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PASSmaster | 자격증 문항 데이터</title>
+    <link rel="stylesheet" href="../assets/shared.css" />
+    <style>
+      .cert-detail-code {
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: 14px;
+        color: #3e5a8c;
+        background: #eef4ff;
+        border: 1px solid #c9dafc;
+        border-radius: 10px;
+        padding: 8px 12px;
+        display: inline-block;
+        margin: 8px 0 16px;
+      }
+      .cert-json-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 10px;
+      }
+      .cert-json-list a {
+        display: block;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid #c9dafc;
+        background: #f7faff;
+        color: #1f4f9b;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .cert-json-list a:hover {
+        background: #e8f1ff;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="pm-shell">
+      <header class="pm-header">
+        <a class="pm-logo" href="../index.html">PASSmaster</a>
+        <nav class="pm-nav" aria-label="공통 이동">
+          <a href="../index.html#cert-courses">자격증 목록</a>
+          <a href="../enroll/index.html">수강신청</a>
+          <a href="../login.html">로그인</a>
+        </nav>
+      </header>
+
+      <main class="pm-main">
+        <p class="pm-pill">문제은행</p>
+        <h1 id="cert-title">자격증</h1>
+        <p class="pm-summary" id="cert-desc">이 폴더의 JSON 문항 파일로 연결됩니다.</p>
+        <p class="cert-detail-code" id="cert-folder">assets/data/questions/</p>
+
+        <section class="pm-card">
+          <h2>문항 JSON 파일</h2>
+          <p class="pm-detail">브라우저에서 바로 열어 구조를 확인할 수 있습니다. (배포 환경에 따라 MIME은 JSON으로 제공됩니다.)</p>
+          <ul class="cert-json-list" id="cert-links"></ul>
+        </section>
+
+        <div class="pm-cta-row">
+          <a class="pm-btn pm-btn-ghost" href="../index.html#cert-courses">목록으로</a>
+          <a class="pm-btn pm-btn-primary" href="../enroll/index.html#enroll-openings">수강 신청</a>
+        </div>
+      </main>
+
+      <footer class="pm-footer">
+        <a href="../index.html">메인으로</a>
+        <a href="../support/index.html">고객센터</a>
+      </footer>
+    </div>
+
+    <script>
+      const CERT_META = {
+        forklift: { name: "지게차", blurb: "지게차 운전 등 관련 필기 문항" },
+        excavator: { name: "굴착기", blurb: "굴착기 운전 등 관련 필기 문항" },
+        electric: { name: "전기", blurb: "전기 관련 필기 문항" },
+        welding: { name: "용접", blurb: "용접 관련 필기 문항" },
+        hazmat: { name: "위험물", blurb: "위험물 관련 필기 문항" },
+        carrepair: { name: "자동차정비", blurb: "자동차정비 관련 필기 문항" },
+        beautician: { name: "일반미용사", blurb: "일반미용사 필기 문항" },
+        makeup: { name: "메이크업미용사", blurb: "메이크업미용사 필기 문항 (샤드 4개)" },
+        skin: { name: "피부미용사", blurb: "피부미용사 필기 문항" },
+        nail: { name: "네일아트미용사", blurb: "네일아트미용사 필기 문항" },
+        elevator: { name: "승강기", blurb: "승강기 관련 필기 문항" },
+        construction: { name: "건설기능사", blurb: "건설기능사 필기 문항" },
+        cookkr: { name: "한식조리기능사", blurb: "한식조리기능사 필기 문항" },
+        cookwest: { name: "양식조리기능사", blurb: "양식조리기능사 필기 문항" },
+        cookcn: { name: "중식조리기능사", blurb: "중식조리기능사 필기 문항" },
+        cookjp: { name: "일식조리기능사", blurb: "일식조리기능사 필기 문항" },
+      };
+
+      const params = new URLSearchParams(window.location.search);
+      const slug = (params.get("slug") || "").trim().toLowerCase();
+      const meta = CERT_META[slug];
+
+      const titleEl = document.getElementById("cert-title");
+      const descEl = document.getElementById("cert-desc");
+      const folderEl = document.getElementById("cert-folder");
+      const listEl = document.getElementById("cert-links");
+
+      if (!meta) {
+        titleEl.textContent = "자격증을 찾을 수 없습니다";
+        descEl.textContent = "URL의 slug 값을 확인해 주세요.";
+        folderEl.textContent = "예: detail.html?slug=forklift";
+        listEl.innerHTML =
+          "<li><a href=\"../index.html#cert-courses\">메인 자격증 목록으로 이동</a></li>";
+        document.title = "PASSmaster | 자격증 없음";
+      } else {
+        document.title = `PASSmaster | ${meta.name}`;
+        titleEl.textContent = meta.name;
+        descEl.textContent = meta.blurb;
+        folderEl.textContent = `assets/data/questions/${slug}/`;
+
+        const base = `../assets/data/questions/${slug}/`;
+        const links = [];
+
+        if (slug === "makeup") {
+          links.push({ href: `${base}manifest.json`, label: "manifest.json" });
+          for (let i = 1; i <= 4; i += 1) {
+            const n = String(i).padStart(2, "0");
+            links.push({ href: `${base}shard-${n}.json`, label: `shard-${n}.json` });
+          }
+        } else {
+          links.push({ href: `${base}manifest.json`, label: "manifest.json" });
+          links.push({ href: `${base}questions.json`, label: "questions.json" });
+        }
+
+        listEl.innerHTML = links
+          .map(
+            (item) =>
+              `<li><a href="${item.href}" target="_blank" rel="noopener">${item.label}</a></li>`
+          )
+          .join("");
+      }
+    </script>
+  </body>
+</html>

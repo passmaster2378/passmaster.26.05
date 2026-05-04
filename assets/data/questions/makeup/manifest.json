@@ -1,0 +1,8 @@
+{
+  "certCode": "MAKEUP_STYLIST",
+  "certName": "메이크업 미용사",
+  "version": "1.0.0",
+  "expectedTotal": 1212,
+  "shards": ["shard-01.json", "shard-02.json", "shard-03.json", "shard-04.json"],
+  "notes": "각 shard의 questions 배열에 문항을 넣습니다. 합계가 expectedTotal과 맞도록 분배하세요."
+}

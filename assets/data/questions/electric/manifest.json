@@ -1,0 +1,7 @@
+﻿{
+  "certCode": "ELECTRICIAN",
+  "certName": "전기",
+  "version": "0.0.0",
+  "dataFiles": ["questions.json"],
+  "notes": "questions.json의 questions 배열에 문항 JSON을 넣습니다."
+}

@@ -1,0 +1,7 @@
+﻿{
+  "certCode": "JAPANESE_COOK_CRAFTSMAN",
+  "certName": "일식조리기능사",
+  "version": "0.0.0",
+  "dataFiles": ["questions.json"],
+  "notes": "questions.json의 questions 배열에 문항 JSON을 넣습니다."
+}
