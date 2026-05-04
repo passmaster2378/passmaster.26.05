@@ -134,6 +134,19 @@ const routeContent = {
       ["신청 가능 채널", "웹/고객센터"],
     ],
   },
+  "/legal": {
+    headline: "회사정보 · 약관 · 개인정보 · 환불",
+    overview: "법적 고지와 회사 정보를 한 페이지에서 제공합니다.",
+    highlights: [
+      "목차 링크로 섹션 간 빠른 이동이 가능합니다.",
+      "메인 푸터의 네 항목과 동일한 내용 구조입니다.",
+    ],
+    checklist: ["실제 사업자 정보로 교체", "법무 검토 후 약관·환불 조항 보완"],
+    stats: [
+      ["통합 섹션", "4개"],
+      ["문서 형식", "HTML 앵커"],
+    ],
+  },
   "/enroll": {
     headline: "개설 과정 탐색",
     overview:
@@ -804,7 +817,8 @@ function getDomain(route) {
   if (route.startsWith("/support")) return "support";
   if (route.startsWith("/enroll")) return "enroll";
   if (route.startsWith("/my-courses") || route.startsWith("/mypage")) return "learning";
-  if (route === "/terms" || route === "/privacy" || route === "/refund") return "legal";
+  if (route === "/terms" || route === "/privacy" || route === "/refund" || route === "/legal")
+    return "legal";
   return "auth";
 }
 
@@ -954,7 +968,7 @@ const operationProfiles = {
 const routeActions = {
   "/register": [
     ["본인인증 시작", "./verify-email.html"],
-    ["약관 확인", "./terms.html"],
+    ["약관 · 법적 고지", "./legal.html#terms"],
   ],
   "/verify-email": [
     ["온보딩 이동", "./onboarding.html"],
@@ -973,16 +987,20 @@ const routeActions = {
     ["고객센터 문의", "./support/index.html"],
   ],
   "/terms": [
-    ["개인정보처리방침", "./privacy.html"],
-    ["환불정책", "./refund.html"],
+    ["통합 법적 고지", "./legal.html#terms"],
+    ["개인정보처리방침", "./legal.html#privacy"],
   ],
   "/privacy": [
-    ["이용약관", "./terms.html"],
-    ["고객센터", "./support/index.html"],
+    ["이용약관", "./legal.html#terms"],
+    ["환불정책", "./legal.html#refund"],
   ],
   "/refund": [
+    ["통합 법적 고지", "./legal.html#refund"],
     ["문의 접수", "./support/inquiry/new/index.html"],
-    ["FAQ 확인", "./support/faq/index.html"],
+  ],
+  "/legal": [
+    ["메인으로", "./index.html"],
+    ["고객센터", "./support/index.html"],
   ],
   "/enroll": [
     ["모집 상세 (예시)", "./opening/index.html?openingId=1"],
@@ -1058,7 +1076,7 @@ const routeActions = {
   ],
   "/admin/payments": [
     ["결제 상세", "./detail-001.html"],
-    ["환불정책", "../../refund.html"],
+    ["환불정책", "../../legal.html#refund"],
   ],
   "/admin/payments/[id]": [
     ["결제 목록", "./index.html"],
