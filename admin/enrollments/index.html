@@ -27,8 +27,28 @@
         <p class="pm-summary">수강 신청 목록을 확인하고 승인/반려 처리합니다.</p>
         <div class="pm-cta-row">
           <a class="pm-btn pm-btn-ghost" href="../courses/detail-001.html">이전 단계</a>
-          <a class="pm-btn pm-btn-primary" href="./detail-001.html">다음 단계</a>
+          <a class="pm-btn pm-btn-primary" href="./detail-001.html?id=1">샘플 상세</a>
         </div>
+
+        <section class="pm-card">
+          <h2>전체 신청 (API)</h2>
+          <div class="pm-table-wrap">
+            <table class="pm-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>회원</th>
+                  <th>과정</th>
+                  <th>결제</th>
+                  <th>승인</th>
+                  <th>진도</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody data-api="admin-enrollments-body"></tbody>
+            </table>
+          </div>
+        </section>
 
         <section class="pm-card">
           <h2>현재 경로</h2>
@@ -49,5 +69,6 @@
         <a href="../../pages.html">사이트맵</a>
       </footer>
     </div>
+    <script defer src="../../assets/auth-client.js"></script>
   </body>
 </html>

@@ -2,53 +2,18 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PASSmaster | 결제 진행</title>
-    <link rel="stylesheet" href="../../../assets/shared.css" />
-    <script defer src="../../../assets/shared.js"></script>
+    <meta http-equiv="refresh" content="0; url=../../payment/index.html" />
+    <title>이동 중…</title>
+    <script>
+      (function () {
+        var q = new URLSearchParams(window.location.search);
+        var eid = q.get("enrollmentId");
+        var target = "../../payment/index.html" + (eid ? "?enrollmentId=" + encodeURIComponent(eid) : "");
+        location.replace(target);
+      })();
+    </script>
   </head>
   <body>
-    <div class="pm-shell">
-      <header class="pm-header">
-        <a class="pm-logo" href="../../../index.html">PASSmaster</a>
-        <nav class="pm-nav" aria-label="공통 이동">
-          <a href="../../../login.html">로그인</a>
-          <a href="../../../register.html">회원가입</a>
-          <a href="../../index.html">수강신청</a>
-          <a href="../../../my-courses/index.html">내 강의</a>
-          <a href="../../../admin/index.html">관리자</a>
-          <a href="../../../pages.html">전체 페이지</a>
-        </nav>
-      </header>
-
-      <main class="pm-main">
-        <p class="pm-pill">User Flow</p>
-        <h1>결제 진행</h1>
-        <p class="pm-summary">결제 수단을 선택하고 최종 결제를 완료합니다.</p>
-        <div class="pm-cta-row">
-          <a class="pm-btn pm-btn-ghost" href="../index.html">이전 단계</a>
-          <a class="pm-btn pm-btn-primary" href="../../complete/index.html">다음 단계</a>
-        </div>
-
-        <section class="pm-card">
-          <h2>현재 경로</h2>
-          <p class="pm-route">/enroll/[openingId]/payment</p>
-        </section>
-
-        <section class="pm-card">
-          <h2>연결 페이지</h2>
-          <ul class="pm-link-list">
-          <li><a href="../../../mypage/payments/index.html">/mypage/payments</a></li>
-          <li><a href="../../../support/inquiry/new/index.html">/support/inquiry/new</a></li>
-          </ul>
-        </section>
-      </main>
-
-      <footer class="pm-footer">
-        <a href="../../../index.html">메인으로</a>
-        <a href="../../../support/index.html">고객센터</a>
-        <a href="../../../pages.html">사이트맵</a>
-      </footer>
-    </div>
+    <p><a href="../../payment/index.html">새 주소로 이동</a></p>
   </body>
 </html>

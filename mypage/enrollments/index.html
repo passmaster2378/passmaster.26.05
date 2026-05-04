@@ -31,6 +31,25 @@
         </div>
 
         <section class="pm-card">
+          <h2>신청 목록 (API)</h2>
+          <div class="pm-table-wrap">
+            <table class="pm-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>과정</th>
+                  <th>결제</th>
+                  <th>승인</th>
+                  <th>진도</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody data-api="mypage-enrollments-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="pm-card">
           <h2>현재 경로</h2>
           <p class="pm-route">/mypage/enrollments</p>
         </section>
@@ -50,5 +69,6 @@
         <a href="../../pages.html">사이트맵</a>
       </footer>
     </div>
+    <script defer src="../../assets/auth-client.js"></script>
   </body>
 </html>

@@ -27,8 +27,28 @@
         <p class="pm-summary">오픈된 과정을 확인하고 수강 신청을 시작하는 진입 페이지입니다.</p>
         <div class="pm-cta-row">
           <a class="pm-btn pm-btn-ghost" href="../onboarding.html">이전 단계</a>
-          <a class="pm-btn pm-btn-primary" href="./opening-001/index.html">다음 단계</a>
+          <a class="pm-btn pm-btn-primary" href="#enroll-openings">모집 목록으로</a>
         </div>
+
+        <section class="pm-card" id="enroll-openings">
+          <h2>모집 중 과정 (API)</h2>
+          <p class="auth-message info" data-api="course-openings-status">불러오는 중…</p>
+          <div class="pm-table-wrap">
+            <table class="pm-table">
+              <thead>
+                <tr>
+                  <th>모집 ID</th>
+                  <th>과정명</th>
+                  <th>수강 기간</th>
+                  <th>신청</th>
+                  <th>가격</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody data-api="course-openings-body"></tbody>
+            </table>
+          </div>
+        </section>
 
         <section class="pm-card">
           <h2>현재 경로</h2>
@@ -40,6 +60,9 @@
           <ul class="pm-link-list">
           <li><a href="../my-courses/index.html">/my-courses</a></li>
           <li><a href="../support/faq/index.html">/support/faq</a></li>
+            <li><a href="./opening/index.html?openingId=1">/enroll/opening (예시)</a></li>
+            <li><a href="./apply/index.html?openingId=1">/enroll/apply (예시)</a></li>
+            <li><a href="./payment/index.html">/enroll/payment</a></li>
           </ul>
         </section>
       </main>
@@ -50,5 +73,6 @@
         <a href="../pages.html">사이트맵</a>
       </footer>
     </div>
+    <script defer src="../assets/auth-client.js"></script>
   </body>
 </html>

@@ -30,6 +30,32 @@
           <a class="pm-btn pm-btn-primary" href="../learning/index.html">다음 단계</a>
         </div>
 
+        <section class="pm-card" data-api="admin-payment-detail">
+          <h2>결제 상세 (API)</h2>
+          <p class="auth-message info" data-api="admin-payment-error"></p>
+          <ul class="pm-link-list" style="list-style: none; padding: 0">
+            <li><strong>결제 ID:</strong> <span data-field="id">-</span></li>
+            <li><strong>신청 ID:</strong> <span data-field="enrollment">-</span></li>
+            <li><strong>금액:</strong> <span data-field="amount">-</span></li>
+            <li><strong>상태:</strong> <span data-field="status">-</span></li>
+          </ul>
+          <form class="pm-form" data-api="admin-payment-patch">
+            <h3>결제 상태</h3>
+            <label>
+              상태
+              <select name="status" required>
+                <option value="pending">pending</option>
+                <option value="awaiting_confirmation">awaiting_confirmation</option>
+                <option value="completed">completed</option>
+                <option value="failed">failed</option>
+                <option value="refunded">refunded</option>
+              </select>
+            </label>
+            <p class="auth-message info" data-api="admin-payment-form-msg"></p>
+            <button class="pm-btn pm-btn-primary" type="submit">저장</button>
+          </form>
+        </section>
+
         <section class="pm-card">
           <h2>현재 경로</h2>
           <p class="pm-route">/admin/payments/[id]</p>
@@ -50,5 +76,6 @@
         <a href="../../pages.html">사이트맵</a>
       </footer>
     </div>
+    <script defer src="../../assets/auth-client.js"></script>
   </body>
 </html>

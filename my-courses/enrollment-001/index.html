@@ -30,6 +30,19 @@
           <a class="pm-btn pm-btn-primary" href="../../mypage/learning/index.html">다음 단계</a>
         </div>
 
+        <section class="pm-card" data-api="me-enrollment-detail">
+          <h2>수강 상세 (API)</h2>
+          <p class="auth-message info" data-api="me-enrollment-error"></p>
+          <ul class="pm-link-list" style="list-style: none; padding: 0">
+            <li><strong>신청 ID:</strong> <span data-field="id">-</span></li>
+            <li><strong>과정:</strong> <span data-field="course">-</span></li>
+            <li><strong>결제 상태:</strong> <span data-field="payment">-</span></li>
+            <li><strong>승인:</strong> <span data-field="approval">-</span></li>
+            <li><strong>학습:</strong> <span data-field="learning">-</span></li>
+            <li><strong>진도:</strong> <span data-field="progress">-</span></li>
+          </ul>
+        </section>
+
         <section class="pm-card">
           <h2>현재 경로</h2>
           <p class="pm-route">/my-courses/[enrollmentId]</p>
@@ -50,5 +63,6 @@
         <a href="../../pages.html">사이트맵</a>
       </footer>
     </div>
+    <script defer src="../../assets/auth-client.js"></script>
   </body>
 </html>

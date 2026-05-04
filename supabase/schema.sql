@@ -19,6 +19,15 @@ create table if not exists public.courses (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.course_openings (
+  id bigserial primary key,
+  course_id bigint not null references public.courses(id) on delete cascade,
+  start_date date,
+  end_date date,
+  application_status text not null default 'open',
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.enrollments (
   id bigserial primary key,
   user_id bigint not null references public.users(id) on delete cascade,
@@ -26,6 +35,19 @@ create table if not exists public.enrollments (
   payment_status text not null,
   approval_status text not null,
   progress_percent integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+alter table public.enrollments add column if not exists opening_id bigint;
+alter table public.enrollments add column if not exists application_status text;
+alter table public.enrollments add column if not exists learning_status text;
+
+create table if not exists public.payments (
+  id bigserial primary key,
+  enrollment_id bigint not null references public.enrollments(id) on delete cascade,
+  amount integer not null,
+  method text not null default 'bank_transfer',
+  status text not null default 'pending',
   created_at timestamptz not null default now()
 );
 
@@ -56,5 +78,15 @@ create table if not exists public.inquiry_messages (
   author_role text not null,
   author_name text not null,
   message text not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.reviews (
+  id bigserial primary key,
+  course_code text not null,
+  author_name text not null,
+  score integer not null,
+  content text not null,
+  status text not null,
   created_at timestamptz not null default now()
 );

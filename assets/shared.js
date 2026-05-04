@@ -1,5 +1,9 @@
 const routeNode = document.querySelector(".pm-route");
-const pageRoute = routeNode ? routeNode.textContent.trim() : "";
+const pageRoute = (
+  (document.body && document.body.dataset && document.body.dataset.pmRoute) ||
+  (routeNode ? routeNode.textContent.trim() : "") ||
+  ""
+).trim();
 
 const routeContent = {
   "/register": {
@@ -162,20 +166,36 @@ const routeContent = {
       ["학습 권장 시간", "주 8시간"],
     ],
   },
-  "/enroll/[openingId]/payment": {
-    headline: "결제 및 신청 완료",
+  "/enroll/apply": {
+    headline: "수강 신청서 작성",
     overview:
-      "결제 수단 선택과 신청자 정보를 최종 확인하고 접수를 확정하는 단계입니다.",
+      "선택한 모집 정보를 확인하고 약관에 동의한 뒤 신청을 확정합니다. 로그인한 회원만 제출할 수 있습니다.",
     highlights: [
-      "결제 전 신청 내역과 할인 적용 금액을 재확인합니다.",
-      "무통장 입금 선택 시 자동 승인 대기 상태로 전환됩니다.",
-      "결제 실패 시 오류 코드별 가이드를 제공합니다.",
+      "신청 전 과정명·기간·납부 금액을 다시 한 번 확인합니다.",
+      "필수 동의 항목을 완료해야 결제 안내 단계로 이동합니다.",
+      "이미 신청한 모집은 중복 접수되지 않습니다.",
     ],
-    checklist: ["신청 내역 확인", "할인 쿠폰 적용", "결제 수단 선택", "약관 동의"],
+    checklist: ["모집 정보 확인", "약관·환불 규정 동의", "로그인 상태 점검", "신청 확정"],
     stats: [
-      ["지원 결제 수단", "카드/계좌이체/무통장"],
-      ["평균 결제 완료 시간", "1분 이내"],
-      ["실패 재시도 가능", "3회"],
+      ["평균 소요 시간", "1분 이내"],
+      ["필수 동의", "2항목"],
+      ["다음 단계", "결제 안내"],
+    ],
+  },
+  "/enroll/payment": {
+    headline: "결제 안내 및 입금 확인",
+    overview:
+      "계좌이체 정보를 확인하고 입금 요청을 제출해 승인 절차를 시작합니다.",
+    highlights: [
+      "신청 번호와 납부 금액을 결제 전에 다시 확인합니다.",
+      "무통장 입금 후 입금 완료(요청) 버튼으로 상태를 전환합니다.",
+      "승인 전까지 추가 제출이 필요하면 고객센터로 안내됩니다.",
+    ],
+    checklist: ["신청 번호 확인", "입금 금액 확인", "입금 후 요청 제출", "내 강의에서 진행 확인"],
+    stats: [
+      ["지원 결제 수단", "계좌이체(1차)"],
+      ["평균 입금 확인", "영업일 기준 빠른 처리"],
+      ["문의 채널", "1:1 문의"],
     ],
   },
   "/enroll/complete": {
@@ -965,16 +985,20 @@ const routeActions = {
     ["FAQ 확인", "./support/faq/index.html"],
   ],
   "/enroll": [
-    ["모집 과정 보기", "./opening-001/index.html"],
+    ["모집 상세 (예시)", "./opening/index.html?openingId=1"],
     ["FAQ", "../support/faq/index.html"],
   ],
   "/enroll/[openingId]": [
-    ["결제 진행", "./payment/index.html"],
-    ["내 강의", "../../my-courses/index.html"],
+    ["신청서 작성", "../apply/index.html"],
+    ["결제 안내", "../payment/index.html"],
   ],
-  "/enroll/[openingId]/payment": [
-    ["신청 완료", "../../complete/index.html"],
-    ["결제문의", "../../../support/inquiry/new/index.html"],
+  "/enroll/apply": [
+    ["과정 목록", "../index.html"],
+    ["로그인", "../../login.html"],
+  ],
+  "/enroll/payment": [
+    ["신청 완료", "../complete/index.html"],
+    ["결제 문의", "../../support/inquiry/new/index.html"],
   ],
   "/enroll/complete": [
     ["내 강의 이동", "../../my-courses/index.html"],
@@ -1509,39 +1533,42 @@ function loadLiveApiData(route) {
   }
 
   if (route.startsWith("/enroll")) {
-    return fetchJson(`${apiBase}/courses`).then((courses) => ({
-      title: "실DB 과정 목록",
-      columns: ["코드", "과정명", "카테고리", "가격"],
-      rows: Array.isArray(courses)
-        ? courses.slice(0, 5).map((course) => [
-            course.code,
-            course.title,
-            course.category,
-            `${Number(course.price || 0).toLocaleString("ko-KR")}원`,
-          ])
-        : [],
-      note: Array.isArray(courses)
-        ? "로컬 DB 과정 테이블 연동 결과입니다."
-        : "API 서버 연결 실패로 정적 데이터가 표시됩니다.",
-    }));
+    return fetchJson(`${apiBase}/course-openings`).then((openings) => {
+      const list = Array.isArray(openings) ? openings : [];
+      return {
+        title: "실DB 모집(오프닝) 목록",
+        columns: ["모집ID", "과정명", "기간", "신청상태", "가격"],
+        rows: list.slice(0, 8).map((o) => [
+          String(o.id),
+          o.course_title || "-",
+          `${o.start_date || "-"} ~ ${o.end_date || "-"}`,
+          o.application_status || "-",
+          `${Number(o.price || 0).toLocaleString("ko-KR")}원`,
+        ]),
+        note: list.length
+          ? "course_openings + courses 조인 결과입니다."
+          : "API 서버 연결 실패이거나 모집 데이터가 없습니다.",
+      };
+    });
   }
 
   if (route.startsWith("/support")) {
-    return fetchJson(`${apiBase}/inquiries`).then((inquiries) => ({
-      title: "실DB 문의 목록",
-      columns: ["문의번호", "유형", "제목", "상태"],
-      rows: Array.isArray(inquiries)
-        ? inquiries.slice(0, 5).map((item) => [
-            `INQ-${item.id}`,
-            item.type,
-            item.title,
-            item.status,
-          ])
-        : [],
-      note: Array.isArray(inquiries)
-        ? "문의 목록은 SQLite inquiries 테이블과 연동됩니다."
-        : "API 서버 연결 실패로 정적 데이터가 표시됩니다.",
-    }));
+    return fetchJson(`${apiBase}/inquiries?page=1&pageSize=5`).then((payload) => {
+      const inquiries = Array.isArray(payload) ? payload : payload && payload.items ? payload.items : [];
+      return {
+        title: "실DB 문의 목록",
+        columns: ["문의번호", "유형", "제목", "상태"],
+        rows: inquiries.map((item) => [
+          `INQ-${item.id}`,
+          item.type,
+          item.title,
+          item.status,
+        ]),
+        note: inquiries.length
+          ? "inquiries 테이블 연동 결과입니다."
+          : "API 서버 연결 실패로 정적 데이터가 표시됩니다.",
+      };
+    });
   }
 
   return Promise.resolve(null);
@@ -1862,14 +1889,37 @@ function getLoginHref() {
   return loginLink ? loginLink.getAttribute("href") : "./login.html";
 }
 
+function buildReturnToValue() {
+  const path = (window.location.pathname || "").replace(/\\/g, "/");
+  const search = window.location.search || "";
+  return `${path}${search}`;
+}
+
+function redirectToLoginWithReturnTo(reasonMessage) {
+  if (reasonMessage) alert(reasonMessage);
+  const loginHref = getLoginHref() || "./login.html";
+  const returnTo = buildReturnToValue();
+  try {
+    sessionStorage.setItem("passmaster_return_to", returnTo);
+  } catch (_error) {
+    // ignore
+  }
+
+  const url = new URL(loginHref, window.location.href);
+  url.searchParams.set("returnTo", returnTo);
+  window.location.href = url.toString();
+}
+
 function updateNavigationByAuth(session) {
   const loginLink = document.querySelector(".pm-nav a[href*='login.html']");
   const registerLink = document.querySelector(".pm-nav a[href*='register.html']");
   if (!loginLink || !registerLink) return;
+  const adminLink = document.querySelector(".pm-nav a[href*='admin/index.html']");
 
   if (!session || !session.user) {
     loginLink.textContent = "로그인";
     registerLink.textContent = "회원가입";
+    if (adminLink) adminLink.style.display = "";
     return;
   }
 
@@ -1880,6 +1930,11 @@ function updateNavigationByAuth(session) {
   loginLink.addEventListener("click", (event) => {
     event.preventDefault();
     localStorage.removeItem("passmaster_auth");
+    try {
+      sessionStorage.removeItem("passmaster_return_to");
+    } catch (_error) {
+      // ignore
+    }
     window.location.href = originalLoginHref;
   });
 
@@ -1890,6 +1945,14 @@ function updateNavigationByAuth(session) {
       ? originalRegisterHref.replace("register.html", "admin/index.html")
       : originalRegisterHref.replace("register.html", "mypage/index.html");
   registerLink.setAttribute("href", mappedHref);
+
+  if (adminLink) {
+    if (user.role === "admin") {
+      adminLink.style.display = "";
+    } else {
+      adminLink.style.display = "none";
+    }
+  }
 }
 
 function enforceProtectedRoute(session) {
@@ -1898,14 +1961,12 @@ function enforceProtectedRoute(session) {
 
   if (!requiresUser && !requiresAdmin) return true;
   if (!session || !session.user) {
-    alert("로그인 후 이용 가능한 페이지입니다.");
-    window.location.href = getLoginHref();
+    redirectToLoginWithReturnTo("로그인 후 이용 가능한 페이지입니다.");
     return false;
   }
 
   if (requiresAdmin && session.user.role !== "admin") {
-    alert("관리자 권한이 필요한 페이지입니다.");
-    window.location.href = getLoginHref();
+    redirectToLoginWithReturnTo("관리자 권한이 필요한 페이지입니다.");
     return false;
   }
 

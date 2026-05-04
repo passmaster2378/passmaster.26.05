@@ -31,6 +31,24 @@
         </div>
 
         <section class="pm-card">
+          <h2>결제 내역 (API)</h2>
+          <div class="pm-table-wrap">
+            <table class="pm-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>과정</th>
+                  <th>금액</th>
+                  <th>상태</th>
+                  <th>일시</th>
+                </tr>
+              </thead>
+              <tbody data-api="me-payments-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="pm-card">
           <h2>현재 경로</h2>
           <p class="pm-route">/mypage/payments</p>
         </section>
@@ -50,5 +68,6 @@
         <a href="../../pages.html">사이트맵</a>
       </footer>
     </div>
+    <script defer src="../../assets/auth-client.js"></script>
   </body>
 </html>

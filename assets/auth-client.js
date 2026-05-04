@@ -133,8 +133,22 @@
       }, { timeoutMs: AUTH_TIMEOUT_MS, retryNetworkError: true });
       localStorage.setItem("passmaster_auth", JSON.stringify(data));
       showMessage(messageNode, `${data.user.name}님, 로그인 되었습니다.`, "success");
+      const params = new URLSearchParams(window.location.search);
+      const returnToParam = params.get("returnTo");
+      let returnToStored = null;
+      try {
+        returnToStored = sessionStorage.getItem("passmaster_return_to");
+        sessionStorage.removeItem("passmaster_return_to");
+      } catch (_error) {
+        returnToStored = null;
+      }
+
+      const fallbackNext = data.user.role === "admin" ? "./admin/index.html" : "./my-courses/index.html";
+      const candidate = returnToParam || returnToStored;
+      const next =
+        candidate && candidate.startsWith("/") && !candidate.startsWith("//") ? candidate : fallbackNext;
       setTimeout(() => {
-        window.location.href = "./my-courses/index.html";
+        window.location.href = next;
       }, 800);
     } catch (error) {
       showMessage(messageNode, error.message, "error");
@@ -176,7 +190,7 @@
         "success"
       );
       setTimeout(() => {
-        window.location.href = "./login.html";
+        window.location.href = "./verify-email.html";
       }, 900);
     } catch (error) {
       showMessage(messageNode, error.message, "error");
@@ -537,6 +551,468 @@
     }
   }
 
+  function openingDetailHref(openingId) {
+    return `./opening/index.html?openingId=${openingId}`;
+  }
+
+  function parseOpeningIdFromUrl() {
+    const q = new URLSearchParams(window.location.search).get("openingId");
+    if (q && Number(q) > 0) return Number(q);
+    const m = window.location.pathname.match(/opening-(\d+)/i);
+    if (m && Number(m[1]) > 0) return Number(m[1]);
+    return 0;
+  }
+
+  function parseEnrollmentIdFromUrl() {
+    const q = new URLSearchParams(window.location.search).get("id");
+    if (q && Number(q) > 0) return Number(q);
+    const m = window.location.pathname.match(/enrollment-(\d+)/i);
+    return m ? Number(m[1]) : 1;
+  }
+
+  async function mountCourseOpeningsList() {
+    const tbody = document.querySelector("[data-api='course-openings-body']");
+    if (!tbody) return;
+    const statusEl = document.querySelector("[data-api='course-openings-status']");
+    try {
+      const rows = await request("/course-openings");
+      tbody.innerHTML = "";
+      if (!Array.isArray(rows) || !rows.length) {
+        tbody.innerHTML = "<tr><td colspan='6'>모집 중인 과정이 없습니다.</td></tr>";
+        if (statusEl) showMessage(statusEl, "표시할 모집이 없습니다.", "info");
+        return;
+      }
+      rows.forEach((o) => {
+        const tr = document.createElement("tr");
+        const href = openingDetailHref(o.id);
+        tr.innerHTML = `
+          <td>${o.id}</td>
+          <td>${o.course_title || "-"}</td>
+          <td>${o.start_date || "-"} ~ ${o.end_date || "-"}</td>
+          <td>${o.application_status || "-"}</td>
+          <td>${Number(o.price || 0).toLocaleString("ko-KR")}원</td>
+          <td><a class="pm-btn pm-btn-primary" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${href}">상세</a></td>
+        `;
+        tbody.appendChild(tr);
+      });
+      if (statusEl) showMessage(statusEl, `총 ${rows.length}건을 API에서 불러왔습니다.`, "success");
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan='6'>목록을 불러오지 못했습니다: ${error.message}</td></tr>`;
+      if (statusEl) showMessage(statusEl, error.message, "error");
+    }
+  }
+
+  async function mountOpeningDetail() {
+    const root = document.querySelector("[data-api='opening-detail']");
+    if (!root) return;
+    const openingId = parseOpeningIdFromUrl();
+    const applyLink = document.querySelector("[data-api='opening-apply-link']");
+    if (applyLink) {
+      if (openingId) {
+        applyLink.href = `../apply/index.html?openingId=${openingId}`;
+      } else {
+        applyLink.href = "../index.html";
+      }
+    }
+
+    if (!openingId) {
+      const msg = root.querySelector("[data-api='opening-detail-error']");
+      if (msg) {
+        showMessage(
+          msg,
+          "모집을 찾을 수 없습니다. 수강 신청 목록에서 다시 선택해 주세요.",
+          "error"
+        );
+      }
+      return;
+    }
+
+    try {
+      const o = await request(`/course-openings/${openingId}`);
+      root.querySelector("[data-field='title']").textContent = o.course_title || "-";
+      root.querySelector("[data-field='period']").textContent = `${o.start_date || "-"} ~ ${o.end_date || "-"}`;
+      root.querySelector("[data-field='status']").textContent = o.application_status || "-";
+      root.querySelector("[data-field='price']").textContent = `${Number(o.price || 0).toLocaleString("ko-KR")}원`;
+      root.querySelector("[data-field='category']").textContent = o.category || "-";
+    } catch (error) {
+      const msg = root.querySelector("[data-api='opening-detail-error']");
+      if (msg) showMessage(msg, error.message, "error");
+    }
+
+    const legacyBtn = document.querySelector("[data-api='opening-enroll-btn']");
+    if (legacyBtn) {
+      legacyBtn.addEventListener("click", async () => {
+        try {
+          legacyBtn.disabled = true;
+          const created = await request("/enrollments", {
+            method: "POST",
+            body: JSON.stringify({ openingId }),
+          });
+          localStorage.setItem("passmaster_last_enrollment_id", String(created.id));
+          window.location.href = "../payment/index.html?enrollmentId=" + encodeURIComponent(String(created.id));
+        } catch (error) {
+          alert(error.message);
+        } finally {
+          legacyBtn.disabled = false;
+        }
+      });
+    }
+  }
+
+  async function mountEnrollApplyForm() {
+    const form = document.querySelector("[data-api='enroll-apply-form']");
+    const root = document.querySelector("[data-api='enroll-apply-root']");
+    if (!form || !root) return;
+
+    const messageEl = root.querySelector("[data-api='enroll-apply-message']");
+    const openingId = parseOpeningIdFromUrl();
+    const back = document.querySelector("[data-api='enroll-apply-back']");
+    if (back) {
+      back.href = openingId ? `../opening/index.html?openingId=${openingId}` : "../index.html";
+    }
+
+    const submitBtn = form.querySelector("[data-api='enroll-apply-submit']");
+
+    if (!openingId) {
+      if (messageEl) {
+        showMessage(messageEl, "잘못된 주소입니다. 수강 신청 목록으로 돌아가 주세요.", "error");
+      }
+      if (submitBtn) submitBtn.disabled = true;
+      return;
+    }
+
+    try {
+      const o = await request(`/course-openings/${openingId}`);
+      root.querySelector("[data-field='title']").textContent = o.course_title || "-";
+      root.querySelector("[data-field='period']").textContent = `${o.start_date || "-"} ~ ${o.end_date || "-"}`;
+      root.querySelector("[data-field='price']").textContent = `${Number(o.price || 0).toLocaleString("ko-KR")}원`;
+      sessionStorage.setItem("passmaster_last_apply_opening_id", String(openingId));
+      if (messageEl) showMessage(messageEl, "모집 정보를 불러왔습니다. 아래 내용을 확인한 뒤 제출해 주세요.", "success");
+    } catch (error) {
+      if (messageEl) showMessage(messageEl, error.message, "error");
+      if (submitBtn) submitBtn.disabled = true;
+      return;
+    }
+
+    const user = getCurrentUser();
+    if (!user && messageEl) {
+      showMessage(
+        messageEl,
+        "로그인한 회원만 신청할 수 있습니다. 로그인 후 다시 시도해 주세요.",
+        "info"
+      );
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!getCurrentUser()) {
+        window.location.href = getLoginHref();
+        return;
+      }
+      if (!form.agreeTerms.checked || !form.agreeRefund.checked) {
+        if (messageEl) showMessage(messageEl, "필수 동의 항목에 체크해 주세요.", "error");
+        return;
+      }
+      try {
+        if (submitBtn) submitBtn.disabled = true;
+        const created = await request("/enrollments", {
+          method: "POST",
+          body: JSON.stringify({ openingId }),
+        });
+        localStorage.setItem("passmaster_last_enrollment_id", String(created.id));
+        window.location.href = `../payment/index.html?enrollmentId=${encodeURIComponent(String(created.id))}`;
+      } catch (error) {
+        if (messageEl) showMessage(messageEl, error.message, "error");
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
+  }
+
+  async function mountMeEnrollmentsTable(selector) {
+    const tbody = document.querySelector(selector);
+    if (!tbody) return;
+    try {
+      const rows = await request("/me/enrollments");
+      tbody.innerHTML = "";
+      if (!Array.isArray(rows) || !rows.length) {
+        tbody.innerHTML = "<tr><td colspan='6'>신청 내역이 없습니다.</td></tr>";
+        return;
+      }
+      rows.forEach((e) => {
+        const tr = document.createElement("tr");
+        const detailHref = `../../my-courses/enrollment-001/index.html?id=${e.id}`;
+        tr.innerHTML = `
+          <td>${e.id}</td>
+          <td>${e.course_title || "-"}</td>
+          <td>${e.payment_status || "-"}</td>
+          <td>${e.approval_status || "-"}</td>
+          <td>${e.progress_percent ?? 0}%</td>
+          <td><a href="${detailHref}">상세</a></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan='6'>${error.message}</td></tr>`;
+    }
+  }
+
+  async function mountMeEnrollmentDetail() {
+    const root = document.querySelector("[data-api='me-enrollment-detail']");
+    if (!root) return;
+    const id = parseEnrollmentIdFromUrl();
+    try {
+      const e = await request(`/me/enrollments/${id}`);
+      root.querySelector("[data-field='id']").textContent = String(e.id);
+      root.querySelector("[data-field='course']").textContent = e.course_title || "-";
+      root.querySelector("[data-field='payment']").textContent = e.payment_status || "-";
+      root.querySelector("[data-field='approval']").textContent = e.approval_status || "-";
+      root.querySelector("[data-field='learning']").textContent = e.learning_status || "-";
+      root.querySelector("[data-field='progress']").textContent = `${e.progress_percent ?? 0}%`;
+    } catch (error) {
+      const msg = root.querySelector("[data-api='me-enrollment-error']");
+      if (msg) showMessage(msg, error.message, "error");
+    }
+  }
+
+  async function mountDepositConfirm() {
+    const root = document.querySelector("[data-api='payment-panel']");
+    if (!root) return;
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = Number(params.get("enrollmentId"));
+    const stored = Number(localStorage.getItem("passmaster_last_enrollment_id"));
+    const enrollmentId =
+      Number.isFinite(fromUrl) && fromUrl > 0 ? fromUrl : Number.isFinite(stored) && stored > 0 ? stored : 0;
+    if (enrollmentId) {
+      localStorage.setItem("passmaster_last_enrollment_id", String(enrollmentId));
+    }
+    if (!enrollmentId) {
+      root.querySelector("[data-api='payment-message']").textContent =
+        "먼저 신청서 단계에서 수강 신청을 완료해 주세요.";
+      return;
+    }
+
+    const backApply = document.querySelector("[data-api='payment-back-apply']");
+    if (backApply) {
+      const oid = sessionStorage.getItem("passmaster_last_apply_opening_id");
+      backApply.href = oid ? `../apply/index.html?openingId=${encodeURIComponent(oid)}` : "../index.html";
+    }
+
+    try {
+      const e = await request(`/me/enrollments/${enrollmentId}`);
+      root.querySelector("[data-field='course']").textContent = e.course_title || "-";
+      root.querySelector("[data-field='amount']").textContent = `${Number(e.price || 0).toLocaleString("ko-KR")}원`;
+      root.querySelector("[data-field='enrollmentId']").textContent = String(e.id);
+    } catch (error) {
+      showMessage(root.querySelector("[data-api='payment-message']"), error.message, "error");
+      return;
+    }
+
+    const btn = document.querySelector("[data-api='deposit-submit']");
+    if (btn) {
+      btn.addEventListener("click", async () => {
+        try {
+          btn.disabled = true;
+          await request(`/me/enrollments/${enrollmentId}/deposit`, {
+            method: "PATCH",
+            body: JSON.stringify({}),
+          });
+          window.location.href = "../complete/index.html";
+        } catch (error) {
+          alert(error.message);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    }
+  }
+
+  async function mountEnrollComplete() {
+    const root = document.querySelector("[data-api='enroll-complete']");
+    if (!root) return;
+    const enrollmentId = Number(localStorage.getItem("passmaster_last_enrollment_id"));
+    if (!enrollmentId) {
+      root.textContent = "완료된 신청 정보를 찾을 수 없습니다.";
+      return;
+    }
+    try {
+      const e = await request(`/me/enrollments/${enrollmentId}`);
+      root.innerHTML = `신청번호 <strong>${e.id}</strong> · ${e.course_title} · 결제상태 ${e.payment_status} · 승인 ${e.approval_status}`;
+    } catch (error) {
+      root.textContent = error.message;
+    }
+  }
+
+  async function mountAdminEnrollmentsList() {
+    const tbody = document.querySelector("[data-api='admin-enrollments-body']");
+    if (!tbody) return;
+    try {
+      const rows = await request("/admin/enrollments");
+      tbody.innerHTML = "";
+      if (!Array.isArray(rows) || !rows.length) {
+        tbody.innerHTML = "<tr><td colspan='7'>데이터가 없습니다.</td></tr>";
+        return;
+      }
+      rows.forEach((e) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${e.id}</td>
+          <td>${e.user_name || "-"}<br/><small>${e.user_email || ""}</small></td>
+          <td>${e.course_title || "-"}</td>
+          <td>${e.payment_status || "-"}</td>
+          <td>${e.approval_status || "-"}</td>
+          <td>${e.progress_percent ?? 0}%</td>
+          <td><a href="./detail-001.html?id=${e.id}">관리</a></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan='7'>${error.message}</td></tr>`;
+    }
+  }
+
+  async function mountAdminEnrollmentDetail() {
+    const root = document.querySelector("[data-api='admin-enrollment-detail']");
+    if (!root) return;
+    const params = new URLSearchParams(window.location.search);
+    const id = Number(params.get("id")) || 1;
+    try {
+      const e = await request(`/admin/enrollments/${id}`);
+      root.querySelector("[data-field='id']").textContent = String(e.id);
+      root.querySelector("[data-field='user']").textContent = `${e.user_name} (${e.user_email})`;
+      root.querySelector("[data-field='course']").textContent = e.course_title || "-";
+      root.querySelector("[data-field='payment']").textContent = e.payment_status || "-";
+      root.querySelector("[data-field='approval']").textContent = e.approval_status || "-";
+    } catch (error) {
+      const msg = root.querySelector("[data-api='admin-enrollment-error']");
+      if (msg) showMessage(msg, error.message, "error");
+    }
+
+    const form = document.querySelector("[data-api='admin-enrollment-patch']");
+    if (form) {
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const payment_status = form.payment_status.value || undefined;
+        const approval_status = form.approval_status.value || undefined;
+        const learning_status = form.learning_status.value || undefined;
+        const body = {};
+        if (payment_status) body.payment_status = payment_status;
+        if (approval_status) body.approval_status = approval_status;
+        if (learning_status) body.learning_status = learning_status;
+        try {
+          const updated = await request(`/admin/enrollments/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify(body),
+          });
+          root.querySelector("[data-field='payment']").textContent = updated.payment_status || "-";
+          root.querySelector("[data-field='approval']").textContent = updated.approval_status || "-";
+          const msg = form.querySelector("[data-api='admin-enrollment-form-msg']");
+          showMessage(msg, "저장되었습니다.", "success");
+        } catch (error) {
+          const msg = form.querySelector("[data-api='admin-enrollment-form-msg']");
+          showMessage(msg, error.message, "error");
+        }
+      });
+    }
+  }
+
+  async function mountAdminPaymentsList() {
+    const tbody = document.querySelector("[data-api='admin-payments-body']");
+    if (!tbody) return;
+    try {
+      const rows = await request("/admin/payments");
+      tbody.innerHTML = "";
+      if (!Array.isArray(rows) || !rows.length) {
+        tbody.innerHTML = "<tr><td colspan='6'>데이터가 없습니다.</td></tr>";
+        return;
+      }
+      rows.forEach((p) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${p.id}</td>
+          <td>${p.enrollment_id}</td>
+          <td>${p.course_title || "-"}</td>
+          <td>${Number(p.amount || 0).toLocaleString("ko-KR")}원</td>
+          <td>${p.status || "-"}</td>
+          <td><a href="./detail-001.html?id=${p.id}">상세</a></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan='6'>${error.message}</td></tr>`;
+    }
+  }
+
+  async function mountAdminPaymentDetail() {
+    const root = document.querySelector("[data-api='admin-payment-detail']");
+    if (!root) return;
+    const params = new URLSearchParams(window.location.search);
+    const id = Number(params.get("id")) || 1;
+    let loadedPayment = null;
+    try {
+      const p = await request(`/admin/payments/${id}`);
+      loadedPayment = p;
+      root.querySelector("[data-field='id']").textContent = String(p.id);
+      root.querySelector("[data-field='amount']").textContent = `${Number(p.amount || 0).toLocaleString("ko-KR")}원`;
+      root.querySelector("[data-field='status']").textContent = p.status || "-";
+      root.querySelector("[data-field='enrollment']").textContent = String(p.enrollment_id);
+    } catch (error) {
+      const msg = root.querySelector("[data-api='admin-payment-error']");
+      if (msg) showMessage(msg, error.message, "error");
+    }
+
+    const form = document.querySelector("[data-api='admin-payment-patch']");
+    if (form && form.status && loadedPayment && loadedPayment.status) {
+      const hasOption = Array.from(form.status.options).some((o) => o.value === loadedPayment.status);
+      if (hasOption) form.status.value = loadedPayment.status;
+    }
+    if (form) {
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const status = form.status.value;
+        try {
+          await request(`/admin/payments/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ status }),
+          });
+          const msg = form.querySelector("[data-api='admin-payment-form-msg']");
+          showMessage(msg, "결제 상태가 반영되었습니다.", "success");
+          const p = await request(`/admin/payments/${id}`);
+          root.querySelector("[data-field='status']").textContent = p.status || "-";
+        } catch (error) {
+          const msg = form.querySelector("[data-api='admin-payment-form-msg']");
+          showMessage(msg, error.message, "error");
+        }
+      });
+    }
+  }
+
+  async function mountMePaymentsTable() {
+    const tbody = document.querySelector("[data-api='me-payments-body']");
+    if (!tbody) return;
+    try {
+      const rows = await request("/me/payments");
+      tbody.innerHTML = "";
+      if (!Array.isArray(rows) || !rows.length) {
+        tbody.innerHTML = "<tr><td colspan='5'>결제 내역이 없습니다.</td></tr>";
+        return;
+      }
+      rows.forEach((p) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${p.id}</td>
+          <td>${p.course_title || "-"}</td>
+          <td>${Number(p.amount || 0).toLocaleString("ko-KR")}원</td>
+          <td>${p.status || "-"}</td>
+          <td>${p.created_at ? formatDateTime(String(p.created_at)) : "-"}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan='5'>${error.message}</td></tr>`;
+    }
+  }
+
   async function handleAdminReplySubmit(event) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -632,6 +1108,20 @@
 
     mountAdminInquiryList();
     mountAdminInquiryDetail();
+
+    mountCourseOpeningsList();
+    mountOpeningDetail();
+    mountEnrollApplyForm();
+    mountMeEnrollmentsTable("[data-api='me-enrollments-body']");
+    mountMeEnrollmentsTable("[data-api='mypage-enrollments-body']");
+    mountMeEnrollmentDetail();
+    mountDepositConfirm();
+    mountEnrollComplete();
+    mountMePaymentsTable();
+    mountAdminEnrollmentsList();
+    mountAdminEnrollmentDetail();
+    mountAdminPaymentsList();
+    mountAdminPaymentDetail();
   }
 
   window.addEventListener("DOMContentLoaded", mountAuthForms);
