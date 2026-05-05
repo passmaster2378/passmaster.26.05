@@ -487,25 +487,84 @@
     if (E.loadErr) E.loadErr.hidden = true;
     E.hubActions.innerHTML = `
       <div class="flow-wrap" aria-label="문제 풀이 진행 그래프">
+        <section class="flow-hero">
+          <h2 class="flow-hero-title">학습 진행 로드맵</h2>
+          <p class="flow-hero-sub">시작 버튼을 누르면 1단계부터 순서대로 잠금 해제됩니다.</p>
+          <div class="flow-track" aria-hidden="true">
+            <div class="flow-node">
+              <span class="flow-node-dot flow-node-dot--1"></span>
+              <span>기본 3회</span>
+            </div>
+            <div class="flow-node">
+              <span class="flow-node-dot flow-node-dot--2"></span>
+              <span>학습 오답</span>
+            </div>
+            <div class="flow-node">
+              <span class="flow-node-dot flow-node-dot--3"></span>
+              <span>기출 5회</span>
+            </div>
+            <div class="flow-node">
+              <span class="flow-node-dot flow-node-dot--4"></span>
+              <span>최종 복습</span>
+            </div>
+          </div>
+        </section>
         <section class="flow-stage flow-stage--1">
-          <p class="flow-head">STAGE 1. 과목별 순차 학습 루틴</p>
+          <div class="flow-stage-top">
+            <p class="flow-head">STAGE 1. 과목별 순차 학습 루틴</p>
+            <span class="flow-badge flow-badge--1">ACTIVE</span>
+          </div>
+          <div class="flow-media" aria-hidden="true">
+            <svg viewBox="0 0 420 44" fill="none">
+              <rect x="0" y="8" width="120" height="28" rx="8" fill="#d9ebff" />
+              <rect x="150" y="8" width="120" height="28" rx="8" fill="#e9f4ff" />
+              <rect x="300" y="8" width="120" height="28" rx="8" fill="#e9f4ff" />
+              <path d="M126 22h18M276 22h18" stroke="#84a9d8" stroke-width="3" stroke-linecap="round" />
+              <circle cx="22" cy="22" r="6" fill="#1a84dd" />
+            </svg>
+          </div>
           <div class="flow-grid">
             <div class="flow-chip flow-chip--active">1회차<br/>무제한 학습</div>
             <div class="flow-chip flow-chip--lock">🔒 2회차<br/>1분 타이머</div>
             <div class="flow-chip flow-chip--lock">🔒 3회차<br/>30초 + 셔플</div>
           </div>
+          <button type="button" class="flow-action" id="btn-start-study">1회차 시작</button>
         </section>
         <div class="flow-arrow" aria-hidden="true">↓</div>
         <section class="flow-stage flow-stage--2">
-          <p class="flow-head">STAGE 2. 오답 소탕</p>
+          <div class="flow-stage-top">
+            <p class="flow-head">STAGE 2. 오답 소탕</p>
+            <span class="flow-badge flow-badge--2">LOCKED</span>
+          </div>
+          <div class="flow-media" aria-hidden="true">
+            <svg viewBox="0 0 420 44" fill="none">
+              <rect x="0" y="6" width="420" height="32" rx="10" fill="#e9faf6" />
+              <path d="M72 22h272" stroke="#8fd8ca" stroke-width="3" stroke-dasharray="7 6" />
+              <circle cx="210" cy="22" r="8" fill="#26a69a" />
+            </svg>
+          </div>
           <div class="flow-grid flow-grid--two">
             <div class="flow-chip flow-chip--lock">🔒 학습 오답 복습<br/>30초 타이머</div>
             <div class="flow-chip flow-chip--lock">🔒 약점 과목 재점검</div>
           </div>
+          <button type="button" class="flow-action" disabled>잠금 해제 후 진행</button>
         </section>
         <div class="flow-arrow" aria-hidden="true">↓</div>
         <section class="flow-stage flow-stage--3">
-          <p class="flow-head">STAGE 3. 실전 기출 (5회)</p>
+          <div class="flow-stage-top">
+            <p class="flow-head">STAGE 3. 실전 기출 (5회)</p>
+            <span class="flow-badge flow-badge--3">LOCKED</span>
+          </div>
+          <div class="flow-media" aria-hidden="true">
+            <svg viewBox="0 0 420 44" fill="none">
+              <rect x="0" y="8" width="76" height="28" rx="8" fill="#fff5da" />
+              <rect x="86" y="8" width="76" height="28" rx="8" fill="#fff5da" />
+              <rect x="172" y="8" width="76" height="28" rx="8" fill="#fff5da" />
+              <rect x="258" y="8" width="76" height="28" rx="8" fill="#fff5da" />
+              <rect x="344" y="8" width="76" height="28" rx="8" fill="#fff5da" />
+              <path d="M38 22h10M124 22h10M210 22h10M296 22h10" stroke="#efc15a" stroke-width="3" />
+            </svg>
+          </div>
           <div class="flow-grid">
             <div class="flow-chip flow-chip--lock">🔒 1회<br/>40초·자동 다음</div>
             <div class="flow-chip flow-chip--lock">🔒 2회<br/>정답 위치 셔플</div>
@@ -514,17 +573,27 @@
             <div class="flow-chip flow-chip--lock">🔒 5회<br/>최종 점검</div>
             <div class="flow-chip flow-chip--lock">🔒 합격/불합격 판정</div>
           </div>
+          <button type="button" class="flow-action" disabled>기출 모드는 단계 완료 후 열립니다</button>
         </section>
         <div class="flow-arrow" aria-hidden="true">↓</div>
         <section class="flow-stage flow-stage--4">
-          <p class="flow-head">STAGE 4. 최종 오답 정복</p>
+          <div class="flow-stage-top">
+            <p class="flow-head">STAGE 4. 최종 오답 정복</p>
+            <span class="flow-badge flow-badge--4">LOCKED</span>
+          </div>
+          <div class="flow-media" aria-hidden="true">
+            <svg viewBox="0 0 420 44" fill="none">
+              <rect x="0" y="6" width="420" height="32" rx="10" fill="#f2f4f6" />
+              <path d="M88 24l44-10 44 16 56-12 50 10 46-6" stroke="#7b8794" stroke-width="3" />
+            </svg>
+          </div>
           <div class="flow-grid flow-grid--two">
             <div class="flow-chip flow-chip--lock">🔒 기출 오답 복습</div>
             <div class="flow-chip flow-chip--lock">🔒 최종 합격 가능성 안내</div>
           </div>
+          <button type="button" class="flow-action" disabled>최종 단계 잠금</button>
         </section>
       </div>
-      <button type="button" class="mq-bigbtn mq-bigbtn--start" id="btn-start-study">전체 코스 시작</button>
       <p class="hub-hint">
         시작 버튼을 누르면 그래프 순서대로 자동 진행됩니다.
       </p>
