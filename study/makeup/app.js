@@ -11,7 +11,7 @@
   function passesWrittenExam(correct) {
     return scorePercent100(correct) > 60;
   }
-  const T_R2 = 60;
+  const T_R2 = 40;
   const T_R3 = 30;
   const T_MOCK = 40;
   const T_REV = 30;
@@ -134,9 +134,9 @@
   }
 
   function getRoundRuleText(round) {
-    if (round === 1) return "무제한 / 문제 순차 / 선지 고정";
-    if (round === 2) return "60초 / 문제 순차 / 선지 고정";
-    if (round === 3) return "30초 / 문제 셔플 / 선지 셔플";
+    if (round === 1) return "무제한 / 전체문항 셔플 / 정답·해설 즉시 표시";
+    if (round === 2) return "40초 / 전체문항 셔플 / 선지 고정";
+    if (round === 3) return "30초 / 전체문항 셔플 / 선지 셔플";
     if (round === 4) return "30초 / 학습 오답 복습 / 선지 셔플";
     if (round === 5) return "30초 / 기출 오답 복습 / 선지 셔플";
     return "규칙 없음";
@@ -198,9 +198,9 @@
   }
 
   function currentStudyMeta() {
-    if (studyRound === 1) return { label: "1차 · 기본 학습 (무제한)", time: null };
-    if (studyRound === 2) return { label: "2차 · 문항당 1분", time: T_R2 };
-    if (studyRound === 3) return { label: "3차 · 30초 · 과목 셔플", time: T_R3 };
+    if (studyRound === 1) return { label: "1차 · 무제한 · 정답/해설 동시 표시", time: null };
+    if (studyRound === 2) return { label: "2차 · 문항당 40초", time: T_R2 };
+    if (studyRound === 3) return { label: "3차 · 30초 · 문제/선지 셔플", time: T_R3 };
     if (studyRound === 4) return { label: "오답 복습 (3회 학습)", time: T_REV };
     if (studyRound === 5) return { label: "기출 오답 복습", time: T_REV };
     return { label: "", time: T_REV };
@@ -292,6 +292,15 @@
         }
       }, 1000);
     }
+
+    // 1회차는 선택 전부터 정답/해설을 즉시 보여주는 학습 모드
+    if (studyRound === 1) {
+      studyPhase = "answered";
+      highlightStudyResult(-1);
+      E.qExplain.hidden = false;
+      E.qExplainText.textContent = `정답 학습: ${q.explanation || "해설이 없습니다."}`;
+      E.qNavNext.disabled = false;
+    }
     updateAdminPanel();
   }
 
@@ -348,20 +357,20 @@
     clearStudyTimer();
     if (studyRound === 1) {
       studyRound = 2;
-      studyQueue = window.MakeupQuestionEngine.buildSequentialByCategory(bank);
+      studyQueue = window.MakeupQuestionEngine.fisherYates([...bank]);
       studyIndex = 0;
       studyDisplayCache = new Map();
-      alert("1차를 완료했습니다. 2차(문항당 1분)를 시작합니다.");
+      alert("1차를 완료했습니다. 2차(문항당 40초)를 시작합니다.");
       updateAdminPanel("1차 종료 → 2차 자동 시작");
       renderStudyQuestion();
       return;
     }
     if (studyRound === 2) {
       studyRound = 3;
-      studyQueue = window.MakeupQuestionEngine.buildShuffledCrossCategory(bank);
+      studyQueue = window.MakeupQuestionEngine.fisherYates([...bank]);
       studyIndex = 0;
       studyDisplayCache = new Map();
-      alert("2차를 완료했습니다. 3차(30초, 과목·순서 셔플)를 시작합니다.");
+      alert("2차를 완료했습니다. 3차(30초, 문제·선지 셔플)를 시작합니다.");
       updateAdminPanel("2차 종료 → 3차 자동 시작 (문제/선지 셔플 ON)");
       renderStudyQuestion();
       return;
@@ -666,9 +675,9 @@
             </svg>
           </div>
           <div class="flow-grid">
-            <div class="flow-chip flow-chip--active">1회차<br/>무제한 학습</div>
-            <div class="flow-chip flow-chip--lock">🔒 2회차<br/>1분 타이머</div>
-            <div class="flow-chip flow-chip--lock">🔒 3회차<br/>30초 + 셔플</div>
+            <div class="flow-chip flow-chip--active">1회차<br/>무제한 · 정답/해설 즉시</div>
+            <div class="flow-chip flow-chip--lock">🔒 2회차<br/>40초 · 정답 선택 후 해설</div>
+            <div class="flow-chip flow-chip--lock">🔒 3회차<br/>30초 · 문제/선지 셔플</div>
           </div>
           <button type="button" class="flow-action" id="btn-start-study">1회차 시작</button>
         </section>
@@ -708,7 +717,7 @@
             </svg>
           </div>
           <div class="flow-grid">
-            <div class="flow-chip flow-chip--lock">🔒 1회<br/>40초·자동 다음</div>
+            <div class="flow-chip flow-chip--lock">🔒 1회<br/>40초·선택 후 자동 다음</div>
             <div class="flow-chip flow-chip--lock">🔒 2회<br/>정답 위치 셔플</div>
             <div class="flow-chip flow-chip--lock">🔒 3회<br/>60문항 평가</div>
             <div class="flow-chip flow-chip--lock">🔒 4회<br/>약점 보완</div>
@@ -746,7 +755,7 @@
       expectedMockRound = 1;
       canEnterFinalReview = false;
       studyRound = 1;
-      studyQueue = window.MakeupQuestionEngine.buildSequentialByCategory(bank);
+      studyQueue = window.MakeupQuestionEngine.fisherYates([...bank]);
       studyIndex = 0;
       studyDisplayCache = new Map();
       setScreen("quiz");
@@ -776,13 +785,13 @@
       expectedMockRound = 1;
       canEnterFinalReview = false;
       studyRound = 1;
-      studyQueue = window.MakeupQuestionEngine.buildSequentialByCategory(bank);
+      studyQueue = window.MakeupQuestionEngine.fisherYates([...bank]);
     } else if (targetRound === 2) {
       studyRound = 2;
-      studyQueue = window.MakeupQuestionEngine.buildSequentialByCategory(bank);
+      studyQueue = window.MakeupQuestionEngine.fisherYates([...bank]);
     } else {
       studyRound = 3;
-      studyQueue = window.MakeupQuestionEngine.buildShuffledCrossCategory(bank);
+      studyQueue = window.MakeupQuestionEngine.fisherYates([...bank]);
     }
     studyIndex = 0;
     studyPhase = "idle";
