@@ -249,6 +249,41 @@
         gap: 12px;
       }
 
+      .quick-learning {
+        margin: 0 26px 22px;
+        border: 1px solid #d9e5ff;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #f3f7ff, #f9fbff);
+        padding: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .quick-learning h3 {
+        margin: 0 0 4px;
+        font-size: 17px;
+        color: #213a66;
+      }
+
+      .quick-learning p {
+        margin: 0;
+        color: #5d6f92;
+        font-size: 14px;
+      }
+
+      .quick-learning .course {
+        font-weight: 800;
+        color: #0f49c2;
+      }
+
+      .quick-learning .btn {
+        white-space: nowrap;
+        min-height: 46px;
+        min-width: 180px;
+      }
+
       .hero-image {
         width: 100%;
         border-radius: 14px;
@@ -773,6 +808,16 @@
           min-width: 0;
         }
 
+        .quick-learning {
+          margin: 0 20px 18px;
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .quick-learning .btn {
+          width: 100%;
+        }
+
         .course-grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
@@ -819,6 +864,10 @@
       }
 
       @media (max-width: 620px) {
+        .quick-learning {
+          margin: 0 16px 16px;
+        }
+
         .course-grid,
         .review-grid,
         .flow {
@@ -890,6 +939,14 @@
               <li>6. 수강 시작 및 진도 관리</li>
             </ol>
           </aside>
+        </section>
+
+        <section class="quick-learning fade d2" id="quick-learning-card" hidden>
+          <div>
+            <h3>내 학습 빠른 이어풀기</h3>
+            <p id="quick-learning-text">로그인 상태를 확인하는 중입니다.</p>
+          </div>
+          <a class="btn btn-primary" id="quick-learning-link" href="./login.html">로그인 후 시작</a>
         </section>
 
         <section class="section fade" id="vision">
@@ -1372,6 +1429,79 @@
     <script>
       const faqItems = document.querySelectorAll(".faq-item");
       const fadeElements = document.querySelectorAll(".fade");
+      const quickCard = document.getElementById("quick-learning-card");
+      const quickText = document.getElementById("quick-learning-text");
+      const quickLink = document.getElementById("quick-learning-link");
+
+      function normalizePassmasterApiBase(raw) {
+        if (!raw || typeof raw !== "string") return null;
+        let t = raw.trim().replace(/\/+$/, "");
+        if (!t) return null;
+        if (!t.endsWith("/api")) t = `${t}/api`;
+        return t;
+      }
+
+      const isLocalHost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      const isGitHubPages = /\.github\.io$/i.test(window.location.hostname);
+      const API_BASE =
+        normalizePassmasterApiBase(window.PASSMASTER_API_BASE) ||
+        (isLocalHost ? "http://localhost:4000/api" : isGitHubPages ? "https://passmaster-26-05.onrender.com/api" : "/api");
+
+      function getStoredSession() {
+        try {
+          const raw = localStorage.getItem("passmaster_auth");
+          return raw ? JSON.parse(raw) : null;
+        } catch (_error) {
+          return null;
+        }
+      }
+
+      function studyPathForEnrollment(enrollment) {
+        const code = String(enrollment.course_code || "").toLowerCase();
+        const title = String(enrollment.course_title || "");
+        if (code.includes("makeup") || title.includes("메이크업")) return "./study/makeup/index.html";
+        return "./mypage/learning/index.html";
+      }
+
+      async function mountQuickLearningCard() {
+        if (!quickCard || !quickText || !quickLink) return;
+        const session = getStoredSession();
+        quickCard.hidden = false;
+        if (!session || !session.token) {
+          quickText.textContent = "로그인하면 현재 수강 과정명을 확인하고 바로 이어서 문제풀이를 시작할 수 있습니다.";
+          quickLink.textContent = "로그인 후 시작";
+          quickLink.href = "./login.html";
+          return;
+        }
+
+        try {
+          const res = await fetch(`${API_BASE}/me/enrollments`, {
+            headers: { Authorization: `Bearer ${session.token}` },
+          });
+          const rows = await res.json().catch(() => []);
+          if (!res.ok || !Array.isArray(rows)) throw new Error("수강정보 조회 실패");
+          const active =
+            rows.find((r) => r.learning_status === "in_progress" || r.approval_status === "approved") || rows[0];
+
+          if (!active) {
+            quickText.textContent = "현재 수강 중인 과정이 없습니다. 수강신청 후 문제풀이를 시작하세요.";
+            quickLink.textContent = "수강신청 하러가기";
+            quickLink.href = "./enroll/index.html#enroll-openings";
+            return;
+          }
+
+          const courseName = active.course_title || "수강 과정";
+          quickText.innerHTML = `현재 수강 과정: <span class="course"></span> · 이어서 기출문제를 시작할 수 있습니다.`;
+          const courseSpan = quickText.querySelector(".course");
+          if (courseSpan) courseSpan.textContent = courseName;
+          quickLink.textContent = "기출문제 이어풀기";
+          quickLink.href = studyPathForEnrollment(active);
+        } catch (_error) {
+          quickText.textContent = "수강 정보를 불러오지 못했습니다. 내 학습실에서 이어서 진행할 수 있습니다.";
+          quickLink.textContent = "내 학습실로 이동";
+          quickLink.href = "./mypage/learning/index.html";
+        }
+      }
 
       faqItems.forEach((item) => {
         const trigger = item.querySelector(".faq-trigger");
@@ -1408,6 +1538,8 @@
         el.style.animationPlayState = "paused";
         observer.observe(el);
       });
+
+      mountQuickLearningCard();
     </script>
   </body>
 </html>
