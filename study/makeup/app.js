@@ -84,13 +84,13 @@
 
   function setScreen(next) {
     screen = next;
-    E.loading.hidden = screen !== "loading";
-    E.hub.hidden = screen !== "hub";
-    E.quiz.hidden = screen !== "quiz";
-    E.mock.hidden = screen !== "mock";
-    E.resultMock.hidden = screen !== "resultMock";
-    E.dashboard.hidden = screen !== "dashboard";
-    E.final.hidden = screen !== "final";
+    if (E.loading) E.loading.hidden = screen !== "loading";
+    if (E.hub) E.hub.hidden = screen !== "hub";
+    if (E.quiz) E.quiz.hidden = screen !== "quiz";
+    if (E.mock) E.mock.hidden = screen !== "mock";
+    if (E.resultMock) E.resultMock.hidden = screen !== "resultMock";
+    if (E.dashboard) E.dashboard.hidden = screen !== "dashboard";
+    if (E.final) E.final.hidden = screen !== "final";
   }
 
   function clearStudyTimer() {
@@ -481,7 +481,10 @@
   }
 
   function renderHub() {
-    E.loadErr.hidden = true;
+    if (!E.hubActions) {
+      throw new Error("허브 UI 요소를 찾지 못했습니다. 페이지를 새로고침해 주세요.");
+    }
+    if (E.loadErr) E.loadErr.hidden = true;
     E.hubActions.innerHTML = `
       <div class="flow-wrap" aria-label="문제 풀이 진행 그래프">
         <section class="flow-stage flow-stage--1">
@@ -555,7 +558,7 @@
 
   function init() {
     setScreen("loading");
-    E.loadErr.hidden = true;
+    if (E.loadErr) E.loadErr.hidden = true;
     window.MakeupQuestionEngine.loadMakeupBank()
       .then((data) => {
         bank = data;
@@ -565,10 +568,16 @@
       .catch((err) => {
         console.error(err);
         setScreen("hub");
-        E.loadErr.hidden = false;
-        E.loadErr.textContent = `문항을 불러오지 못했습니다: ${err.message || err}`;
-        E.hubActions.innerHTML =
-          '<p class="hub-hint">로컬 서버(예: <code>npx serve</code>)로 열면 JSON을 불러올 수 있습니다.</p>';
+        if (E.loadErr) {
+          E.loadErr.hidden = false;
+          E.loadErr.textContent = `문항을 불러오지 못했습니다: ${err.message || err}`;
+        } else {
+          alert(`문항을 불러오지 못했습니다: ${err.message || err}`);
+        }
+        if (E.hubActions) {
+          E.hubActions.innerHTML =
+            '<p class="hub-hint">로컬 서버(예: <code>npx serve</code>)로 열면 JSON을 불러올 수 있습니다.</p>';
+        }
       });
   }
 
