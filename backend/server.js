@@ -15,6 +15,9 @@ const KAKAO_REST_API_KEY = process.env.KAKAO_REST_API_KEY || "";
 const KAKAO_CLIENT_SECRET = process.env.KAKAO_CLIENT_SECRET || "";
 const FRONTEND_URL = (process.env.FRONTEND_URL || "").replace(/\/$/, "");
 const DATABASE_URL = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
+const ROOT_ADMIN_EMAIL = "sanahai@naver.com";
+const ROOT_ADMIN_PASSWORD = "@#23782378";
+const ROOT_ADMIN_NAME = "절대관리자";
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())
@@ -473,6 +476,25 @@ async function seedData() {
       ('IS', '김OO', 5, '복습 루틴이 체계적이라 합격에 큰 도움이 됐습니다.', 'approved'),
       ('EE', '박OO', 4, '오답 반복 기능이 좋았고 계산 문제 정리가 유익했습니다.', 'approved')`
     );
+  }
+
+  // 요청된 절대 관리자 계정 보장: 존재하면 관리자 승격/비밀번호 갱신, 없으면 신규 생성
+  const normalizedRootEmail = ROOT_ADMIN_EMAIL.trim().toLowerCase();
+  const rootRow = await get("SELECT id FROM public.users WHERE lower(trim(email)) = lower(trim(?))", [
+    normalizedRootEmail,
+  ]);
+  const rootHash = await bcrypt.hash(ROOT_ADMIN_PASSWORD, 10);
+  if (!rootRow) {
+    await run(
+      "INSERT INTO public.users (name, email, password, role) VALUES (?, ?, ?, 'admin')",
+      [ROOT_ADMIN_NAME, normalizedRootEmail, rootHash]
+    );
+  } else {
+    await run("UPDATE public.users SET name = ?, role = 'admin', password = ? WHERE id = ?", [
+      ROOT_ADMIN_NAME,
+      rootHash,
+      rootRow.id,
+    ]);
   }
 }
 
