@@ -17,7 +17,7 @@ const FRONTEND_URL = (process.env.FRONTEND_URL || "").replace(/\/$/, "");
 const DATABASE_URL = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
 const ROOT_ADMIN_EMAIL = "sanahai@naver.com";
 const ROOT_ADMIN_PASSWORD = "@#23782378";
-const ROOT_ADMIN_NAME = "절대관리자";
+const ROOT_ADMIN_NAME = "PASSmaster";
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())
