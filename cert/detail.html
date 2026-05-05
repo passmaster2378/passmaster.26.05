@@ -84,7 +84,7 @@
         hazmat: { name: "위험물산업기사", blurb: "위험물산업기사 필기 문항 데이터" },
         carrepair: { name: "자동차정비기능사", blurb: "자동차정비기능사 필기 문항 데이터" },
         beautician: { name: "일반미용사", blurb: "일반미용사 필기 문항 데이터" },
-        makeup: { name: "메이크업 미용사", blurb: "메이크업 미용사 필기 문항 (샤드 4개)" },
+        makeup: { name: "메이크업 미용사", blurb: "메이크업 미용사 필기 문항 (makeup1~4.json)" },
         skin: { name: "피부미용사", blurb: "피부미용사 필기 문항 데이터" },
         nail: { name: "네일미용사", blurb: "네일미용사 필기 문항 데이터" },
         elevator: { name: "승강기기능사", blurb: "승강기기능사 필기 문항 데이터" },
@@ -123,8 +123,7 @@
         if (slug === "makeup") {
           links.push({ href: `${base}manifest.json`, label: "manifest.json" });
           for (let i = 1; i <= 4; i += 1) {
-            const n = String(i).padStart(2, "0");
-            links.push({ href: `${base}shard-${n}.json`, label: `shard-${n}.json` });
+            links.push({ href: `${base}makeup${i}.json`, label: `makeup${i}.json` });
           }
         } else {
           links.push({ href: `${base}manifest.json`, label: "manifest.json" });

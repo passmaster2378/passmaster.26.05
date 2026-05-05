@@ -1,8 +1,7 @@
 {
-  "certCode": "MAKEUP_STYLIST",
+  "certSlug": "makeup",
   "certName": "메이크업 미용사",
   "version": "1.0.0",
-  "expectedTotal": 1212,
-  "shards": ["shard-01.json", "shard-02.json", "shard-03.json", "shard-04.json"],
-  "notes": "각 shard의 questions 배열에 문항을 넣습니다. 합계가 expectedTotal과 맞도록 분배하세요."
+  "dataFiles": ["makeup1.json", "makeup2.json", "makeup3.json", "makeup4.json"],
+  "notes": "각 파일은 문항 배열(JSON). 병합 시 ID는 파일 접두로 유일화합니다."
 }
