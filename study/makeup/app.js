@@ -28,9 +28,7 @@
     dashboard: document.getElementById("view-dashboard"),
     final: document.getElementById("view-final"),
     loadErr: document.getElementById("load-error"),
-    hubStats: document.getElementById("hub-stats"),
     hubActions: document.getElementById("hub-actions"),
-    hubCategories: document.getElementById("hub-categories"),
     qProgress: document.getElementById("q-progress"),
     qTimer: document.getElementById("q-timer"),
     qCategory: document.getElementById("q-cat"),
@@ -78,6 +76,9 @@
   let mockWrapped = [];
   let mockTimerId = null;
   let mockRemain = 0;
+  /** 순차 진행 잠금: finishMock 후 +1 라운드만 허용 */
+  let expectedMockRound = 1;
+  let canEnterFinalReview = false;
   let mockStats = { correct: 0, wrong: 0, wrongIds: new Set(), byCatWrong: {} };
   let mockHistory = [];
 
@@ -265,6 +266,10 @@
   }
 
   function startMockRound(n) {
+    if (n !== expectedMockRound) {
+      alert(`회차는 순서대로만 진행할 수 있습니다. 현재 ${expectedMockRound}회차부터 시작 가능합니다.`);
+      return;
+    }
     clearStudyTimer();
     mockRound = n;
     mockQueue = window.MakeupQuestionEngine.sampleQuestions(bank, MOCK_TOTAL);
@@ -354,6 +359,11 @@
       ? "시험 합격 기준(100점 만점 중 60점 초과)을 충족했습니다."
       : `시험 합격 기준은 100점 만점 중 60점 초과입니다. (현재 환산 약 ${scoreLabel}점)`;
     E.rMockNext.textContent = mockRound < 5 ? `${mockRound + 1}회 기출 모의 시작` : "결과 분석으로";
+    if (mockRound < 5) expectedMockRound = mockRound + 1;
+    else {
+      expectedMockRound = 6;
+      canEnterFinalReview = true;
+    }
     E.rMockNext.onclick = () => {
       if (mockRound < 5) startMockRound(mockRound + 1);
       else showDashboard();
@@ -420,6 +430,10 @@
   }
 
   function startReviewWrongFromMocks() {
+    if (!canEnterFinalReview || mockHistory.length !== 5) {
+      alert("기출 5회가 모두 끝난 뒤에만 최종 오답 복습으로 이동할 수 있습니다.");
+      return;
+    }
     const ids = new Set();
     mockHistory.forEach((h) => {
       h.wrongIds.forEach((id) => ids.add(id));
@@ -468,37 +482,55 @@
 
   function renderHub() {
     E.loadErr.hidden = true;
-    const nCat = new Set(bank.map((q) => q.category)).size;
-    E.hubStats.textContent = `총 ${bank.length}문항 · 과목 ${nCat}개`;
-    if (E.hubCategories && bank.length) {
-      const map = {};
-      bank.forEach((q) => {
-        const c = q.category || "기타";
-        map[c] = (map[c] || 0) + 1;
-      });
-      const cats = Object.keys(map).sort((a, b) => a.localeCompare(b, "ko"));
-      E.hubCategories.hidden = false;
-      E.hubCategories.innerHTML = `
-        <h2>과목별 문항 수</h2>
-        <ul>
-          ${cats
-            .map(
-              (c) =>
-                `<li><span class="hub-cat-name">${escapeHtml(c)}</span><span>${map[c]}문항</span></li>`
-            )
-            .join("")}
-        </ul>
-      `;
-    }
     E.hubActions.innerHTML = `
-      <button type="button" class="mq-bigbtn" id="btn-start-study">전체 코스 시작</button>
+      <div class="flow-wrap" aria-label="문제 풀이 진행 그래프">
+        <section class="flow-stage flow-stage--1">
+          <p class="flow-head">STAGE 1. 과목별 순차 학습 루틴</p>
+          <div class="flow-grid">
+            <div class="flow-chip flow-chip--active">1회차<br/>무제한 학습</div>
+            <div class="flow-chip flow-chip--lock">🔒 2회차<br/>1분 타이머</div>
+            <div class="flow-chip flow-chip--lock">🔒 3회차<br/>30초 + 셔플</div>
+          </div>
+        </section>
+        <div class="flow-arrow" aria-hidden="true">↓</div>
+        <section class="flow-stage flow-stage--2">
+          <p class="flow-head">STAGE 2. 오답 소탕</p>
+          <div class="flow-grid flow-grid--two">
+            <div class="flow-chip flow-chip--lock">🔒 학습 오답 복습<br/>30초 타이머</div>
+            <div class="flow-chip flow-chip--lock">🔒 약점 과목 재점검</div>
+          </div>
+        </section>
+        <div class="flow-arrow" aria-hidden="true">↓</div>
+        <section class="flow-stage flow-stage--3">
+          <p class="flow-head">STAGE 3. 실전 기출 (5회)</p>
+          <div class="flow-grid">
+            <div class="flow-chip flow-chip--lock">🔒 1회<br/>40초·자동 다음</div>
+            <div class="flow-chip flow-chip--lock">🔒 2회<br/>정답 위치 셔플</div>
+            <div class="flow-chip flow-chip--lock">🔒 3회<br/>60문항 평가</div>
+            <div class="flow-chip flow-chip--lock">🔒 4회<br/>약점 보완</div>
+            <div class="flow-chip flow-chip--lock">🔒 5회<br/>최종 점검</div>
+            <div class="flow-chip flow-chip--lock">🔒 합격/불합격 판정</div>
+          </div>
+        </section>
+        <div class="flow-arrow" aria-hidden="true">↓</div>
+        <section class="flow-stage flow-stage--4">
+          <p class="flow-head">STAGE 4. 최종 오답 정복</p>
+          <div class="flow-grid flow-grid--two">
+            <div class="flow-chip flow-chip--lock">🔒 기출 오답 복습</div>
+            <div class="flow-chip flow-chip--lock">🔒 최종 합격 가능성 안내</div>
+          </div>
+        </section>
+      </div>
+      <button type="button" class="mq-bigbtn mq-bigbtn--start" id="btn-start-study">전체 코스 시작</button>
       <p class="hub-hint">
-        1차(무제한) → 2차(1분) → 3차(30초·셔플) → 오답 복습(30초) → 기출 40초×5회 → 분석·기출 오답 복습 → 최종 안내
+        시작 버튼을 누르면 그래프 순서대로 자동 진행됩니다.
       </p>
     `;
     document.getElementById("btn-start-study").addEventListener("click", () => {
       studyWrong = new Set();
       mockHistory = [];
+      expectedMockRound = 1;
+      canEnterFinalReview = false;
       studyRound = 1;
       studyQueue = window.MakeupQuestionEngine.buildSequentialByCategory(bank);
       studyIndex = 0;
@@ -533,10 +565,8 @@
       .catch((err) => {
         console.error(err);
         setScreen("hub");
-        if (E.hubCategories) E.hubCategories.hidden = true;
         E.loadErr.hidden = false;
         E.loadErr.textContent = `문항을 불러오지 못했습니다: ${err.message || err}`;
-        E.hubStats.textContent = "문항 데이터를 확인할 수 없습니다.";
         E.hubActions.innerHTML =
           '<p class="hub-hint">로컬 서버(예: <code>npx serve</code>)로 열면 JSON을 불러올 수 있습니다.</p>';
       });
