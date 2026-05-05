@@ -1937,7 +1937,7 @@ function updateNavigationByAuth(session) {
   if (!session || !session.user) {
     loginLink.textContent = "로그인";
     registerLink.textContent = "회원가입";
-    if (adminLink) adminLink.style.display = "";
+    if (adminLink) adminLink.style.display = "none";
     return;
   }
 
@@ -1973,6 +1973,61 @@ function updateNavigationByAuth(session) {
   }
 }
 
+function prettifyLinkLabel(href) {
+  if (!href) return "페이지";
+  const normalized = href.replace(/\\/g, "/").replace(/\/+$/, "");
+  const file = normalized.split("/").pop() || "";
+  const parent = (normalized.split("/").slice(-2, -1)[0] || "").toLowerCase();
+  const base = file.replace(".html", "").toLowerCase();
+  const map = {
+    index: "목록",
+    detail: "상세",
+    new: "신규",
+    enrollments: "수강현황",
+    payments: "결제내역",
+    learning: "학습현황",
+    profile: "프로필",
+    inquiry: "문의",
+    faq: "FAQ",
+    reviews: "후기",
+    users: "회원관리",
+    courses: "과정관리",
+    admin: "관리자",
+    support: "고객센터",
+    enroll: "수강신청",
+  };
+  const key = map[base] || map[parent] || "페이지";
+  return `${key} 이동`;
+}
+
+function applyStudentView() {
+  const routeCards = document.querySelectorAll(".pm-card");
+  routeCards.forEach((card) => {
+    const titleNode = card.querySelector("h2");
+    const title = titleNode ? titleNode.textContent.trim() : "";
+    if (title === "현재 경로") {
+      card.remove();
+      return;
+    }
+    if (title === "연결 페이지") {
+      if (titleNode) titleNode.textContent = "바로가기";
+      const list = card.querySelector(".pm-link-list");
+      if (list) {
+        list.style.listStyle = "none";
+        list.style.paddingLeft = "0";
+        list.style.gap = "10px";
+        list.querySelectorAll("a").forEach((anchor) => {
+          anchor.classList.add("pm-btn", "pm-btn-ghost");
+          anchor.textContent = prettifyLinkLabel(anchor.getAttribute("href"));
+          anchor.style.textDecoration = "none";
+        });
+      }
+    }
+  });
+
+  document.querySelectorAll(".pm-route").forEach((node) => node.remove());
+}
+
 function enforceProtectedRoute(session) {
   const requiresUser = pageRoute.startsWith("/mypage") || pageRoute.startsWith("/my-courses");
   const requiresAdmin = pageRoute.startsWith("/admin");
@@ -1995,11 +2050,16 @@ const authSession = getAuthSession();
 updateNavigationByAuth(authSession);
 
 if (enforceProtectedRoute(authSession)) {
-  Promise.all([loadExternalSiteData(), loadQuestionBankData(), loadLiveApiData(pageRoute)]).then(
-    ([siteData, questionBank, liveApiData]) => {
-      renderPage(siteData || {}, questionBank || null, liveApiData || null);
-    }
-  );
+  const isAdmin = Boolean(authSession && authSession.user && authSession.user.role === "admin");
+  if (isAdmin) {
+    Promise.all([loadExternalSiteData(), loadQuestionBankData(), loadLiveApiData(pageRoute)]).then(
+      ([siteData, questionBank, liveApiData]) => {
+        renderPage(siteData || {}, questionBank || null, liveApiData || null);
+      }
+    );
+  } else {
+    applyStudentView();
+  }
 }
 
 const pathName = window.location.pathname.replace(/\\/g, "/");
