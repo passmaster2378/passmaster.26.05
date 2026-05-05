@@ -29,6 +29,19 @@
     final: document.getElementById("view-final"),
     loadErr: document.getElementById("load-error"),
     hubActions: document.getElementById("hub-actions"),
+    adminPanel: document.getElementById("admin-panel"),
+    adminToggle: document.getElementById("admin-mode-toggle"),
+    adminCurrent: document.getElementById("admin-current"),
+    adminStep: document.getElementById("admin-step"),
+    adminConfig: document.getElementById("admin-config"),
+    adminShuffle: document.getElementById("admin-shuffle"),
+    adminLastAction: document.getElementById("admin-last-action"),
+    adminForceComplete: document.getElementById("btn-admin-force-complete"),
+    adminStartR1: document.getElementById("btn-admin-start-r1"),
+    adminStartR2: document.getElementById("btn-admin-start-r2"),
+    adminStartR3: document.getElementById("btn-admin-start-r3"),
+    adminStartMock: document.getElementById("btn-admin-start-mock"),
+    adminMockRoundInput: document.getElementById("admin-mock-round"),
     qProgress: document.getElementById("q-progress"),
     qTimer: document.getElementById("q-timer"),
     qCategory: document.getElementById("q-cat"),
@@ -81,6 +94,13 @@
   let canEnterFinalReview = false;
   let mockStats = { correct: 0, wrong: 0, wrongIds: new Set(), byCatWrong: {} };
   let mockHistory = [];
+  let studyDisplayCache = new Map();
+  let currentStudyView = null;
+  const shuffleAudit = [];
+  const seenShuffleAudit = new Set();
+  let adminMode =
+    new URLSearchParams(window.location.search).get("admin") === "1" ||
+    window.localStorage.getItem("makeupAdminMode") === "1";
 
   function setScreen(next) {
     screen = next;
@@ -113,6 +133,70 @@
     return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
   }
 
+  function getRoundRuleText(round) {
+    if (round === 1) return "무제한 / 문제 순차 / 선지 고정";
+    if (round === 2) return "60초 / 문제 순차 / 선지 고정";
+    if (round === 3) return "30초 / 문제 셔플 / 선지 셔플";
+    if (round === 4) return "30초 / 학습 오답 복습 / 선지 셔플";
+    if (round === 5) return "30초 / 기출 오답 복습 / 선지 셔플";
+    return "규칙 없음";
+  }
+
+  function pushShuffleAudit(entry) {
+    const key = `${entry.mode}:${entry.round}:${entry.questionId}:${entry.order}`;
+    if (seenShuffleAudit.has(key)) return;
+    seenShuffleAudit.add(key);
+    shuffleAudit.push(entry);
+    if (shuffleAudit.length > 80) shuffleAudit.shift();
+  }
+
+  function updateAdminPanel(lastAction) {
+    if (!E.adminPanel) return;
+    if (E.adminToggle && E.adminToggle.checked !== adminMode) E.adminToggle.checked = adminMode;
+    if (lastAction && E.adminLastAction) E.adminLastAction.textContent = lastAction;
+    if (E.adminCurrent) E.adminCurrent.textContent = `화면: ${screen}`;
+    if (E.adminStep) {
+      if (screen === "quiz") E.adminStep.textContent = `학습 라운드 ${studyRound} · ${studyIndex + 1}/${studyQueue.length || 0}`;
+      else if (screen === "mock") E.adminStep.textContent = `기출 ${mockRound}회 · ${mockIndex + 1}/${MOCK_TOTAL}`;
+      else if (screen === "resultMock") E.adminStep.textContent = `기출 ${mockRound}회 종료`;
+      else E.adminStep.textContent = "대기 상태";
+    }
+    if (E.adminConfig) {
+      if (screen === "quiz") E.adminConfig.textContent = `현재 규칙: ${getRoundRuleText(studyRound)}`;
+      else if (screen === "mock") E.adminConfig.textContent = "현재 규칙: 40초 / 문제 셔플 / 선지 셔플 / 자동 다음";
+      else E.adminConfig.textContent = `기출 잠금 상태: 다음 허용 회차 ${Math.min(expectedMockRound, 5)}회`;
+    }
+    if (E.adminShuffle) {
+      const recent = shuffleAudit.slice(-3).reverse();
+      E.adminShuffle.textContent =
+        recent.length === 0
+          ? "최근 셔플 로그 없음"
+          : recent
+              .map(
+                (r) =>
+                  `[${r.mode}${r.round}] ${r.questionId} · 정답 ${r.originalAnswer}→${r.shuffledAnswer} · 옵션셔플:${r.optionShuffle ? "ON" : "OFF"}`
+              )
+              .join("\n");
+    }
+    const buttons = [
+      E.adminForceComplete,
+      E.adminStartR1,
+      E.adminStartR2,
+      E.adminStartR3,
+      E.adminStartMock,
+      E.adminMockRoundInput,
+    ];
+    buttons.forEach((el) => {
+      if (el) el.disabled = !adminMode;
+    });
+  }
+
+  function ensureAdminMode() {
+    if (adminMode) return true;
+    alert("관리자 모드를 켜야 사용할 수 있습니다.");
+    return false;
+  }
+
   function currentStudyMeta() {
     if (studyRound === 1) return { label: "1차 · 기본 학습 (무제한)", time: null };
     if (studyRound === 2) return { label: "2차 · 문항당 1분", time: T_R2 };
@@ -127,6 +211,47 @@
     if (!q) return;
     const meta = currentStudyMeta();
     if (E.qRoundLabel) E.qRoundLabel.textContent = meta.label;
+    const cacheKey = `${studyRound}:${q.uniqueId}:${studyIndex}`;
+    if (!studyDisplayCache.has(cacheKey)) {
+      const originalOptions = ["1", "2", "3", "4"].map((k) => q.options[k]).filter(Boolean);
+      const originalAnswer = String(q.answer).replace(/[^1-4]/, "") || "1";
+      let displayOptions = [...originalOptions];
+      let correctIndex = Math.max(0, Number(originalAnswer) - 1);
+      const optionShuffle = studyRound >= 3;
+      if (optionShuffle) {
+        const shuffled = window.MakeupQuestionEngine.shuffleDisplayOptions(q);
+        displayOptions = shuffled.displayOptions;
+        correctIndex = shuffled.correctIndex;
+      }
+      studyDisplayCache.set(cacheKey, {
+        displayOptions,
+        correctIndex,
+        originalAnswer,
+        optionShuffle,
+      });
+      if (optionShuffle) {
+        pushShuffleAudit({
+          mode: "study",
+          round: studyRound,
+          questionId: q.uniqueId,
+          order: studyIndex + 1,
+          originalAnswer,
+          shuffledAnswer: String(correctIndex + 1),
+          optionShuffle: true,
+        });
+      } else if (studyRound === 2) {
+        pushShuffleAudit({
+          mode: "study",
+          round: studyRound,
+          questionId: q.uniqueId,
+          order: studyIndex + 1,
+          originalAnswer,
+          shuffledAnswer: originalAnswer,
+          optionShuffle: false,
+        });
+      }
+    }
+    currentStudyView = studyDisplayCache.get(cacheKey);
 
     E.qProgress.textContent = `${studyIndex + 1} / ${studyQueue.length}`;
     E.qCategory.textContent = q.category || "";
@@ -139,15 +264,13 @@
     E.qNavNext.textContent = "다음 문제";
     E.qNavNext.disabled = true;
 
-    ["1", "2", "3", "4"].forEach((num) => {
-      const text = q.options[num];
-      if (text == null) return;
+    currentStudyView.displayOptions.forEach((text, idx) => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "mq-opt";
-      btn.dataset.num = num;
+      btn.dataset.idx = String(idx);
       btn.textContent = text;
-      btn.addEventListener("click", () => onStudyPick(num));
+      btn.addEventListener("click", () => onStudyPick(idx));
       E.qOpts.appendChild(btn);
     });
 
@@ -169,17 +292,15 @@
         }
       }, 1000);
     }
+    updateAdminPanel();
   }
 
-  function highlightStudyResult(selectedNum) {
-    const q = studyQueue[studyIndex];
-    const correctNum = String(q.answer).replace(/[^1-4]/, "") || "1";
+  function highlightStudyResult(selectedIdx) {
     const opts = E.qOpts.querySelectorAll(".mq-opt");
-    opts.forEach((btn) => {
-      const n = btn.dataset.num;
+    opts.forEach((btn, idx) => {
       btn.disabled = true;
-      if (n === correctNum) btn.classList.add("mq-opt--correct");
-      else if (selectedNum && n === selectedNum) btn.classList.add("mq-opt--wrong");
+      if (idx === currentStudyView.correctIndex) btn.classList.add("mq-opt--correct");
+      else if (selectedIdx >= 0 && idx === selectedIdx) btn.classList.add("mq-opt--wrong");
     });
   }
 
@@ -188,21 +309,20 @@
     studyPhase = "answered";
     const q = studyQueue[studyIndex];
     studyWrong.add(q.uniqueId);
-    highlightStudyResult("");
+    highlightStudyResult(-1);
     E.qExplain.hidden = false;
     E.qExplainText.textContent = `시간 초과(오답 처리) — 학습: ${q.explanation || "해설이 없습니다."}`;
     E.qNavNext.disabled = false;
   }
 
-  function onStudyPick(optNum) {
+  function onStudyPick(optIdx) {
     if (studyPhase !== "idle") return;
     studyPhase = "answered";
     clearStudyTimer();
     const q = studyQueue[studyIndex];
-    const correctNum = String(q.answer).replace(/[^1-4]/, "") || "1";
-    const ok = optNum === correctNum;
+    const ok = optIdx === currentStudyView.correctIndex;
     if (!ok) studyWrong.add(q.uniqueId);
-    highlightStudyResult(optNum);
+    highlightStudyResult(optIdx);
     E.qExplain.hidden = false;
     E.qExplainText.textContent = `학습: ${q.explanation || "해설이 없습니다."}`;
     E.qNavNext.disabled = false;
@@ -230,7 +350,9 @@
       studyRound = 2;
       studyQueue = window.MakeupQuestionEngine.buildSequentialByCategory(bank);
       studyIndex = 0;
+      studyDisplayCache = new Map();
       alert("1차를 완료했습니다. 2차(문항당 1분)를 시작합니다.");
+      updateAdminPanel("1차 종료 → 2차 자동 시작");
       renderStudyQuestion();
       return;
     }
@@ -238,7 +360,9 @@
       studyRound = 3;
       studyQueue = window.MakeupQuestionEngine.buildShuffledCrossCategory(bank);
       studyIndex = 0;
+      studyDisplayCache = new Map();
       alert("2차를 완료했습니다. 3차(30초, 과목·순서 셔플)를 시작합니다.");
+      updateAdminPanel("2차 종료 → 3차 자동 시작 (문제/선지 셔플 ON)");
       renderStudyQuestion();
       return;
     }
@@ -252,7 +376,9 @@
       }
       studyQueue = window.MakeupQuestionEngine.buildShuffledCrossCategory(wrongBank);
       studyIndex = 0;
+      studyDisplayCache = new Map();
       alert(`학습 기간 중 오답 ${studyQueue.length}문항을 30초 제한으로 복습합니다.`);
+      updateAdminPanel("3차 종료 → 학습 오답복습 시작");
       renderStudyQuestion();
       return;
     }
@@ -278,6 +404,7 @@
     mockStats = { correct: 0, wrong: 0, wrongIds: new Set(), byCatWrong: {} };
     if (E.mRoundLabel) E.mRoundLabel.textContent = `기출 모의 ${n} / 5`;
     setScreen("mock");
+    updateAdminPanel(`기출 ${n}회 시작`);
     renderMockQuestion();
   }
 
@@ -285,6 +412,15 @@
     const w = mockWrapped[mockIndex];
     if (!w) return;
     const q = w.base;
+    pushShuffleAudit({
+      mode: "mock",
+      round: mockRound,
+      questionId: q.uniqueId,
+      order: mockIndex + 1,
+      originalAnswer: String(q.answer).replace(/[^1-4]/, "") || "1",
+      shuffledAnswer: String(w.correctIndex + 1),
+      optionShuffle: true,
+    });
     E.mProgress.textContent = `${mockIndex + 1} / ${MOCK_TOTAL}`;
     E.mCategory.textContent = q.category || "";
     E.mBody.textContent = q.question || "";
@@ -309,6 +445,7 @@
         E.mTimer.textContent = formatSec(mockRemain);
       }
     }, 1000);
+    updateAdminPanel();
   }
 
   function onMockTimeout() {
@@ -369,6 +506,7 @@
       else showDashboard();
     };
     setScreen("resultMock");
+    updateAdminPanel(`기출 ${mockRound}회 종료`);
   }
 
   function escapeHtml(s) {
@@ -427,6 +565,7 @@
     `;
     E.btnDashReview.onclick = () => startReviewWrongFromMocks();
     setScreen("dashboard");
+    updateAdminPanel("5회 기출 종료 → 분석 대시보드");
   }
 
   function startReviewWrongFromMocks() {
@@ -447,7 +586,9 @@
     studyRound = 5;
     studyQueue = window.MakeupQuestionEngine.buildShuffledCrossCategory(list);
     studyIndex = 0;
+    studyDisplayCache = new Map();
     setScreen("quiz");
+    updateAdminPanel("최종 오답 복습 시작");
     renderStudyQuestion();
   }
 
@@ -478,6 +619,7 @@
         <span class="mq-bar-num">${rate}%</span>
       </div>`;
     setScreen("final");
+    updateAdminPanel("최종 결과 표시");
   }
 
   function renderHub() {
@@ -606,9 +748,12 @@
       studyRound = 1;
       studyQueue = window.MakeupQuestionEngine.buildSequentialByCategory(bank);
       studyIndex = 0;
+      studyDisplayCache = new Map();
       setScreen("quiz");
+      updateAdminPanel("학습 시작: 1차 진입");
       renderStudyQuestion();
     });
+    updateAdminPanel("허브 렌더 완료");
   }
 
   function goHub() {
@@ -618,12 +763,88 @@
     studyRound = 0;
     setScreen("hub");
     renderHub();
+    updateAdminPanel("세션 중단 후 허브 복귀");
+  }
+
+  function adminStartStudyRound(targetRound) {
+    if (!ensureAdminMode()) return;
+    clearStudyTimer();
+    clearMockTimer();
+    if (targetRound === 1) {
+      studyWrong = new Set();
+      mockHistory = [];
+      expectedMockRound = 1;
+      canEnterFinalReview = false;
+      studyRound = 1;
+      studyQueue = window.MakeupQuestionEngine.buildSequentialByCategory(bank);
+    } else if (targetRound === 2) {
+      studyRound = 2;
+      studyQueue = window.MakeupQuestionEngine.buildSequentialByCategory(bank);
+    } else {
+      studyRound = 3;
+      studyQueue = window.MakeupQuestionEngine.buildShuffledCrossCategory(bank);
+    }
+    studyIndex = 0;
+    studyPhase = "idle";
+    studyDisplayCache = new Map();
+    setScreen("quiz");
+    updateAdminPanel(`관리자 강제 시작: ${targetRound}차`);
+    renderStudyQuestion();
+  }
+
+  function adminForceCompleteCurrent() {
+    if (!ensureAdminMode()) return;
+    if (screen === "quiz") {
+      endStudyRound();
+      updateAdminPanel("관리자 강제 완료: 학습 회차 종료 처리");
+      return;
+    }
+    if (screen === "mock") {
+      const remain = MOCK_TOTAL - mockIndex;
+      if (remain > 0) mockStats.wrong += remain;
+      finishMock();
+      updateAdminPanel(`관리자 강제 완료: 기출 ${mockRound}회 종료 처리`);
+      return;
+    }
+    if (screen === "resultMock" && typeof E.rMockNext.onclick === "function") {
+      E.rMockNext.onclick();
+      updateAdminPanel("관리자 강제 이동: 다음 단계");
+      return;
+    }
+    if (screen === "dashboard") {
+      startReviewWrongFromMocks();
+      updateAdminPanel("관리자 강제 이동: 최종 오답 복습");
+      return;
+    }
+    alert("현재 화면에서는 강제 완료할 회차가 없습니다.");
+  }
+
+  function adminStartMockRound() {
+    if (!ensureAdminMode()) return;
+    const requested = Number(E.adminMockRoundInput?.value || 1);
+    const target = Math.min(5, Math.max(1, Math.floor(requested)));
+    expectedMockRound = target;
+    canEnterFinalReview = false;
+    startMockRound(target);
   }
 
   E.btnStop.addEventListener("click", goHub);
   E.btnPrevTop.addEventListener("click", () => advanceStudy(-1));
   E.qNavPrev.addEventListener("click", () => advanceStudy(-1));
   E.qNavNext.addEventListener("click", () => advanceStudy(1));
+  if (E.adminToggle) {
+    E.adminToggle.checked = adminMode;
+    E.adminToggle.addEventListener("change", () => {
+      adminMode = E.adminToggle.checked;
+      window.localStorage.setItem("makeupAdminMode", adminMode ? "1" : "0");
+      updateAdminPanel(adminMode ? "관리자 모드 ON" : "관리자 모드 OFF");
+    });
+  }
+  if (E.adminStartR1) E.adminStartR1.addEventListener("click", () => adminStartStudyRound(1));
+  if (E.adminStartR2) E.adminStartR2.addEventListener("click", () => adminStartStudyRound(2));
+  if (E.adminStartR3) E.adminStartR3.addEventListener("click", () => adminStartStudyRound(3));
+  if (E.adminStartMock) E.adminStartMock.addEventListener("click", adminStartMockRound);
+  if (E.adminForceComplete) E.adminForceComplete.addEventListener("click", adminForceCompleteCurrent);
 
   function init() {
     setScreen("loading");
@@ -633,6 +854,7 @@
         bank = data;
         setScreen("hub");
         renderHub();
+        updateAdminPanel("문항 로드 성공");
       })
       .catch((err) => {
         console.error(err);
@@ -647,6 +869,7 @@
           E.hubActions.innerHTML =
             '<p class="hub-hint">로컬 서버(예: <code>npx serve</code>)로 열면 JSON을 불러올 수 있습니다.</p>';
         }
+        updateAdminPanel("문항 로드 실패");
       });
   }
 
