@@ -722,6 +722,38 @@
     }
   }
 
+  async function mountEnrollMyOnlyTable() {
+    const tbody = document.querySelector("[data-api='mypage-enrollments-body']");
+    const statusEl = document.querySelector("[data-api='course-openings-status']");
+    if (!tbody) return;
+    try {
+      const rows = await request("/me/enrollments");
+      tbody.innerHTML = "";
+      if (!Array.isArray(rows) || !rows.length) {
+        tbody.innerHTML = "<tr><td colspan='6'>신청한 수강 과정이 없습니다.</td></tr>";
+        if (statusEl) showMessage(statusEl, "신청 내역이 없습니다.", "info");
+        return;
+      }
+      rows.forEach((e) => {
+        const tr = document.createElement("tr");
+        const detailHref = `../my-courses/enrollment-001/index.html?id=${e.id}`;
+        tr.innerHTML = `
+          <td>${e.id}</td>
+          <td>${e.course_title || "-"}</td>
+          <td>${e.payment_status || "-"}</td>
+          <td>${e.approval_status || "-"}</td>
+          <td>${Number(e.price || 0).toLocaleString("ko-KR")}원</td>
+          <td><a class="pm-btn pm-btn-primary" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${detailHref}">상세</a></td>
+        `;
+        tbody.appendChild(tr);
+      });
+      if (statusEl) showMessage(statusEl, `내 신청 내역 ${rows.length}건`, "success");
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan='6'>내 신청 내역을 불러오지 못했습니다: ${error.message}</td></tr>`;
+      if (statusEl) showMessage(statusEl, error.message, "error");
+    }
+  }
+
   async function mountOpeningDetail() {
     const root = document.querySelector("[data-api='opening-detail']");
     if (!root) return;
@@ -1249,6 +1281,7 @@
     mountAdminInquiryDetail();
 
     mountCourseOpeningsList();
+    mountEnrollMyOnlyTable();
     mountOpeningDetail();
     mountEnrollApplyForm();
     mountMeEnrollmentsTable("[data-api='me-enrollments-body']");

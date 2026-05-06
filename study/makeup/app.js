@@ -1,8 +1,9 @@
 /**
- * 메이크업 미용사 문제은행 — 학습 3회 / 오답복습 / 기출 5회 / 통계 / 최종
+ * 메이크업 미용사 문제은행 — 학습 3회 / 오답복습 / 기출 6회 / 통계 / 최종
  */
 (function () {
   const MOCK_TOTAL = 60;
+  const MOCK_ROUNDS = 6;
   /** 60문항 정답 수 → 100점 만점 환산 */
   function scorePercent100(correct) {
     return (correct / MOCK_TOTAL) * 100;
@@ -62,6 +63,7 @@
     mRoundLabel: document.getElementById("m-round-label"),
     rMockScore: document.getElementById("r-mock-score"),
     rMockPass: document.getElementById("r-mock-pass"),
+    rMockGraph: document.getElementById("r-mock-graph"),
     rMockNext: document.getElementById("r-mock-next"),
     dashCharts: document.getElementById("dash-charts"),
     btnDashReview: document.getElementById("btn-dash-review"),
@@ -164,7 +166,11 @@
     if (E.adminConfig) {
       if (screen === "quiz") E.adminConfig.textContent = `현재 규칙: ${getRoundRuleText(studyRound)}`;
       else if (screen === "mock") E.adminConfig.textContent = "현재 규칙: 40초 / 문제 셔플 / 선지 셔플 / 자동 다음";
-      else E.adminConfig.textContent = `기출 잠금 상태: 다음 허용 회차 ${Math.min(expectedMockRound, 5)}회`;
+      else
+        E.adminConfig.textContent = `기출 잠금 상태: 다음 허용 회차 ${Math.min(
+          expectedMockRound,
+          MOCK_ROUNDS
+        )}회`;
     }
     if (E.adminShuffle) {
       const recent = shuffleAudit.slice(-3).reverse();
@@ -411,7 +417,7 @@
     mockIndex = 0;
     mockWrapped = mockQueue.map((q) => ({ ...window.MakeupQuestionEngine.shuffleDisplayOptions(q), base: q }));
     mockStats = { correct: 0, wrong: 0, wrongIds: new Set(), byCatWrong: {} };
-    if (E.mRoundLabel) E.mRoundLabel.textContent = `기출 모의 ${n} / 5`;
+    if (E.mRoundLabel) E.mRoundLabel.textContent = `기출 모의 ${n} / ${MOCK_ROUNDS}`;
     setScreen("mock");
     updateAdminPanel(`기출 ${n}회 시작`);
     renderMockQuestion();
@@ -504,18 +510,37 @@
     E.rMockPass.textContent = passed
       ? "시험 합격 기준(100점 만점 중 60점 초과)을 충족했습니다."
       : `시험 합격 기준은 100점 만점 중 60점 초과입니다. (현재 환산 약 ${scoreLabel}점)`;
-    E.rMockNext.textContent = mockRound < 5 ? `${mockRound + 1}회 기출 모의 시작` : "결과 분석으로";
-    if (mockRound < 5) expectedMockRound = mockRound + 1;
+    if (E.rMockGraph) {
+      E.rMockGraph.innerHTML = `
+        <div class="mq-bar-row">
+          <span class="mq-bar-label">${mockRound}회 결과</span>
+          <div class="mq-bar-track mq-bar-track--pass">
+            <div class="mq-bar-fill ${passed ? "mq-bar-fill--ok" : "mq-bar-fill--bad"}" style="width:${
+              passed ? "100%" : "38%"
+            }"></div>
+          </div>
+          <span class="mq-bar-num">${passed ? "합격" : "불합격"}</span>
+        </div>
+      `;
+    }
+    E.rMockNext.textContent =
+      mockRound < MOCK_ROUNDS ? `${mockRound + 1}회 기출 모의 시작` : "결과 분석으로";
+    if (mockRound < MOCK_ROUNDS) expectedMockRound = mockRound + 1;
     else {
-      expectedMockRound = 6;
+      expectedMockRound = MOCK_ROUNDS + 1;
       canEnterFinalReview = true;
     }
     E.rMockNext.onclick = () => {
-      if (mockRound < 5) startMockRound(mockRound + 1);
+      if (mockRound < MOCK_ROUNDS) startMockRound(mockRound + 1);
       else showDashboard();
     };
     setScreen("resultMock");
     updateAdminPanel(`기출 ${mockRound}회 종료`);
+    if (mockRound < MOCK_ROUNDS) {
+      window.setTimeout(() => {
+        if (screen === "resultMock" && typeof E.rMockNext.onclick === "function") E.rMockNext.onclick();
+      }, 1800);
+    }
   }
 
   function escapeHtml(s) {
@@ -535,7 +560,7 @@
     const maxW = Math.max(1, ...Object.values(byCat), 1);
     E.dashCharts.innerHTML = `
       <div class="dash-block">
-        <h3>기출 5회 누적 · 과목별 오답 수</h3>
+        <h3>기출 ${MOCK_ROUNDS}회 누적 · 과목별 오답 수</h3>
         <div class="mq-bars">
           ${cats
             .map(
@@ -551,7 +576,7 @@
         ${cats.length === 0 ? "<p class=\"dash-empty\">누적 오답이 없습니다.</p>" : ""}
       </div>
       <div class="dash-block">
-        <h3>회차별 합격 여부 (100점 만점 · 60점 초과)</h3>
+        <h3>회차별 합격 여부 (총 ${MOCK_ROUNDS}회 · 100점 만점 · 60점 초과)</h3>
         <div class="mq-bars">
           ${mockHistory
             .map(
@@ -578,8 +603,8 @@
   }
 
   function startReviewWrongFromMocks() {
-    if (!canEnterFinalReview || mockHistory.length !== 5) {
-      alert("기출 5회가 모두 끝난 뒤에만 최종 오답 복습으로 이동할 수 있습니다.");
+    if (!canEnterFinalReview || mockHistory.length !== MOCK_ROUNDS) {
+      alert(`기출 ${MOCK_ROUNDS}회가 모두 끝난 뒤에만 최종 오답 복습으로 이동할 수 있습니다.`);
       return;
     }
     const ids = new Set();
@@ -619,7 +644,7 @@
     } else {
       msg = "합격 기준 도달 회차가 적습니다. 1~3차 학습과 오답 복습을 보강한 후 기출 모의를 다시 권합니다.";
     }
-    E.finalText.innerHTML = `<p>5회 기출 중 <strong>${passedRounds}회</strong>가 시험 합격 기준(100점 만점 중 60점 초과)을 충족했고, 회차별 환산 점수 평균은 약 <strong>${avgScore100}점</strong>/100점입니다.</p><p>${msg}</p>
+    E.finalText.innerHTML = `<p>${MOCK_ROUNDS}회 기출 중 <strong>${passedRounds}회</strong>가 시험 합격 기준(100점 만점 중 60점 초과)을 충족했고, 회차별 환산 점수 평균은 약 <strong>${avgScore100}점</strong>/100점입니다.</p><p>${msg}</p>
       <p class="final-qnet">일정·응시 자격·접수는 <a href="https://www.q-net.or.kr/" target="_blank" rel="noopener">Q-Net (한국산업인력공단)</a> 에서 확인하세요.</p>`;
     E.finalBar.innerHTML = `
       <div class="mq-bar-row">
@@ -652,7 +677,7 @@
             </div>
             <div class="flow-node">
               <span class="flow-node-dot flow-node-dot--3"></span>
-              <span>기출 5회</span>
+              <span>기출 6회</span>
             </div>
             <div class="flow-node">
               <span class="flow-node-dot flow-node-dot--4"></span>
@@ -662,7 +687,7 @@
         </section>
         <section class="flow-stage flow-stage--1">
           <div class="flow-stage-top">
-            <p class="flow-head">STAGE 1. 과목별 순차 학습 루틴</p>
+            <p class="flow-head">STAGE 1. 과목별 순차 문제풀이</p>
             <span class="flow-badge flow-badge--1">ACTIVE</span>
           </div>
           <div class="flow-media" aria-hidden="true">
@@ -675,16 +700,16 @@
             </svg>
           </div>
           <div class="flow-grid">
-            <div class="flow-chip flow-chip--active">1회차<br/>무제한 · 정답/해설 즉시</div>
-            <div class="flow-chip flow-chip--lock">🔒 2회차<br/>40초 · 정답 선택 후 해설</div>
-            <div class="flow-chip flow-chip--lock">🔒 3회차<br/>30초 · 문제/선지 셔플</div>
+            <div class="flow-chip flow-chip--active">1회차 학습</div>
+            <div class="flow-chip flow-chip--lock">🔒 2회차 학습</div>
+            <div class="flow-chip flow-chip--lock">🔒 3회차 학습</div>
           </div>
           <button type="button" class="flow-action" id="btn-start-study">1회차 시작</button>
         </section>
         <div class="flow-arrow" aria-hidden="true">↓</div>
         <section class="flow-stage flow-stage--2">
           <div class="flow-stage-top">
-            <p class="flow-head">STAGE 2. 오답 소탕</p>
+            <p class="flow-head">STAGE 2. 오답 문제풀이</p>
             <span class="flow-badge flow-badge--2">LOCKED</span>
           </div>
           <div class="flow-media" aria-hidden="true">
@@ -695,15 +720,15 @@
             </svg>
           </div>
           <div class="flow-grid flow-grid--two">
-            <div class="flow-chip flow-chip--lock">🔒 학습 오답 복습<br/>30초 타이머</div>
-            <div class="flow-chip flow-chip--lock">🔒 약점 과목 재점검</div>
+            <div class="flow-chip flow-chip--lock">🔒 오답 재점검</div>
+            <div class="flow-chip flow-chip--lock">🔒 오답 문제풀이</div>
           </div>
           <button type="button" class="flow-action" disabled>잠금 해제 후 진행</button>
         </section>
         <div class="flow-arrow" aria-hidden="true">↓</div>
         <section class="flow-stage flow-stage--3">
           <div class="flow-stage-top">
-            <p class="flow-head">STAGE 3. 실전 기출 (5회)</p>
+            <p class="flow-head">STAGE 3. 실전 기출문제 (6회)</p>
             <span class="flow-badge flow-badge--3">LOCKED</span>
           </div>
           <div class="flow-media" aria-hidden="true">
@@ -717,19 +742,19 @@
             </svg>
           </div>
           <div class="flow-grid">
-            <div class="flow-chip flow-chip--lock">🔒 1회<br/>40초·선택 후 자동 다음</div>
-            <div class="flow-chip flow-chip--lock">🔒 2회<br/>정답 위치 셔플</div>
-            <div class="flow-chip flow-chip--lock">🔒 3회<br/>60문항 평가</div>
-            <div class="flow-chip flow-chip--lock">🔒 4회<br/>약점 보완</div>
-            <div class="flow-chip flow-chip--lock">🔒 5회<br/>최종 점검</div>
-            <div class="flow-chip flow-chip--lock">🔒 합격/불합격 판정</div>
+            <div class="flow-chip flow-chip--lock">🔒 1회</div>
+            <div class="flow-chip flow-chip--lock">🔒 2회</div>
+            <div class="flow-chip flow-chip--lock">🔒 3회</div>
+            <div class="flow-chip flow-chip--lock">🔒 4회</div>
+            <div class="flow-chip flow-chip--lock">🔒 5회</div>
+            <div class="flow-chip flow-chip--lock">🔒 6회</div>
           </div>
           <button type="button" class="flow-action" disabled>기출 모드는 단계 완료 후 열립니다</button>
         </section>
         <div class="flow-arrow" aria-hidden="true">↓</div>
         <section class="flow-stage flow-stage--4">
           <div class="flow-stage-top">
-            <p class="flow-head">STAGE 4. 최종 오답 정복</p>
+            <p class="flow-head">STAGE 4. 최종 오답 문제풀이</p>
             <span class="flow-badge flow-badge--4">LOCKED</span>
           </div>
           <div class="flow-media" aria-hidden="true">
@@ -739,15 +764,12 @@
             </svg>
           </div>
           <div class="flow-grid flow-grid--two">
-            <div class="flow-chip flow-chip--lock">🔒 기출 오답 복습</div>
-            <div class="flow-chip flow-chip--lock">🔒 최종 합격 가능성 안내</div>
+            <div class="flow-chip flow-chip--lock">🔒 오답 복습</div>
+            <div class="flow-chip flow-chip--lock">🔒 최종 오답 문제풀이</div>
           </div>
           <button type="button" class="flow-action" disabled>최종 단계 잠금</button>
         </section>
       </div>
-      <p class="hub-hint">
-        시작 버튼을 누르면 그래프 순서대로 자동 진행됩니다.
-      </p>
     `;
     document.getElementById("btn-start-study").addEventListener("click", () => {
       studyWrong = new Set();
@@ -831,7 +853,7 @@
   function adminStartMockRound() {
     if (!ensureAdminMode()) return;
     const requested = Number(E.adminMockRoundInput?.value || 1);
-    const target = Math.min(5, Math.max(1, Math.floor(requested)));
+    const target = Math.min(MOCK_ROUNDS, Math.max(1, Math.floor(requested)));
     expectedMockRound = target;
     canEnterFinalReview = false;
     startMockRound(target);

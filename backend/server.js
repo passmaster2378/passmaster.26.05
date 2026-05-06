@@ -362,11 +362,12 @@ async function seedData() {
   if (courseCount.count === 0) {
     await run(
       `INSERT INTO public.courses (code, title, category, price, status) VALUES
-      ('IS', '산업안전기사 필기 완성반', '안전관리', 219000, 'open'),
-      ('EE', '전기기사 필기 완성반', '전기이론', 199000, 'open'),
-      ('IT', '정보처리기사 필기 완성반', '소프트웨어', 179000, 'open')`
+      ('IS', '산업안전기사 필기 완성반', '안전관리', 9900, 'open'),
+      ('EE', '전기기사 필기 완성반', '전기이론', 9900, 'open'),
+      ('IT', '정보처리기사 필기 완성반', '소프트웨어', 9900, 'open')`
     );
   }
+  await run(`UPDATE public.courses SET price = 9900`);
 
   const openingCount = await get("SELECT COUNT(*)::int AS count FROM public.course_openings");
   if (openingCount.count === 0) {
@@ -439,6 +440,13 @@ async function seedData() {
       );
     }
   }
+  await run(
+    `UPDATE public.payments p
+     SET amount = c.price
+     FROM public.enrollments e
+     JOIN public.courses c ON c.id = e.course_id
+     WHERE p.enrollment_id = e.id`
+  );
 
   const faqCount = await get("SELECT COUNT(*)::int AS count FROM public.faqs");
   if (faqCount.count === 0) {

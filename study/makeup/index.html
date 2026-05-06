@@ -131,8 +131,8 @@
         color: #53607a;
       }
       .flow-node-dot {
-        width: 26px;
-        height: 26px;
+        width: 38px;
+        height: 38px;
         border-radius: 999px;
         border: 2px solid #fff;
         box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
@@ -222,7 +222,7 @@
       }
       .flow-media svg {
         width: 100%;
-        height: 44px;
+        height: 62px;
         display: block;
       }
       .flow-grid {
@@ -234,7 +234,7 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
       .flow-chip {
-        min-height: 52px;
+        min-height: 66px;
         border-radius: 12px;
         border: 1px solid #e4e7ee;
         background: #f7f8fc;
@@ -242,8 +242,8 @@
         align-items: center;
         justify-content: center;
         text-align: center;
-        padding: 8px 6px;
-        font-size: 13px;
+        padding: 10px 8px;
+        font-size: 15px;
         font-weight: 700;
         color: #4d5665;
       }
@@ -515,6 +515,12 @@
         font-size: 15px;
         margin-bottom: 16px;
       }
+      .result-mini-graph {
+        margin: 0 0 14px;
+      }
+      .result-mini-graph .mq-bar-row {
+        grid-template-columns: 1fr minmax(120px, 2fr) auto;
+      }
       .dash-block {
         margin-bottom: 28px;
       }
@@ -612,7 +618,7 @@
             </div>
             <div class="admin-row">
               <label class="admin-tag">기출 회차 직접 시작</label>
-              <input id="admin-mock-round" class="admin-mini-input" type="number" min="1" max="5" value="1" />
+              <input id="admin-mock-round" class="admin-mini-input" type="number" min="1" max="6" value="1" />
               <button type="button" class="admin-btn" id="btn-admin-start-mock">기출 시작</button>
             </div>
           </div>
@@ -625,7 +631,6 @@
         <div id="view-hub" class="pm-card" hidden>
           <p class="pm-pill">메이크업 미용사</p>
           <h1 class="hub-title">필기 문제은행</h1>
-          <p class="hub-subtitle">문제 풀이 진행 방식을 그래프 형태로 확인하고 순서대로 시작하세요.</p>
           <div id="hub-actions" class="hub-actions"></div>
           <p id="load-error" class="pm-detail" hidden></p>
         </div>
@@ -675,11 +680,12 @@
           <h2>이번 회차 결과</h2>
           <p class="result-score" id="r-mock-score">0 / 60</p>
           <p class="result-pass" id="r-mock-pass"></p>
+          <div id="r-mock-graph" class="result-mini-graph"></div>
           <button type="button" class="mq-bigbtn" id="r-mock-next">다음</button>
         </div>
 
         <div id="view-dashboard" class="pm-card" hidden>
-          <h2>기출 5회 분석</h2>
+          <h2>기출 6회 분석</h2>
           <div id="dash-charts"></div>
           <button type="button" class="mq-bigbtn" id="btn-dash-review" style="margin-top: 16px; width: 100%">
             기출 오답 복습 (30초)

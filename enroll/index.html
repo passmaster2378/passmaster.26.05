@@ -13,7 +13,7 @@
         <a class="pm-logo" href="../index.html">PASSmaster</a>
         <nav class="pm-nav" aria-label="공통 이동">
           <a href="../login.html">로그인</a>
-          <a href="../register.html">회원가입</a>
+          <a href="../register.html">내정보관리</a>
           <a href="./index.html">수강신청</a>
           <a href="../my-courses/index.html">내 강의</a>
           <a href="../admin/index.html">관리자</a>
@@ -24,28 +24,28 @@
       <main class="pm-main">
         <p class="pm-pill">User Flow</p>
         <h1>수강 신청</h1>
-        <p class="pm-summary">오픈된 과정을 확인하고 수강 신청을 시작하는 진입 페이지입니다.</p>
+        <p class="pm-summary">내가 신청한 수강 과정 현황을 확인하는 페이지입니다.</p>
         <div class="pm-cta-row">
           <a class="pm-btn pm-btn-ghost" href="../onboarding.html">이전 단계</a>
-          <a class="pm-btn pm-btn-primary" href="#enroll-openings">모집 목록으로</a>
+          <a class="pm-btn pm-btn-primary" href="#enroll-openings">내 신청 내역</a>
         </div>
 
         <section class="pm-card" id="enroll-openings">
-          <h2>모집 중 과정 (API)</h2>
-          <p class="auth-message info" data-api="course-openings-status">불러오는 중…</p>
+          <h2>내 수강신청 내역</h2>
+          <p class="auth-message info" data-api="course-openings-status">내 신청 내역을 불러오는 중…</p>
           <div class="pm-table-wrap">
             <table class="pm-table">
               <thead>
                 <tr>
-                  <th>모집 ID</th>
+                  <th>신청 ID</th>
                   <th>과정명</th>
-                  <th>수강 기간</th>
-                  <th>신청</th>
+                  <th>결제</th>
+                  <th>승인</th>
                   <th>가격</th>
                   <th></th>
                 </tr>
               </thead>
-              <tbody data-api="course-openings-body"></tbody>
+              <tbody data-api="mypage-enrollments-body"></tbody>
             </table>
           </div>
         </section>

@@ -1932,45 +1932,58 @@ function updateNavigationByAuth(session) {
   const loginLink = document.querySelector(".pm-nav a[href*='login.html']");
   const registerLink = document.querySelector(".pm-nav a[href*='register.html']");
   if (!loginLink || !registerLink) return;
+  const logoLink = document.querySelector(".pm-logo");
   const adminLink = document.querySelector(".pm-nav a[href*='admin/index.html']");
+  const pagesLink = document.querySelector(".pm-nav a[href*='pages.html']");
+  const enrollLink = document.querySelector(".pm-nav a[href*='enroll/index.html']");
+  const myCoursesLink = document.querySelector(".pm-nav a[href*='my-courses/index.html']");
 
   if (!session || !session.user) {
     loginLink.textContent = "로그인";
     registerLink.textContent = "회원가입";
     if (adminLink) adminLink.style.display = "none";
+    if (pagesLink) pagesLink.style.display = "none";
     return;
   }
 
   const user = session.user;
-  const originalLoginHref = loginLink.getAttribute("href") || "./login.html";
-  loginLink.textContent = "로그아웃";
-  loginLink.setAttribute("href", "#");
-  loginLink.addEventListener("click", (event) => {
-    event.preventDefault();
-    localStorage.removeItem("passmaster_auth");
-    try {
-      sessionStorage.removeItem("passmaster_return_to");
-    } catch (_error) {
-      // ignore
-    }
-    window.location.href = originalLoginHref;
-  });
+  if (adminLink) adminLink.style.display = "none";
 
-  registerLink.textContent = user.role === "admin" ? "관리자 홈" : `${user.name}님`;
-  const originalRegisterHref = registerLink.getAttribute("href") || "./register.html";
-  const mappedHref =
-    user.role === "admin"
-      ? originalRegisterHref.replace("register.html", "admin/index.html")
-      : originalRegisterHref.replace("register.html", "mypage/index.html");
-  registerLink.setAttribute("href", mappedHref);
-
-  if (adminLink) {
-    if (user.role === "admin") {
-      adminLink.style.display = "";
-    } else {
-      adminLink.style.display = "none";
+  if (user.role === "admin") {
+    const originalRegisterHref = registerLink.getAttribute("href") || "./register.html";
+    const adminHref = originalRegisterHref.replace("register.html", "admin/index.html");
+    const originalLoginHref = loginLink.getAttribute("href") || "./login.html";
+    loginLink.textContent = "로그아웃";
+    loginLink.setAttribute("href", "#");
+    if (loginLink.dataset.logoutBound !== "1") {
+      loginLink.addEventListener("click", (event) => {
+        event.preventDefault();
+        localStorage.removeItem("passmaster_auth");
+        try {
+          sessionStorage.removeItem("passmaster_return_to");
+        } catch (_error) {
+          // ignore
+        }
+        window.location.href = originalLoginHref;
+      });
+      loginLink.dataset.logoutBound = "1";
     }
+    registerLink.textContent = "관리자";
+    registerLink.setAttribute("href", adminHref);
+    if (pagesLink) pagesLink.style.display = "";
+    return;
   }
+
+  const homeHref = logoLink ? logoLink.getAttribute("href") || "./index.html" : "./index.html";
+  const originalRegisterHref = registerLink.getAttribute("href") || "./register.html";
+  const myInfoHref = originalRegisterHref.replace("register.html", "mypage/index.html");
+  loginLink.textContent = "HOME";
+  loginLink.setAttribute("href", homeHref);
+  registerLink.textContent = "내정보관리";
+  registerLink.setAttribute("href", myInfoHref);
+  if (enrollLink) enrollLink.textContent = "수강신청";
+  if (myCoursesLink) myCoursesLink.textContent = "내강의";
+  if (pagesLink) pagesLink.style.display = "none";
 }
 
 function prettifyLinkLabel(href) {
@@ -2012,10 +2025,27 @@ function prettifyLinkLabel(href) {
 }
 
 function applyStudentView() {
+  const adminOnlyTitles = new Set([
+    "개설 과정 탐색",
+    "실제 운영 기준",
+    "실행 체크리스트",
+    "운영 데이터",
+    "실시간 모집 과정 현황",
+    "실시간 운영 브리핑",
+    "즉시 실행",
+    "문제은행 운영 현황",
+    "실DB 모집(오프닝) 목록",
+    "운영 데이터 소스",
+    "모집 중 과정 (API)",
+  ]);
   const routeCards = document.querySelectorAll(".pm-card");
   routeCards.forEach((card) => {
     const titleNode = card.querySelector("h2");
     const title = titleNode ? titleNode.textContent.trim() : "";
+    if (adminOnlyTitles.has(title)) {
+      card.remove();
+      return;
+    }
     if (title === "현재 경로") {
       card.remove();
       return;

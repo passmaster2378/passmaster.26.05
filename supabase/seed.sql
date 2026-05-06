@@ -8,7 +8,7 @@ insert into public.users (name, email, password, role) values
 on conflict (email) do nothing;
 
 insert into public.courses (code, title, category, price, status) values
-('IS', '산업안전기사 필기 완성반', '안전관리', 219000, 'open'),
-('EE', '전기기사 필기 완성반', '전기이론', 199000, 'open'),
-('IT', '정보처리기사 필기 완성반', '소프트웨어', 179000, 'open')
+('IS', '산업안전기사 필기 완성반', '안전관리', 9900, 'open'),
+('EE', '전기기사 필기 완성반', '전기이론', 9900, 'open'),
+('IT', '정보처리기사 필기 완성반', '소프트웨어', 9900, 'open')
 on conflict (code) do nothing;
