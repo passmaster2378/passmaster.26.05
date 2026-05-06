@@ -1976,28 +1976,39 @@ function updateNavigationByAuth(session) {
 function prettifyLinkLabel(href) {
   if (!href) return "페이지";
   const normalized = href.replace(/\\/g, "/").replace(/\/+$/, "");
-  const file = normalized.split("/").pop() || "";
-  const parent = (normalized.split("/").slice(-2, -1)[0] || "").toLowerCase();
-  const base = file.replace(".html", "").toLowerCase();
-  const map = {
-    index: "목록",
-    detail: "상세",
-    new: "신규",
-    enrollments: "수강현황",
-    payments: "결제내역",
-    learning: "학습현황",
-    profile: "프로필",
-    inquiry: "문의",
-    faq: "FAQ",
-    reviews: "후기",
-    users: "회원관리",
-    courses: "과정관리",
-    admin: "관리자",
-    support: "고객센터",
-    enroll: "수강신청",
+  const lower = normalized.toLowerCase();
+  const exactMap = [
+    ["/mypage/enrollments/index.html", "수강현황 보기"],
+    ["/mypage/payments/index.html", "결제내역 보기"],
+    ["/mypage/learning/index.html", "학습 이어가기"],
+    ["/mypage/profile/index.html", "프로필 관리"],
+    ["/mypage/notifications/index.html", "알림 확인"],
+    ["/mypage/inquiries/index.html", "문의내역 확인"],
+    ["/support/faq/index.html", "자주 묻는 질문 보기"],
+    ["/support/inquiry/index.html", "문의내역 보기"],
+    ["/support/inquiry/new/index.html", "1:1 문의하기"],
+    ["/enroll/index.html", "수강신청 하기"],
+    ["/my-courses/index.html", "내 강의실로 이동"],
+    ["/index.html", "메인으로 이동"],
+  ];
+  for (const [suffix, label] of exactMap) {
+    if (lower.endsWith(suffix)) return label;
+  }
+
+  const file = lower.split("/").pop() || "";
+  const parent = lower.split("/").slice(-2, -1)[0] || "";
+  const base = file.replace(".html", "");
+  const fallback = {
+    enrollments: "수강현황 보기",
+    payments: "결제내역 보기",
+    learning: "학습 이어가기",
+    profile: "프로필 관리",
+    inquiry: "문의 페이지 이동",
+    faq: "FAQ 보기",
+    enroll: "수강신청 하기",
+    support: "고객센터로 이동",
   };
-  const key = map[base] || map[parent] || "페이지";
-  return `${key} 이동`;
+  return fallback[base] || fallback[parent] || "페이지 이동";
 }
 
 function applyStudentView() {
@@ -2010,14 +2021,14 @@ function applyStudentView() {
       return;
     }
     if (title === "연결 페이지") {
-      if (titleNode) titleNode.textContent = "바로가기";
+      if (titleNode) titleNode.textContent = "추천 이동";
       const list = card.querySelector(".pm-link-list");
       if (list) {
         list.style.listStyle = "none";
         list.style.paddingLeft = "0";
         list.style.gap = "10px";
-        list.querySelectorAll("a").forEach((anchor) => {
-          anchor.classList.add("pm-btn", "pm-btn-ghost");
+        list.querySelectorAll("a").forEach((anchor, idx) => {
+          anchor.classList.add("pm-btn", idx === 0 ? "pm-btn-primary" : "pm-btn-ghost");
           anchor.textContent = prettifyLinkLabel(anchor.getAttribute("href"));
           anchor.style.textDecoration = "none";
         });
