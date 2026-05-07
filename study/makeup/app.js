@@ -4,6 +4,7 @@
 (function () {
   const MOCK_TOTAL = 60;
   const MOCK_ROUNDS = 6;
+  const CERT_SLUG = "makeup";
   /** 60문항 정답 수 → 100점 만점 환산 */
   function scorePercent100(correct) {
     return (correct / MOCK_TOTAL) * 100;
@@ -66,6 +67,9 @@
     rMockGraph: document.getElementById("r-mock-graph"),
     rMockNext: document.getElementById("r-mock-next"),
     dashCharts: document.getElementById("dash-charts"),
+    qaChecklist: document.getElementById("qa-checklist"),
+    btnQaSave: document.getElementById("btn-qa-save"),
+    qaSaveMsg: document.getElementById("qa-save-msg"),
     btnDashReview: document.getElementById("btn-dash-review"),
     finalText: document.getElementById("final-text"),
     finalBar: document.getElementById("final-bar"),
@@ -97,6 +101,12 @@
   let canEnterFinalReview = false;
   let mockStats = { correct: 0, wrong: 0, wrongIds: new Set(), byCatWrong: {} };
   let mockHistory = [];
+  let qaChecklistState = {
+    flowLockVerified: false,
+    artifactSaved: false,
+    reviewFlowVerified: false,
+    mobileLayoutVerified: false,
+  };
   let studyDisplayCache = new Map();
   let currentStudyView = null;
   const shuffleAudit = [];
@@ -114,6 +124,67 @@
     if (E.resultMock) E.resultMock.hidden = screen !== "resultMock";
     if (E.dashboard) E.dashboard.hidden = screen !== "dashboard";
     if (E.final) E.final.hidden = screen !== "final";
+  }
+
+  function getStoredSession() {
+    try {
+      const raw = window.localStorage.getItem("passmaster_auth");
+      return raw ? JSON.parse(raw) : null;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  async function requestApi(path, options = {}) {
+    const session = getStoredSession();
+    if (!session || !session.token) throw new Error("로그인이 필요합니다.");
+    const response = await fetch(`/api${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.token}`,
+        ...(options.headers || {}),
+      },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || "요청 처리 중 오류가 발생했습니다.");
+    return data;
+  }
+
+  function loadLocalQaChecklist() {
+    try {
+      const raw = window.localStorage.getItem("makeupQaChecklist");
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        qaChecklistState = {
+          ...qaChecklistState,
+          ...parsed,
+        };
+      }
+    } catch (_error) {
+      // ignore
+    }
+  }
+
+  async function hydrateStudyArtifactRemote() {
+    loadLocalQaChecklist();
+    try {
+      const artifact = await requestApi(`/me/study-artifact/${CERT_SLUG}`);
+      const payload = artifact && artifact.payload ? artifact.payload : {};
+      if (Array.isArray(payload.wrongNotes)) {
+        window.localStorage.setItem("makeupWrongNote", JSON.stringify(payload.wrongNotes));
+      }
+      if (payload.reviewSeed && typeof payload.reviewSeed === "object") {
+        window.localStorage.setItem("makeupReviewSeed", JSON.stringify(payload.reviewSeed));
+      }
+      if (payload.qaChecklist && typeof payload.qaChecklist === "object") {
+        qaChecklistState = { ...qaChecklistState, ...payload.qaChecklist };
+        window.localStorage.setItem("makeupQaChecklist", JSON.stringify(qaChecklistState));
+      }
+    } catch (_error) {
+      // 로그인 안 된 경우/통신 실패는 로컬 데이터로 계속 진행
+    }
   }
 
   function clearStudyTimer() {
@@ -550,7 +621,7 @@
     return d.innerHTML;
   }
 
-  function persistStudentArtifacts() {
+  async function persistStudentArtifacts() {
     try {
       const wrongIds = new Set(studyWrong);
       mockHistory.forEach((h) => {
@@ -582,9 +653,57 @@
           updatedAt: new Date().toISOString(),
         })
       );
+      window.localStorage.setItem("makeupQaChecklist", JSON.stringify(qaChecklistState));
+      try {
+        await requestApi(`/me/study-artifact/${CERT_SLUG}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            payload: {
+              wrongNotes: wrongQuestions,
+              reviewSeed: {
+                totalRounds: MOCK_ROUNDS,
+                completedRounds: mockHistory.length,
+                passedRounds,
+                avgScore100,
+                updatedAt: new Date().toISOString(),
+              },
+              qaChecklist: qaChecklistState,
+            },
+          }),
+        });
+      } catch (_error) {
+        // 서버 저장 실패 시 로컬 저장본 유지
+      }
     } catch (_error) {
       // localStorage 저장 실패 시 학습 흐름은 유지
     }
+  }
+
+  function renderQaChecklist() {
+    if (!E.qaChecklist) return;
+    const items = [
+      ["flowLockVerified", "회차 잠금/순차 진행 동작 확인"],
+      ["artifactSaved", "오답노트/통계 저장 정상 확인"],
+      ["reviewFlowVerified", "후기 작성/삭제/상태 표시 확인"],
+      ["mobileLayoutVerified", "모바일(<=720px) 레이아웃 확인"],
+    ];
+    E.qaChecklist.innerHTML = items
+      .map(
+        ([key, label]) => `
+          <label class="qa-item">
+            <input type="checkbox" data-qa-key="${key}" ${qaChecklistState[key] ? "checked" : ""} />
+            <span>${label}</span>
+          </label>
+        `
+      )
+      .join("");
+    E.qaChecklist.querySelectorAll("[data-qa-key]").forEach((input) => {
+      input.addEventListener("change", () => {
+        const key = input.getAttribute("data-qa-key");
+        qaChecklistState[key] = Boolean(input.checked);
+        window.localStorage.setItem("makeupQaChecklist", JSON.stringify(qaChecklistState));
+      });
+    });
   }
 
   function loopChip(label, state) {
@@ -668,9 +787,17 @@
         </div>
       </div>
     `;
+    renderQaChecklist();
+    if (E.btnQaSave) {
+      E.btnQaSave.onclick = async () => {
+        if (E.qaSaveMsg) E.qaSaveMsg.textContent = "저장 중...";
+        await persistStudentArtifacts();
+        if (E.qaSaveMsg) E.qaSaveMsg.textContent = "QA 체크리스트가 저장되었습니다.";
+      };
+    }
     E.btnDashReview.onclick = () => startReviewWrongFromMocks();
     setScreen("dashboard");
-    updateAdminPanel("5회 기출 종료 → 분석 대시보드");
+    updateAdminPanel(`${MOCK_ROUNDS}회 기출 종료 → 분석 대시보드`);
   }
 
   function startReviewWrongFromMocks() {
@@ -996,8 +1123,9 @@
     setScreen("loading");
     if (E.loadErr) E.loadErr.hidden = true;
     window.MakeupQuestionEngine.loadMakeupBank()
-      .then((data) => {
+      .then(async (data) => {
         bank = data;
+        await hydrateStudyArtifactRemote();
         setScreen("hub");
         renderHub();
         updateAdminPanel("문항 로드 성공");

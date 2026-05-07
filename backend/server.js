@@ -334,13 +334,38 @@ async function initSchema() {
     CREATE TABLE IF NOT EXISTS public.reviews (
       id BIGSERIAL PRIMARY KEY,
       course_code TEXT NOT NULL,
+      cert_slug TEXT,
+      user_id BIGINT REFERENCES public.users(id),
       author_name TEXT NOT NULL,
       score INTEGER NOT NULL,
       content TEXT NOT NULL,
       status TEXT NOT NULL,
+      moderation_note TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);
+  await run(`ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS cert_slug TEXT`);
+  await run(`ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES public.users(id)`);
+  await run(`ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS moderation_note TEXT`);
+  await run(`ALTER TABLE public.reviews ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`);
+  await run(`UPDATE public.reviews SET cert_slug = lower(course_code) WHERE cert_slug IS NULL OR cert_slug = ''`);
+  await run(`CREATE INDEX IF NOT EXISTS reviews_user_id_idx ON public.reviews (user_id)`);
+  await run(`CREATE INDEX IF NOT EXISTS reviews_status_idx ON public.reviews (status)`);
+
+  await run(`
+    CREATE TABLE IF NOT EXISTS public.study_artifacts (
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+      cert_slug TEXT NOT NULL,
+      payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+  await run(
+    `CREATE UNIQUE INDEX IF NOT EXISTS study_artifacts_user_cert_uidx ON public.study_artifacts (user_id, cert_slug)`
+  );
 }
 
 async function seedData() {
@@ -532,6 +557,11 @@ app.get("/api/docs", async (req, res) => {
       { method: "GET", path: "/me/payments", auth: true },
       { method: "GET", path: "/faqs" },
       { method: "GET", path: "/reviews" },
+      { method: "GET", path: "/me/reviews", auth: true },
+      { method: "POST", path: "/me/reviews", auth: true },
+      { method: "DELETE", path: "/me/reviews/:id", auth: true },
+      { method: "GET", path: "/me/study-artifact/:certSlug", auth: true },
+      { method: "PUT", path: "/me/study-artifact/:certSlug", auth: true },
       { method: "GET", path: "/inquiries" },
       { method: "GET", path: "/inquiries/:id" },
       { method: "POST", path: "/inquiries", auth: true },
@@ -554,6 +584,8 @@ app.get("/api/docs", async (req, res) => {
       { method: "PATCH", path: "/inquiries/:id/status", auth: true, admin: true },
       { method: "PATCH", path: "/inquiries/:id/assignee", auth: true, admin: true },
       { method: "POST", path: "/inquiries/:id/messages", auth: true, admin: true },
+      { method: "GET", path: "/admin/reviews", auth: true, admin: true },
+      { method: "PATCH", path: "/admin/reviews/:id", auth: true, admin: true },
     ],
     notes: [
       "성공 응답은 JSON입니다.",
@@ -573,8 +605,152 @@ app.get("/api/faqs", async (req, res) => {
 });
 
 app.get("/api/reviews", async (req, res) => {
-  const rows = await all("SELECT * FROM public.reviews WHERE status = 'approved' ORDER BY id DESC");
+  const certSlug = String(req.query.certSlug || "").trim().toLowerCase();
+  const params = ["approved"];
+  let sql = "SELECT * FROM public.reviews WHERE status = ?";
+  if (certSlug) {
+    sql += " AND lower(cert_slug) = ?";
+    params.push(certSlug);
+  }
+  sql += " ORDER BY id DESC";
+  const rows = await all(sql, params);
   res.json(rows);
+});
+
+app.get("/api/me/study-artifact/:certSlug", requireAuth, async (req, res) => {
+  const certSlug = String(req.params.certSlug || "").trim().toLowerCase();
+  if (!certSlug) return sendError(res, 400, "certSlug가 필요합니다.");
+  const row = await get(
+    `SELECT cert_slug, payload, updated_at
+     FROM public.study_artifacts
+     WHERE user_id = ? AND cert_slug = ?`,
+    [req.auth.sub, certSlug]
+  );
+  if (!row) return res.json({ certSlug, payload: {}, updatedAt: null });
+  return res.json({
+    certSlug: row.cert_slug,
+    payload: row.payload || {},
+    updatedAt: row.updated_at,
+  });
+});
+
+app.put("/api/me/study-artifact/:certSlug", requireAuth, async (req, res) => {
+  const certSlug = String(req.params.certSlug || "").trim().toLowerCase();
+  if (!certSlug) return sendError(res, 400, "certSlug가 필요합니다.");
+  const rawPayload = req.body && typeof req.body.payload === "object" ? req.body.payload : {};
+  const safePayload = {
+    wrongNotes: Array.isArray(rawPayload.wrongNotes) ? rawPayload.wrongNotes.slice(0, 500) : [],
+    reviewSeed:
+      rawPayload.reviewSeed && typeof rawPayload.reviewSeed === "object" ? rawPayload.reviewSeed : {},
+    qaChecklist:
+      rawPayload.qaChecklist && typeof rawPayload.qaChecklist === "object" ? rawPayload.qaChecklist : {},
+  };
+  await run(
+    `INSERT INTO public.study_artifacts (user_id, cert_slug, payload, updated_at)
+     VALUES (?, ?, ?::jsonb, now())
+     ON CONFLICT (user_id, cert_slug)
+     DO UPDATE SET payload = EXCLUDED.payload, updated_at = now()`,
+    [req.auth.sub, certSlug, JSON.stringify(safePayload)]
+  );
+  const updated = await get(
+    "SELECT cert_slug, payload, updated_at FROM public.study_artifacts WHERE user_id = ? AND cert_slug = ?",
+    [req.auth.sub, certSlug]
+  );
+  return res.json({
+    ok: true,
+    certSlug: updated.cert_slug,
+    payload: updated.payload || {},
+    updatedAt: updated.updated_at,
+  });
+});
+
+app.get("/api/me/reviews", requireAuth, async (req, res) => {
+  const certSlug = String(req.query.certSlug || "").trim().toLowerCase();
+  const params = [req.auth.sub];
+  let sql = "SELECT * FROM public.reviews WHERE user_id = ?";
+  if (certSlug) {
+    sql += " AND lower(cert_slug) = ?";
+    params.push(certSlug);
+  }
+  sql += " ORDER BY id DESC";
+  const rows = await all(sql, params);
+  return res.json(rows);
+});
+
+app.post("/api/me/reviews", requireAuth, async (req, res) => {
+  const certSlug = String(req.body.certSlug || "").trim().toLowerCase();
+  const score = Number(req.body.score);
+  const content = String(req.body.content || "").trim();
+  if (!certSlug) return sendError(res, 400, "certSlug가 필요합니다.");
+  if (!Number.isInteger(score) || score < 1 || score > 5) {
+    return sendError(res, 400, "score는 1~5 범위여야 합니다.");
+  }
+  if (content.length < 10) return sendError(res, 400, "후기 내용은 10자 이상 작성해 주세요.");
+  const user = await get("SELECT id, name FROM public.users WHERE id = ?", [req.auth.sub]);
+  if (!user) return sendError(res, 404, "사용자를 찾을 수 없습니다.");
+  const courseCode = certSlug.slice(0, 20).toUpperCase();
+  const inserted = await run(
+    `INSERT INTO public.reviews
+      (course_code, cert_slug, user_id, author_name, score, content, status, moderation_note, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'pending', NULL, now())
+     RETURNING id`,
+    [courseCode, certSlug, user.id, user.name, score, content]
+  );
+  const created = await get("SELECT * FROM public.reviews WHERE id = ?", [inserted.rows[0].id]);
+  return res.status(201).json(created);
+});
+
+app.delete("/api/me/reviews/:id", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return sendError(res, 400, "유효한 리뷰 ID가 필요합니다.");
+  const exists = await get("SELECT id FROM public.reviews WHERE id = ? AND user_id = ?", [id, req.auth.sub]);
+  if (!exists) return sendError(res, 404, "리뷰를 찾을 수 없습니다.");
+  await run("DELETE FROM public.reviews WHERE id = ? AND user_id = ?", [id, req.auth.sub]);
+  return res.json({ ok: true });
+});
+
+app.get("/api/admin/reviews", requireAuth, requireAdmin, async (req, res) => {
+  const status = String(req.query.status || "").trim().toLowerCase();
+  const certSlug = String(req.query.certSlug || "").trim().toLowerCase();
+  const params = [];
+  const where = [];
+  if (status) {
+    where.push("lower(status) = ?");
+    params.push(status);
+  }
+  if (certSlug) {
+    where.push("lower(cert_slug) = ?");
+    params.push(certSlug);
+  }
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  const rows = await all(
+    `SELECT r.*, u.email AS user_email
+     FROM public.reviews r
+     LEFT JOIN public.users u ON u.id = r.user_id
+     ${whereSql}
+     ORDER BY r.id DESC`,
+    params
+  );
+  return res.json(rows);
+});
+
+app.patch("/api/admin/reviews/:id", requireAuth, requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const status = String(req.body.status || "").trim().toLowerCase();
+  const moderationNote =
+    req.body.moderationNote == null ? null : String(req.body.moderationNote || "").trim().slice(0, 1000);
+  const allowed = new Set(["pending", "approved", "hidden", "rejected"]);
+  if (!Number.isInteger(id) || id <= 0) return sendError(res, 400, "유효한 리뷰 ID가 필요합니다.");
+  if (!allowed.has(status)) return sendError(res, 400, "status 값이 올바르지 않습니다.");
+  const exists = await get("SELECT id FROM public.reviews WHERE id = ?", [id]);
+  if (!exists) return sendError(res, 404, "리뷰를 찾을 수 없습니다.");
+  await run("UPDATE public.reviews SET status = ?, moderation_note = ?, updated_at = now() WHERE id = ?", [
+    status,
+    moderationNote,
+    id,
+  ]);
+  const updated = await get("SELECT * FROM public.reviews WHERE id = ?", [id]);
+  return res.json(updated);
 });
 
 app.get("/api/inquiries", async (req, res) => {

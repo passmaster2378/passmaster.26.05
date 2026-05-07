@@ -58,6 +58,41 @@
         font-size: 16px;
         margin-top: 3px;
       }
+      .qa-panel {
+        display: grid;
+        gap: 8px;
+        margin: 0 0 10px;
+      }
+      .qa-item {
+        border: 1px solid #dde4ef;
+        border-radius: 10px;
+        padding: 8px 10px;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+      }
+      .qa-save-row {
+        display: flex;
+        justify-content: flex-end;
+      }
+      .qa-btn {
+        border: 1px solid #c9d5ea;
+        border-radius: 10px;
+        background: #f8fbff;
+        color: #30527f;
+        min-height: 36px;
+        padding: 0 12px;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .qa-msg {
+        font-size: 12px;
+        color: #475467;
+        margin: 0 0 10px;
+      }
       .list {
         display: grid;
         gap: 10px;
@@ -157,11 +192,27 @@
           <input id="note-search" type="search" placeholder="문항/해설 검색" />
           <select id="note-category-filter"></select>
         </section>
+        <section class="qa-panel" id="qa-panel">
+          <label class="qa-item"><input type="checkbox" data-qa-key="flowLockVerified" /> 회차 잠금/순차 진행 확인</label>
+          <label class="qa-item"><input type="checkbox" data-qa-key="artifactSaved" /> 오답노트/통계 저장 확인</label>
+          <label class="qa-item"><input type="checkbox" data-qa-key="reviewFlowVerified" /> 후기 작성/삭제 흐름 확인</label>
+          <label class="qa-item"><input type="checkbox" data-qa-key="mobileLayoutVerified" /> 모바일 레이아웃 확인</label>
+          <div class="qa-save-row">
+            <button type="button" class="qa-btn" id="btn-qa-save">QA 체크 저장</button>
+          </div>
+          <p class="qa-msg" id="qa-msg"></p>
+        </section>
         <section class="list" id="note-list"></section>
       </main>
     </div>
     <script>
       let originalRows = [];
+      let qaChecklistState = {
+        flowLockVerified: false,
+        artifactSaved: false,
+        reviewFlowVerified: false,
+        mobileLayoutVerified: false,
+      };
 
       function escapeHtml(value) {
         const div = document.createElement("div");
@@ -203,6 +254,60 @@
           .join("");
       }
 
+      function loadLocalQa() {
+        try {
+          const parsed = JSON.parse(localStorage.getItem("makeupQaChecklist") || "{}");
+          if (parsed && typeof parsed === "object") {
+            qaChecklistState = { ...qaChecklistState, ...parsed };
+          }
+        } catch (_error) {
+          // ignore
+        }
+      }
+
+      function renderQa() {
+        loadLocalQa();
+        document.querySelectorAll("[data-qa-key]").forEach((input) => {
+          const key = input.getAttribute("data-qa-key");
+          input.checked = Boolean(qaChecklistState[key]);
+          input.addEventListener("change", () => {
+            qaChecklistState[key] = Boolean(input.checked);
+            localStorage.setItem("makeupQaChecklist", JSON.stringify(qaChecklistState));
+          });
+        });
+      }
+
+      async function saveQaRemote() {
+        const qaMsg = document.getElementById("qa-msg");
+        qaMsg.textContent = "저장 중...";
+        try {
+          const raw = localStorage.getItem("passmaster_auth");
+          const session = raw ? JSON.parse(raw) : null;
+          if (!session || !session.token) throw new Error("로그인이 필요합니다.");
+          const wrongRows = JSON.parse(localStorage.getItem("makeupWrongNote") || "[]");
+          const reviewSeed = JSON.parse(localStorage.getItem("makeupReviewSeed") || "{}");
+          const res = await fetch("/api/me/study-artifact/makeup", {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.token}`,
+            },
+            body: JSON.stringify({
+              payload: {
+                wrongNotes: Array.isArray(wrongRows) ? wrongRows : [],
+                reviewSeed: reviewSeed && typeof reviewSeed === "object" ? reviewSeed : {},
+                qaChecklist: qaChecklistState,
+              },
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.message || "저장 실패");
+          qaMsg.textContent = "QA 체크리스트가 저장되었습니다.";
+        } catch (error) {
+          qaMsg.textContent = `저장 실패: ${error.message || error}`;
+        }
+      }
+
       function renderWrongNote() {
         const meta = document.getElementById("note-meta");
         const list = document.getElementById("note-list");
@@ -233,7 +338,32 @@
         categoryFilter.addEventListener("change", applyFilter);
         applyFilter();
       }
-      renderWrongNote();
+      async function hydrateRemoteArtifact() {
+        try {
+          const raw = localStorage.getItem("passmaster_auth");
+          const session = raw ? JSON.parse(raw) : null;
+          if (!session || !session.token) return;
+          const res = await fetch("/api/me/study-artifact/makeup", {
+            headers: { Authorization: `Bearer ${session.token}` },
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data || !data.payload) return;
+          if (Array.isArray(data.payload.wrongNotes)) {
+            localStorage.setItem("makeupWrongNote", JSON.stringify(data.payload.wrongNotes));
+          }
+          if (data.payload.reviewSeed && typeof data.payload.reviewSeed === "object") {
+            localStorage.setItem("makeupReviewSeed", JSON.stringify(data.payload.reviewSeed));
+          }
+          if (data.payload.qaChecklist && typeof data.payload.qaChecklist === "object") {
+            localStorage.setItem("makeupQaChecklist", JSON.stringify(data.payload.qaChecklist));
+          }
+        } catch (_error) {
+          // 네트워크 실패 시 로컬 데이터로 계속 진행
+        }
+      }
+      document.getElementById("btn-qa-save").addEventListener("click", saveQaRemote);
+      renderQa();
+      hydrateRemoteArtifact().finally(renderWrongNote);
     </script>
   </body>
 </html>

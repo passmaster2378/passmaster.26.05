@@ -178,11 +178,75 @@
         }
       }
       function readHistory() {
+        const rows = readPersistedReviews();
+        return Array.isArray(rows) ? rows : [];
+      }
+      function readPersistedReviews() {
         try {
           const rows = JSON.parse(localStorage.getItem("makeupReviewHistory") || "[]");
           return Array.isArray(rows) ? rows : [];
         } catch (_error) {
           return [];
+        }
+      }
+      function writePersistedReviews(rows) {
+        localStorage.setItem("makeupReviewHistory", JSON.stringify(Array.isArray(rows) ? rows.slice(0, 50) : []));
+      }
+      function getSession() {
+        try {
+          const raw = localStorage.getItem("passmaster_auth");
+          return raw ? JSON.parse(raw) : null;
+        } catch (_error) {
+          return null;
+        }
+      }
+      async function requestApi(path, options = {}) {
+        const session = getSession();
+        if (!session || !session.token) throw new Error("로그인이 필요합니다.");
+        const res = await fetch(`/api${path}`, {
+          ...options,
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.token}`,
+            ...(options.headers || {}),
+          },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || "요청 처리 중 오류가 발생했습니다.");
+        return data;
+      }
+      function statusLabel(status) {
+        if (status === "approved") return "승인";
+        if (status === "hidden") return "숨김";
+        if (status === "rejected") return "반려";
+        return "검수중";
+      }
+      async function hydrateRemote() {
+        try {
+          const artifact = await requestApi("/me/study-artifact/makeup", { method: "GET" });
+          if (artifact && artifact.payload) {
+            if (artifact.payload.reviewSeed && typeof artifact.payload.reviewSeed === "object") {
+              localStorage.setItem("makeupReviewSeed", JSON.stringify(artifact.payload.reviewSeed));
+            }
+            if (artifact.payload.qaChecklist && typeof artifact.payload.qaChecklist === "object") {
+              localStorage.setItem("makeupQaChecklist", JSON.stringify(artifact.payload.qaChecklist));
+            }
+          }
+          const reviews = await requestApi("/me/reviews?certSlug=makeup", { method: "GET" });
+          if (Array.isArray(reviews)) {
+            const normalized = reviews.map((row) => ({
+              id: row.id,
+              name: row.author_name,
+              score: row.score,
+              content: row.content,
+              status: row.status || "pending",
+              moderationNote: row.moderation_note || "",
+              createdAt: row.created_at ? new Date(row.created_at).toLocaleString("ko-KR") : "-",
+            }));
+            writePersistedReviews(normalized);
+          }
+        } catch (_error) {
+          // 로그인/서버 오류 시 로컬 기반 동작 유지
         }
       }
       function renderSeed() {
@@ -209,17 +273,27 @@
                 <div style="font-size:13px;color:#6b7280">${r.createdAt}</div>
                 <button type="button" class="delete-btn" data-delete-index="${idx}">삭제</button>
               </div>
-              <div style="font-weight:800">${r.name} · ${r.score}점</div>
+              <div style="font-weight:800">${r.name} · ${r.score}점 · ${statusLabel(r.status)}</div>
               <p style="margin:6px 0 0;line-height:1.5">${r.content}</p>
+              ${r.moderationNote ? `<p style="margin:6px 0 0;color:#8a3b12;font-size:12px">관리자 메모: ${r.moderationNote}</p>` : ""}
             </article>
           `
           )
           .join("");
         box.querySelectorAll("[data-delete-index]").forEach((btn) => {
-          btn.addEventListener("click", () => {
+          btn.addEventListener("click", async () => {
             const index = Number(btn.getAttribute("data-delete-index"));
+            const target = readHistory()[index];
+            if (!target) return;
+            if (target.id) {
+              try {
+                await requestApi(`/me/reviews/${target.id}`, { method: "DELETE" });
+              } catch (_error) {
+                // 서버 삭제 실패시에도 로컬에서는 삭제 허용
+              }
+            }
             const next = readHistory().filter((_row, i) => i !== index);
-            localStorage.setItem("makeupReviewHistory", JSON.stringify(next));
+            writePersistedReviews(next);
             renderHistory();
           });
         });
@@ -242,19 +316,39 @@
           return;
         }
         const rows = readHistory();
+        let created = null;
+        try {
+          created = await requestApi("/me/reviews", {
+            method: "POST",
+            body: JSON.stringify({
+              certSlug: "makeup",
+              score: Number(score),
+              content,
+            }),
+          });
+        } catch (error) {
+          msg.classList.add("error");
+          msg.textContent = error.message || "후기 저장에 실패했습니다.";
+          return;
+        }
         rows.unshift({
+          id: created.id,
           name,
           score,
           content,
+          status: created.status || "pending",
+          moderationNote: created.moderation_note || "",
           createdAt: new Date().toLocaleString("ko-KR"),
         });
-        localStorage.setItem("makeupReviewHistory", JSON.stringify(rows.slice(0, 20)));
+        writePersistedReviews(rows);
         msg.textContent = "후기가 저장되었습니다.";
         event.target.reset();
         renderHistory();
       });
-      renderSeed();
-      renderHistory();
+      hydrateRemote().finally(() => {
+        renderSeed();
+        renderHistory();
+      });
     </script>
   </body>
 </html>
