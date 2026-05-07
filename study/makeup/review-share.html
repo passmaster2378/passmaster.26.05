@@ -27,6 +27,25 @@
         color: #374151;
         line-height: 1.6;
       }
+      .quick-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+        flex-wrap: wrap;
+      }
+      .quick-link {
+        border: 1px solid #ced8eb;
+        border-radius: 10px;
+        background: #fff;
+        color: #325181;
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 700;
+        min-height: 36px;
+        padding: 0 10px;
+        display: inline-flex;
+        align-items: center;
+      }
       label {
         display: block;
         font-size: 13px;
@@ -66,12 +85,37 @@
         font-size: 13px;
         color: #0f5132;
       }
+      .msg.error {
+        color: #b42318;
+      }
       .history-item {
         border-top: 1px dashed #d1d5db;
         padding: 10px 0;
       }
       .history-item:first-child {
         border-top: none;
+      }
+      .history-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+      .delete-btn {
+        border: 1px solid #f2b8b5;
+        background: #fff5f5;
+        color: #b42318;
+        border-radius: 8px;
+        min-height: 30px;
+        padding: 0 10px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      @media (max-width: 720px) {
+        .row {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
@@ -90,6 +134,10 @@
           <p class="pm-pill">수강생 전용</p>
           <h1 style="margin: 8px 0 6px">후기작성 / 리뷰 공유</h1>
           <div class="stats" id="review-seed">학습 요약을 불러오는 중...</div>
+          <div class="quick-actions">
+            <a class="quick-link" href="./index.html">문제은행으로 돌아가기</a>
+            <a class="quick-link" href="./wrong-note.html">오답노트 보기</a>
+          </div>
         </section>
         <section class="panel">
           <form id="review-form">
@@ -112,7 +160,7 @@
             <label for="review-content">후기 내용</label>
             <textarea id="review-content" placeholder="학습 루프를 진행한 경험을 작성해 주세요." required></textarea>
             <button type="submit" class="btn">후기 저장</button>
-            <div class="msg" id="review-msg"></div>
+            <div class="msg" id="review-msg" aria-live="polite"></div>
           </form>
         </section>
         <section class="panel">
@@ -155,15 +203,26 @@
         }
         box.innerHTML = rows
           .map(
-            (r) => `
+            (r, idx) => `
             <article class="history-item">
-              <div style="font-size:13px;color:#6b7280">${r.createdAt}</div>
+              <div class="history-head">
+                <div style="font-size:13px;color:#6b7280">${r.createdAt}</div>
+                <button type="button" class="delete-btn" data-delete-index="${idx}">삭제</button>
+              </div>
               <div style="font-weight:800">${r.name} · ${r.score}점</div>
               <p style="margin:6px 0 0;line-height:1.5">${r.content}</p>
             </article>
           `
           )
           .join("");
+        box.querySelectorAll("[data-delete-index]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const index = Number(btn.getAttribute("data-delete-index"));
+            const next = readHistory().filter((_row, i) => i !== index);
+            localStorage.setItem("makeupReviewHistory", JSON.stringify(next));
+            renderHistory();
+          });
+        });
       }
       document.getElementById("review-form").addEventListener("submit", (event) => {
         event.preventDefault();
@@ -171,8 +230,15 @@
         const score = document.getElementById("review-score").value;
         const content = document.getElementById("review-content").value.trim();
         const msg = document.getElementById("review-msg");
+        msg.classList.remove("error");
         if (!name || !content) {
+          msg.classList.add("error");
           msg.textContent = "이름과 후기 내용을 입력해 주세요.";
+          return;
+        }
+        if (content.length < 10) {
+          msg.classList.add("error");
+          msg.textContent = "후기 내용은 10자 이상 작성해 주세요.";
           return;
         }
         const rows = readHistory();

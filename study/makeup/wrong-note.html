@@ -26,6 +26,38 @@
         font-size: 13px;
         color: #667085;
       }
+      .toolbar {
+        display: grid;
+        grid-template-columns: 1fr 180px;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .toolbar input,
+      .toolbar select {
+        width: 100%;
+        border: 1px solid #d0d7e2;
+        border-radius: 10px;
+        min-height: 40px;
+        padding: 0 10px;
+        box-sizing: border-box;
+      }
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .summary-item {
+        background: #fff;
+        border: 1px solid #dde4ee;
+        border-radius: 10px;
+        padding: 10px;
+      }
+      .summary-item strong {
+        display: block;
+        font-size: 16px;
+        margin-top: 3px;
+      }
       .list {
         display: grid;
         gap: 10px;
@@ -58,6 +90,33 @@
         border-radius: 12px;
         padding: 18px;
       }
+      .actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .btn {
+        border-radius: 10px;
+        border: 1px solid #c9d5ea;
+        background: #fff;
+        color: #34507d;
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 13px;
+        min-height: 38px;
+        padding: 0 12px;
+        display: inline-flex;
+        align-items: center;
+      }
+      @media (max-width: 720px) {
+        .toolbar {
+          grid-template-columns: 1fr;
+        }
+        .summary {
+          grid-template-columns: 1fr;
+        }
+      }
     </style>
   </head>
   <body>
@@ -76,10 +135,74 @@
           <h1>오답노트</h1>
           <p class="meta" id="note-meta">저장된 오답 데이터를 불러오는 중...</p>
         </div>
+        <div class="actions">
+          <a class="btn" href="./index.html">문제은행으로 돌아가기</a>
+          <a class="btn" href="./review-share.html">후기작성/공유</a>
+        </div>
+        <section class="summary" id="note-summary" hidden>
+          <article class="summary-item">
+            총 오답 문항
+            <strong id="summary-total">0</strong>
+          </article>
+          <article class="summary-item">
+            표시 중 문항
+            <strong id="summary-visible">0</strong>
+          </article>
+          <article class="summary-item">
+            과목 수
+            <strong id="summary-cats">0</strong>
+          </article>
+        </section>
+        <section class="toolbar" id="note-toolbar" hidden>
+          <input id="note-search" type="search" placeholder="문항/해설 검색" />
+          <select id="note-category-filter"></select>
+        </section>
         <section class="list" id="note-list"></section>
       </main>
     </div>
     <script>
+      let originalRows = [];
+
+      function escapeHtml(value) {
+        const div = document.createElement("div");
+        div.textContent = value;
+        return div.innerHTML;
+      }
+
+      function applyFilter() {
+        const list = document.getElementById("note-list");
+        const searchValue = document.getElementById("note-search").value.trim().toLowerCase();
+        const selectedCat = document.getElementById("note-category-filter").value;
+        const filtered = originalRows.filter((row) => {
+          const cat = String(row.category || "기타");
+          const question = String(row.question || "");
+          const explanation = String(row.explanation || "");
+          const catMatch = selectedCat === "all" ? true : cat === selectedCat;
+          const textMatch =
+            !searchValue ||
+            question.toLowerCase().includes(searchValue) ||
+            explanation.toLowerCase().includes(searchValue);
+          return catMatch && textMatch;
+        });
+        document.getElementById("summary-visible").textContent = String(filtered.length);
+        if (filtered.length === 0) {
+          list.innerHTML = '<article class="empty">조건에 맞는 오답 문항이 없습니다.</article>';
+          return;
+        }
+        list.innerHTML = filtered
+          .map(
+            (row) => `
+              <article class="item">
+                <div class="cat">${escapeHtml(row.category || "기타")}</div>
+                <p class="q">${escapeHtml(row.question || "")}</p>
+                <p class="a">정답: ${escapeHtml(String(row.answer || "-"))}</p>
+                <p class="e">해설: ${escapeHtml(row.explanation || "해설 없음")}</p>
+              </article>
+            `
+          )
+          .join("");
+      }
+
       function renderWrongNote() {
         const meta = document.getElementById("note-meta");
         const list = document.getElementById("note-list");
@@ -95,19 +218,20 @@
             '<article class="empty">학습/기출을 진행한 뒤 최종 요약에서 오답노트를 다시 확인해 주세요.</article>';
           return;
         }
+        originalRows = rows;
+        const categories = Array.from(new Set(rows.map((r) => String(r.category || "기타")))).sort();
         meta.textContent = `총 ${rows.length}문항의 오답이 저장되었습니다.`;
-        list.innerHTML = rows
-          .map(
-            (row) => `
-              <article class="item">
-                <div class="cat">${row.category || "기타"}</div>
-                <p class="q">${row.question || ""}</p>
-                <p class="a">정답: ${row.answer || "-"}</p>
-                <p class="e">해설: ${row.explanation || "해설 없음"}</p>
-              </article>
-            `
-          )
-          .join("");
+        document.getElementById("note-summary").hidden = false;
+        document.getElementById("note-toolbar").hidden = false;
+        document.getElementById("summary-total").textContent = String(rows.length);
+        document.getElementById("summary-cats").textContent = String(categories.length);
+        const categoryFilter = document.getElementById("note-category-filter");
+        categoryFilter.innerHTML = `<option value="all">전체 과목</option>${categories
+          .map((cat) => `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`)
+          .join("")}`;
+        document.getElementById("note-search").addEventListener("input", applyFilter);
+        categoryFilter.addEventListener("change", applyFilter);
+        applyFilter();
       }
       renderWrongNote();
     </script>
