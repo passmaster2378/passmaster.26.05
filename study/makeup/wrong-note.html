@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>메이크업 미용사 · 오답노트</title>
+    <link rel="stylesheet" href="../../assets/shared.css" />
+    <style>
+      body {
+        margin: 0;
+        background: #eef1f5;
+      }
+      .wrap {
+        width: min(860px, calc(100% - 24px));
+        margin: 0 auto;
+        padding: 16px 0 28px;
+      }
+      .head {
+        margin-bottom: 12px;
+      }
+      .head h1 {
+        margin: 8px 0 4px;
+        font-size: 1.35rem;
+      }
+      .meta {
+        font-size: 13px;
+        color: #667085;
+      }
+      .list {
+        display: grid;
+        gap: 10px;
+      }
+      .item {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 12px;
+      }
+      .cat {
+        color: #1353b3;
+        font-size: 12px;
+        font-weight: 800;
+      }
+      .q {
+        margin: 8px 0;
+        font-weight: 700;
+        line-height: 1.45;
+      }
+      .a,
+      .e {
+        margin: 4px 0;
+        font-size: 13px;
+        color: #374151;
+      }
+      .empty {
+        background: #fff;
+        border: 1px dashed #cbd5e1;
+        border-radius: 12px;
+        padding: 18px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="pm-shell">
+      <header class="pm-header">
+        <a class="pm-logo" href="../../index.html">PASSmaster</a>
+        <nav class="pm-nav" aria-label="공통 이동">
+          <a href="./index.html">문제은행</a>
+          <a href="./review-share.html">후기작성/공유</a>
+          <a href="../../my-courses/index.html">내 강의</a>
+        </nav>
+      </header>
+      <main class="pm-main wrap">
+        <div class="head">
+          <p class="pm-pill">수강생 전용</p>
+          <h1>오답노트</h1>
+          <p class="meta" id="note-meta">저장된 오답 데이터를 불러오는 중...</p>
+        </div>
+        <section class="list" id="note-list"></section>
+      </main>
+    </div>
+    <script>
+      function renderWrongNote() {
+        const meta = document.getElementById("note-meta");
+        const list = document.getElementById("note-list");
+        let rows = [];
+        try {
+          rows = JSON.parse(localStorage.getItem("makeupWrongNote") || "[]");
+        } catch (_error) {
+          rows = [];
+        }
+        if (!Array.isArray(rows) || rows.length === 0) {
+          meta.textContent = "아직 저장된 오답이 없습니다.";
+          list.innerHTML =
+            '<article class="empty">학습/기출을 진행한 뒤 최종 요약에서 오답노트를 다시 확인해 주세요.</article>';
+          return;
+        }
+        meta.textContent = `총 ${rows.length}문항의 오답이 저장되었습니다.`;
+        list.innerHTML = rows
+          .map(
+            (row) => `
+              <article class="item">
+                <div class="cat">${row.category || "기타"}</div>
+                <p class="q">${row.question || ""}</p>
+                <p class="a">정답: ${row.answer || "-"}</p>
+                <p class="e">해설: ${row.explanation || "해설 없음"}</p>
+              </article>
+            `
+          )
+          .join("");
+      }
+      renderWrongNote();
+    </script>
+  </body>
+</html>

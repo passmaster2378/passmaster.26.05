@@ -69,6 +69,7 @@
     btnDashReview: document.getElementById("btn-dash-review"),
     finalText: document.getElementById("final-text"),
     finalBar: document.getElementById("final-bar"),
+    finalActions: document.getElementById("final-actions"),
   };
 
   /** @type {any[]} */
@@ -549,6 +550,76 @@
     return d.innerHTML;
   }
 
+  function persistStudentArtifacts() {
+    try {
+      const wrongIds = new Set(studyWrong);
+      mockHistory.forEach((h) => {
+        h.wrongIds.forEach((id) => wrongIds.add(id));
+      });
+      const wrongQuestions = bank
+        .filter((q) => wrongIds.has(q.uniqueId))
+        .map((q) => ({
+          id: q.uniqueId,
+          category: q.category || "기타",
+          question: q.question || "",
+          answer: q.answer || "",
+          explanation: q.explanation || "",
+        }));
+      const passedRounds = mockHistory.filter((h) => h.passed).length;
+      const avgScore100 = mockHistory.length
+        ? Math.round(
+            mockHistory.reduce((sum, h) => sum + scorePercent100(h.correct), 0) / Math.max(1, mockHistory.length)
+          )
+        : 0;
+      window.localStorage.setItem("makeupWrongNote", JSON.stringify(wrongQuestions));
+      window.localStorage.setItem(
+        "makeupReviewSeed",
+        JSON.stringify({
+          totalRounds: MOCK_ROUNDS,
+          completedRounds: mockHistory.length,
+          passedRounds,
+          avgScore100,
+          updatedAt: new Date().toISOString(),
+        })
+      );
+    } catch (_error) {
+      // localStorage 저장 실패 시 학습 흐름은 유지
+    }
+  }
+
+  function loopChip(label, state) {
+    const stateClass = state === "done" ? "loop-chip--done" : state === "active" ? "loop-chip--active" : "loop-chip--lock";
+    return `<div class="loop-chip ${stateClass}">${label}</div>`;
+  }
+
+  function buildLoopBoard() {
+    const doneStudy1 = studyRound >= 2 || mockHistory.length > 0;
+    const doneStudy2 = studyRound >= 3 || mockHistory.length > 0;
+    const doneStudy3 = studyRound >= 4 || mockHistory.length > 0;
+    const doneWrongReview = studyRound >= 5 || mockHistory.length > 0;
+    const roundDone = (n) => mockHistory.length >= n;
+    return `
+      <section class="loop-board" aria-label="수강생 10단계 학습 루프">
+        <p class="loop-head">수강생 10단계 학습 루프 (고정 운영안)</p>
+        <div class="loop-grid">
+          ${loopChip("1단계 워밍업 · 정답보기+해설", doneStudy1 ? "done" : "active")}
+          ${loopChip("2단계 속도훈련 · 4지선지 기반", doneStudy2 ? "done" : doneStudy1 ? "active" : "lock")}
+          ${loopChip("3단계 실전훈련 · 타이머 운용", doneStudy3 ? "done" : doneStudy2 ? "active" : "lock")}
+          ${loopChip("4단계 AI 분석 · 오답노트", doneWrongReview ? "done" : doneStudy3 ? "active" : "lock")}
+          ${loopChip("5단계 과목별 실제시험 영역", roundDone(1) ? "done" : doneWrongReview ? "active" : "lock")}
+          ${loopChip("6단계 오답 리빌딩 · 구간별", roundDone(2) ? "done" : roundDone(1) ? "active" : "lock")}
+          ${loopChip("7단계 스피드 루프 · 10분", roundDone(3) ? "done" : roundDone(2) ? "active" : "lock")}
+          ${loopChip("8단계 모의고사 · 기출 실전", roundDone(4) ? "done" : roundDone(3) ? "active" : "lock")}
+          ${loopChip("9단계 AI 진단 분석 리포트", roundDone(5) ? "done" : roundDone(4) ? "active" : "lock")}
+          ${loopChip(
+            "10단계 최종점검 · D-day 모드",
+            roundDone(6) || screen === "final" ? "done" : roundDone(5) ? "active" : "lock"
+          )}
+        </div>
+      </section>
+    `;
+  }
+
   function showDashboard() {
     const byCat = {};
     mockHistory.forEach((h) => {
@@ -628,6 +699,7 @@
 
   function showFinal() {
     clearStudyTimer();
+    persistStudentArtifacts();
     const passedRounds = mockHistory.filter((h) => h.passed).length;
     const rate = mockHistory.length ? Math.round((passedRounds / mockHistory.length) * 100) : 0;
     const avgScore100 = mockHistory.length
@@ -652,6 +724,12 @@
         <div class="mq-bar-track"><div class="mq-bar-fill mq-bar-fill--ok" style="width:${rate}%"></div></div>
         <span class="mq-bar-num">${rate}%</span>
       </div>`;
+    if (E.finalActions) {
+      E.finalActions.innerHTML = `
+        <a class="mq-bigbtn mq-bigbtn-link" href="./wrong-note.html">오답노트 보기</a>
+        <a class="mq-bigbtn mq-bigbtn-link" href="./review-share.html">후기작성/리뷰 공유</a>
+      `;
+    }
     setScreen("final");
     updateAdminPanel("최종 결과 표시");
   }
@@ -685,6 +763,7 @@
             </div>
           </div>
         </section>
+        ${buildLoopBoard()}
         <section class="flow-stage flow-stage--1">
           <div class="flow-stage-top">
             <p class="flow-head">STAGE 1. 과목별 순차 문제풀이</p>
@@ -767,10 +846,46 @@
             <div class="flow-chip flow-chip--lock">🔒 오답 복습</div>
             <div class="flow-chip flow-chip--lock">🔒 최종 오답 문제풀이</div>
           </div>
+          <div class="flow-mini-actions">
+            <button type="button" class="flow-subbtn" id="btn-open-wrong-note" disabled>오답노트</button>
+            <button type="button" class="flow-subbtn" id="btn-open-review-share" disabled>후기작성/공유</button>
+          </div>
           <button type="button" class="flow-action" disabled>최종 단계 잠금</button>
         </section>
       </div>
     `;
+    const hasWrongNotes = (() => {
+      try {
+        const rows = JSON.parse(window.localStorage.getItem("makeupWrongNote") || "[]");
+        return Array.isArray(rows) && rows.length > 0;
+      } catch (_error) {
+        return false;
+      }
+    })();
+    const hasReviewSeed = (() => {
+      try {
+        const seed = JSON.parse(window.localStorage.getItem("makeupReviewSeed") || "{}");
+        return Number(seed.completedRounds || 0) > 0;
+      } catch (_error) {
+        return false;
+      }
+    })();
+    const wrongBtn = document.getElementById("btn-open-wrong-note");
+    const reviewBtn = document.getElementById("btn-open-review-share");
+    if (wrongBtn) {
+      wrongBtn.disabled = !(canEnterFinalReview || hasWrongNotes);
+      wrongBtn.addEventListener("click", () => {
+        if (wrongBtn.disabled) return;
+        window.location.href = "./wrong-note.html";
+      });
+    }
+    if (reviewBtn) {
+      reviewBtn.disabled = !(canEnterFinalReview || hasReviewSeed);
+      reviewBtn.addEventListener("click", () => {
+        if (reviewBtn.disabled) return;
+        window.location.href = "./review-share.html";
+      });
+    }
     document.getElementById("btn-start-study").addEventListener("click", () => {
       studyWrong = new Set();
       mockHistory = [];

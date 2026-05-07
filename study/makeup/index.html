@@ -76,6 +76,9 @@
       .mq-bigbtn:hover {
         filter: brightness(1.05);
       }
+      .mq-bigbtn-link {
+        text-decoration: none;
+      }
       .mq-bigbtn--start {
         width: 100%;
       }
@@ -281,6 +284,75 @@
         cursor: not-allowed;
         background: #d4d9e4;
         color: #9aa3b3;
+      }
+      .loop-board {
+        border-radius: 16px;
+        border: 1px dashed #c8d3e8;
+        background: #f7f9fe;
+        padding: 12px;
+      }
+      .loop-head {
+        margin: 0 0 10px;
+        font-size: 13px;
+        font-weight: 800;
+        color: #3c4f73;
+      }
+      .loop-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .loop-chip {
+        border-radius: 10px;
+        min-height: 48px;
+        padding: 8px 10px;
+        border: 1px solid #d6dfef;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.35;
+        display: flex;
+        align-items: center;
+      }
+      .loop-chip--done {
+        background: #e8f5e9;
+        border-color: #8acb8e;
+        color: #185b1c;
+      }
+      .loop-chip--active {
+        background: #e3f2fd;
+        border-color: #80bfff;
+        color: #114a8a;
+      }
+      .loop-chip--lock {
+        background: #f0f2f7;
+        border-color: #dce2ed;
+        color: #7b8599;
+      }
+      .flow-links {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .flow-mini-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .flow-subbtn {
+        min-height: 42px;
+        border: 1px solid #ccd6e8;
+        border-radius: 10px;
+        background: #fff;
+        color: #2f4c7a;
+        font-size: 13px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      .flow-subbtn:disabled {
+        background: #edf1f7;
+        color: #9aa4b5;
+        cursor: not-allowed;
       }
       #load-error {
         margin-top: 12px;
@@ -690,12 +762,17 @@
           <button type="button" class="mq-bigbtn" id="btn-dash-review" style="margin-top: 16px; width: 100%">
             기출 오답 복습 (30초)
           </button>
+          <div class="flow-links" style="margin-top: 10px">
+            <a class="mq-bigbtn mq-bigbtn-link" href="./wrong-note.html">오답노트</a>
+            <a class="mq-bigbtn mq-bigbtn-link" href="./review-share.html">후기작성/공유</a>
+          </div>
         </div>
 
         <div id="view-final" class="pm-card" hidden>
           <h2>최종 요약</h2>
           <div id="final-text"></div>
           <div id="final-bar" style="margin-top: 20px"></div>
+          <div id="final-actions" class="flow-links" style="margin-top: 14px"></div>
         </div>
       </main>
 
