@@ -1143,6 +1143,72 @@
           showMessage(msg, error.message, "error");
         }
       });
+
+      const refundFullBtn = form.querySelector("[data-api='admin-payment-refund-full']");
+      if (refundFullBtn) {
+        refundFullBtn.addEventListener("click", async () => {
+          const ok = window.confirm("현재 신청 건의 환불 가능 금액 전체를 환불 처리할까요?");
+          if (!ok) return;
+          const reviewNoteRaw =
+            form.review_note && typeof form.review_note.value === "string" ? form.review_note.value.trim() : "";
+          const reviewNote = reviewNoteRaw || "관리자 전액환불 처리";
+          try {
+            refundFullBtn.disabled = true;
+            await request(`/admin/payments/${id}`, {
+              method: "PATCH",
+              body: JSON.stringify({ status: "refunded", reviewNote }),
+            });
+            const msg = form.querySelector("[data-api='admin-payment-form-msg']");
+            showMessage(msg, "전액환불이 반영되었습니다.", "success");
+            const p = await request(`/admin/payments/${id}`);
+            loadedPayment = p;
+            if (form.status) form.status.value = "refunded";
+            if (form.review_note) form.review_note.value = reviewNote;
+            if (form.refund_amount && p.payment_summary) {
+              const maxRefund = Number(p.payment_summary.netPaid || 0);
+              form.refund_amount.max = maxRefund > 0 ? String(maxRefund) : "";
+              form.refund_amount.value = "";
+            }
+            root.querySelector("[data-field='status']").textContent = toPaymentStatusLabel(p.status);
+            if (root.querySelector("[data-field='reviewNote']")) {
+              root.querySelector("[data-field='reviewNote']").textContent = p.review_note || "-";
+            }
+            if (root.querySelector("[data-field='netPaid']")) {
+              const netPaid = p.payment_summary ? Number(p.payment_summary.netPaid || 0) : 0;
+              root.querySelector("[data-field='netPaid']").textContent = `${netPaid.toLocaleString("ko-KR")}원`;
+            }
+            if (root.querySelector("[data-field='outstanding']")) {
+              const outstanding = p.payment_summary ? Number(p.payment_summary.outstandingAmount || 0) : 0;
+              root.querySelector("[data-field='outstanding']").textContent = `${outstanding.toLocaleString("ko-KR")}원`;
+            }
+            const historyBody = root.querySelector("[data-api='admin-payment-history-body']");
+            if (historyBody) {
+              const historyRows = Array.isArray(p.payment_history) ? p.payment_history : [];
+              historyBody.innerHTML = "";
+              if (!historyRows.length) {
+                historyBody.innerHTML = "<tr><td colspan='5'>결제 이력이 없습니다.</td></tr>";
+              } else {
+                historyRows.forEach((h) => {
+                  const tr = document.createElement("tr");
+                  tr.innerHTML = `
+                    <td>${h.id}</td>
+                    <td>${toPaymentStatusLabel(h.status)}</td>
+                    <td>${Number(h.amount || 0).toLocaleString("ko-KR")}원</td>
+                    <td>${h.depositor_name || "-"}</td>
+                    <td>${h.submitted_at ? formatDateTime(String(h.submitted_at)) : "-"}</td>
+                  `;
+                  historyBody.appendChild(tr);
+                });
+              }
+            }
+          } catch (error) {
+            const msg = form.querySelector("[data-api='admin-payment-form-msg']");
+            showMessage(msg, error.message, "error");
+          } finally {
+            refundFullBtn.disabled = false;
+          }
+        });
+      }
     }
   }
 
