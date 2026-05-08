@@ -42,6 +42,8 @@
             <li><strong>입금자명:</strong> <span data-field="depositor">-</span></li>
             <li><strong>입금요청 시각:</strong> <span data-field="submittedAt">-</span></li>
             <li><strong>관리자 메모:</strong> <span data-field="reviewNote">-</span></li>
+            <li><strong>누적 순결제:</strong> <span data-field="netPaid">-</span></li>
+            <li><strong>현재 미납:</strong> <span data-field="outstanding">-</span></li>
           </ul>
           <form class="pm-form" data-api="admin-payment-patch">
             <h3>결제 상태</h3>
@@ -62,6 +64,21 @@
             <p class="auth-message info" data-api="admin-payment-form-msg"></p>
             <button class="pm-btn pm-btn-primary" type="submit">저장</button>
           </form>
+          <h3>결제 이력</h3>
+          <div class="pm-table-wrap">
+            <table class="pm-table">
+              <thead>
+                <tr>
+                  <th>결제 ID</th>
+                  <th>상태</th>
+                  <th>금액</th>
+                  <th>입금자명</th>
+                  <th>요청시각</th>
+                </tr>
+              </thead>
+              <tbody data-api="admin-payment-history-body"></tbody>
+            </table>
+          </div>
         </section>
 
         <section class="pm-card">

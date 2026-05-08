@@ -36,8 +36,13 @@
             <li><strong>신청 번호:</strong> <span data-field="enrollmentId">-</span></li>
             <li><strong>과정:</strong> <span data-field="course">-</span></li>
             <li><strong>납부 금액:</strong> <span data-field="amount">-</span></li>
+            <li><strong>미납 금액:</strong> <span data-field="outstanding">-</span></li>
           </ul>
           <form class="pm-form" data-api="payment-transfer-form">
+            <label>
+              이번 입금요청 금액
+              <input type="number" name="amount" min="1" step="100" placeholder="예: 9900" />
+            </label>
             <label>
               입금자명
               <input type="text" name="depositorName" placeholder="예: 홍길동" required />

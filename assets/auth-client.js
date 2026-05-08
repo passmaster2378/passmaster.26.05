@@ -225,6 +225,7 @@
     const map = {
       pending: "결제대기",
       deposit_submitted: "입금요청",
+      partial_paid: "부분결제",
       paid: "결제완료",
       refunded: "환불완료",
       awaiting_confirmation: "입금확인대기",
@@ -974,19 +975,29 @@
       const oid = sessionStorage.getItem("passmaster_last_apply_opening_id");
       backApply.href = oid ? `../apply/index.html?openingId=${encodeURIComponent(oid)}` : "../index.html";
     }
+    const form = document.querySelector("[data-api='payment-transfer-form']");
+    const btn = document.querySelector("[data-api='deposit-submit']");
 
     try {
       const e = await request(`/me/enrollments/${enrollmentId}`);
       root.querySelector("[data-field='course']").textContent = e.course_title || "-";
       root.querySelector("[data-field='amount']").textContent = `${Number(e.price || 0).toLocaleString("ko-KR")}원`;
       root.querySelector("[data-field='enrollmentId']").textContent = String(e.id);
+      const outstanding =
+        e.payment_summary && Number.isFinite(Number(e.payment_summary.outstandingAmount))
+          ? Number(e.payment_summary.outstandingAmount)
+          : Number(e.price || 0);
+      if (root.querySelector("[data-field='outstanding']")) {
+        root.querySelector("[data-field='outstanding']").textContent = `${outstanding.toLocaleString("ko-KR")}원`;
+      }
+      if (form && form.amount && outstanding > 0) {
+        form.amount.value = String(outstanding);
+        form.amount.max = String(outstanding);
+      }
     } catch (error) {
       showMessage(root.querySelector("[data-api='payment-message']"), error.message, "error");
       return;
     }
-
-    const form = document.querySelector("[data-api='payment-transfer-form']");
-    const btn = document.querySelector("[data-api='deposit-submit']");
     if (btn) {
       btn.addEventListener("click", async () => {
         try {
@@ -998,14 +1009,22 @@
             form && form.transferNote && typeof form.transferNote.value === "string"
               ? form.transferNote.value.trim()
               : "";
+          const amount =
+            form && form.amount && typeof form.amount.value === "string" && form.amount.value.trim()
+              ? Number(form.amount.value)
+              : undefined;
           if (!depositorName) {
             alert("입금자명을 입력해 주세요.");
+            return;
+          }
+          if (amount !== undefined && (!Number.isFinite(amount) || amount <= 0)) {
+            alert("입금요청 금액은 1원 이상 입력해 주세요.");
             return;
           }
           btn.disabled = true;
           await request(`/me/enrollments/${enrollmentId}/deposit`, {
             method: "PATCH",
-            body: JSON.stringify({ depositorName, transferNote }),
+            body: JSON.stringify({ depositorName, transferNote, amount }),
           });
           window.location.href = "../complete/index.html";
         } catch (error) {
@@ -1227,6 +1246,34 @@
       if (root.querySelector("[data-field='reviewNote']")) {
         root.querySelector("[data-field='reviewNote']").textContent = p.review_note || "-";
       }
+      if (root.querySelector("[data-field='netPaid']")) {
+        const netPaid = p.payment_summary ? Number(p.payment_summary.netPaid || 0) : 0;
+        root.querySelector("[data-field='netPaid']").textContent = `${netPaid.toLocaleString("ko-KR")}원`;
+      }
+      if (root.querySelector("[data-field='outstanding']")) {
+        const outstanding = p.payment_summary ? Number(p.payment_summary.outstandingAmount || 0) : 0;
+        root.querySelector("[data-field='outstanding']").textContent = `${outstanding.toLocaleString("ko-KR")}원`;
+      }
+      const historyBody = root.querySelector("[data-api='admin-payment-history-body']");
+      if (historyBody) {
+        const historyRows = Array.isArray(p.payment_history) ? p.payment_history : [];
+        historyBody.innerHTML = "";
+        if (!historyRows.length) {
+          historyBody.innerHTML = "<tr><td colspan='5'>결제 이력이 없습니다.</td></tr>";
+        } else {
+          historyRows.forEach((h) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${h.id}</td>
+              <td>${toPaymentStatusLabel(h.status)}</td>
+              <td>${Number(h.amount || 0).toLocaleString("ko-KR")}원</td>
+              <td>${h.depositor_name || "-"}</td>
+              <td>${h.submitted_at ? formatDateTime(String(h.submitted_at)) : "-"}</td>
+            `;
+            historyBody.appendChild(tr);
+          });
+        }
+      }
     } catch (error) {
       const msg = root.querySelector("[data-api='admin-payment-error']");
       if (msg) showMessage(msg, error.message, "error");
@@ -1255,6 +1302,34 @@
           root.querySelector("[data-field='status']").textContent = toPaymentStatusLabel(p.status);
           if (root.querySelector("[data-field='reviewNote']")) {
             root.querySelector("[data-field='reviewNote']").textContent = p.review_note || "-";
+          }
+          if (root.querySelector("[data-field='netPaid']")) {
+            const netPaid = p.payment_summary ? Number(p.payment_summary.netPaid || 0) : 0;
+            root.querySelector("[data-field='netPaid']").textContent = `${netPaid.toLocaleString("ko-KR")}원`;
+          }
+          if (root.querySelector("[data-field='outstanding']")) {
+            const outstanding = p.payment_summary ? Number(p.payment_summary.outstandingAmount || 0) : 0;
+            root.querySelector("[data-field='outstanding']").textContent = `${outstanding.toLocaleString("ko-KR")}원`;
+          }
+          const historyBody = root.querySelector("[data-api='admin-payment-history-body']");
+          if (historyBody) {
+            const historyRows = Array.isArray(p.payment_history) ? p.payment_history : [];
+            historyBody.innerHTML = "";
+            if (!historyRows.length) {
+              historyBody.innerHTML = "<tr><td colspan='5'>결제 이력이 없습니다.</td></tr>";
+            } else {
+              historyRows.forEach((h) => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                  <td>${h.id}</td>
+                  <td>${toPaymentStatusLabel(h.status)}</td>
+                  <td>${Number(h.amount || 0).toLocaleString("ko-KR")}원</td>
+                  <td>${h.depositor_name || "-"}</td>
+                  <td>${h.submitted_at ? formatDateTime(String(h.submitted_at)) : "-"}</td>
+                `;
+                historyBody.appendChild(tr);
+              });
+            }
           }
         } catch (error) {
           const msg = form.querySelector("[data-api='admin-payment-form-msg']");

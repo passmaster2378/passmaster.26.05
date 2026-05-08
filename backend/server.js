@@ -76,6 +76,82 @@ async function all(sql, params = []) {
   return result.rows;
 }
 
+function toSafeMoney(value) {
+  const num = Number(value || 0);
+  return Number.isFinite(num) ? Math.max(0, Math.floor(num)) : 0;
+}
+
+async function summarizeEnrollmentPayments(enrollmentId) {
+  const enrollment = await get(
+    `SELECT e.id, e.payment_status, e.approval_status, c.price
+     FROM public.enrollments e
+     JOIN public.courses c ON c.id = e.course_id
+     WHERE e.id = ?`,
+    [enrollmentId]
+  );
+  if (!enrollment) return null;
+
+  const agg = await get(
+    `SELECT
+       COALESCE(SUM(CASE WHEN status = 'completed' THEN amount ELSE 0 END), 0)::int AS completed_amount,
+       COALESCE(SUM(CASE WHEN status = 'refunded' THEN amount ELSE 0 END), 0)::int AS refunded_amount,
+       COUNT(*) FILTER (WHERE status = 'awaiting_confirmation')::int AS awaiting_count,
+       COUNT(*) FILTER (WHERE status = 'completed')::int AS completed_count,
+       COUNT(*) FILTER (WHERE status = 'refunded')::int AS refunded_count
+     FROM public.payments
+     WHERE enrollment_id = ?`,
+    [enrollmentId]
+  );
+
+  const coursePrice = toSafeMoney(enrollment.price);
+  const completedAmount = toSafeMoney(agg && agg.completed_amount);
+  const refundedAmount = toSafeMoney(agg && agg.refunded_amount);
+  const awaitingCount = Number((agg && agg.awaiting_count) || 0);
+  const completedCount = Number((agg && agg.completed_count) || 0);
+  const refundedCount = Number((agg && agg.refunded_count) || 0);
+  const netPaid = Math.max(0, completedAmount - refundedAmount);
+  const outstandingAmount = Math.max(0, coursePrice - netPaid);
+
+  let paymentStatus = "pending";
+  let approvalStatus = "pending";
+  if (netPaid >= coursePrice && coursePrice > 0) {
+    paymentStatus = "paid";
+    approvalStatus = "approved";
+  } else if (netPaid > 0) {
+    paymentStatus = "partial_paid";
+    approvalStatus = "pending";
+  } else if (awaitingCount > 0) {
+    paymentStatus = "deposit_submitted";
+    approvalStatus = "pending";
+  } else if (completedCount > 0 && refundedCount > 0 && netPaid === 0) {
+    paymentStatus = "refunded";
+    approvalStatus = "pending";
+  }
+
+  return {
+    enrollmentId: Number(enrollmentId),
+    coursePrice,
+    completedAmount,
+    refundedAmount,
+    netPaid,
+    outstandingAmount,
+    awaitingCount,
+    paymentStatus,
+    approvalStatus,
+  };
+}
+
+async function syncEnrollmentPaymentState(enrollmentId) {
+  const summary = await summarizeEnrollmentPayments(enrollmentId);
+  if (!summary) return null;
+  await run("UPDATE public.enrollments SET payment_status = ?, approval_status = ? WHERE id = ?", [
+    summary.paymentStatus,
+    summary.approvalStatus,
+    enrollmentId,
+  ]);
+  return summary;
+}
+
 function signToken(user) {
   return jwt.sign({ sub: user.id, role: user.role, email: user.email }, JWT_SECRET, {
     expiresIn: JWT_EXPIRES_IN,
@@ -1291,36 +1367,63 @@ app.get("/api/me/enrollments/:id", requireAuth, async (req, res) => {
     "SELECT id, amount, method, status, created_at FROM public.payments WHERE enrollment_id = ? ORDER BY id ASC",
     [id]
   );
-  return res.json({ ...row, payments });
+  const paymentSummary = await summarizeEnrollmentPayments(id);
+  return res.json({ ...row, payments, payment_summary: paymentSummary });
 });
 
 app.patch("/api/me/enrollments/:id/deposit", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
   const depositorName = String(req.body.depositorName || "").trim();
   const transferNote = String(req.body.transferNote || "").trim().slice(0, 500);
+  const requestedAmount = Number(req.body.amount);
   if (!Number.isInteger(id) || id <= 0) {
     return sendError(res, 400, "유효한 수강 ID가 필요합니다.");
   }
   if (!depositorName) {
     return sendError(res, 400, "입금자명을 입력해 주세요.");
   }
-  const row = await get("SELECT id FROM public.enrollments WHERE id = ? AND user_id = ?", [id, req.auth.sub]);
-  if (!row) return sendError(res, 404, "수강 정보를 찾을 수 없습니다.");
-  await run("UPDATE public.enrollments SET payment_status = 'deposit_submitted' WHERE id = ?", [id]);
-  await run(
-    `UPDATE public.payments
-     SET status = 'awaiting_confirmation',
-         depositor_name = ?,
-         transfer_note = ?,
-         submitted_at = now()
-     WHERE enrollment_id = ?`,
-    [depositorName, transferNote || null, id]
+  const row = await get(
+    `SELECT e.id
+     FROM public.enrollments e
+     WHERE e.id = ? AND e.user_id = ?`,
+    [id, req.auth.sub]
   );
+  if (!row) return sendError(res, 404, "수강 정보를 찾을 수 없습니다.");
+
+  const summary = await summarizeEnrollmentPayments(id);
+  if (!summary) return sendError(res, 404, "수강 정보를 찾을 수 없습니다.");
+  if (summary.outstandingAmount <= 0) {
+    return sendError(res, 409, "이미 결제 완료된 수강입니다.");
+  }
+  if (summary.awaitingCount > 0) {
+    return sendError(res, 409, "이미 입금 확인 대기중인 요청이 있습니다.");
+  }
+
+  const amount = Number.isFinite(requestedAmount)
+    ? Math.max(0, Math.floor(requestedAmount))
+    : summary.outstandingAmount;
+  if (!Number.isInteger(amount) || amount <= 0) {
+    return sendError(res, 400, "유효한 입금 금액이 필요합니다.");
+  }
+  if (amount > summary.outstandingAmount) {
+    return sendError(res, 400, `입금 요청 금액은 미납 금액(${summary.outstandingAmount.toLocaleString("ko-KR")}원) 이하만 가능합니다.`);
+  }
+
+  await run(
+    `INSERT INTO public.payments
+      (enrollment_id, amount, method, status, depositor_name, transfer_note, submitted_at)
+     VALUES (?, ?, 'bank_transfer', 'awaiting_confirmation', ?, ?, now())`,
+    [id, amount, depositorName, transferNote || null]
+  );
+  const nextSummary = await syncEnrollmentPaymentState(id);
   const updated = await get(
-    `SELECT e.*, c.title AS course_title FROM public.enrollments e JOIN public.courses c ON c.id = e.course_id WHERE e.id = ?`,
+    `SELECT e.*, c.title AS course_title
+     FROM public.enrollments e
+     JOIN public.courses c ON c.id = e.course_id
+     WHERE e.id = ?`,
     [id]
   );
-  return res.json(updated);
+  return res.json({ ...updated, payment_summary: nextSummary });
 });
 
 app.get("/api/me/payments", requireAuth, async (req, res) => {
@@ -1408,9 +1511,7 @@ app.patch("/api/admin/enrollments/:id", requireAuth, requireAdmin, async (req, r
   }
   params.push(id);
   await run(`UPDATE public.enrollments SET ${fields.join(", ")} WHERE id = ?`, params);
-  if (payment_status === "paid") {
-    await run("UPDATE public.payments SET status = 'completed' WHERE enrollment_id = ?", [id]);
-  }
+  await syncEnrollmentPaymentState(id);
   const updated = await get(
     `SELECT e.*, u.name AS user_name, u.email AS user_email, c.title AS course_title
      FROM public.enrollments e
@@ -1449,7 +1550,15 @@ app.get("/api/admin/payments/:id", requireAuth, requireAdmin, async (req, res) =
     [id]
   );
   if (!row) return sendError(res, 404, "결제 정보를 찾을 수 없습니다.");
-  return res.json(row);
+  const paymentHistory = await all(
+    `SELECT id, enrollment_id, amount, method, status, depositor_name, transfer_note, submitted_at, review_note, reviewed_at, created_at
+     FROM public.payments
+     WHERE enrollment_id = ?
+     ORDER BY id DESC`,
+    [row.enrollment_id]
+  );
+  const summary = await summarizeEnrollmentPayments(row.enrollment_id);
+  return res.json({ ...row, payment_history: paymentHistory, payment_summary: summary });
 });
 
 app.patch("/api/admin/payments/:id", requireAuth, requireAdmin, async (req, res) => {
@@ -1468,19 +1577,9 @@ app.patch("/api/admin/payments/:id", requireAuth, requireAdmin, async (req, res)
     "UPDATE public.payments SET status = ?, review_note = ?, reviewed_by = ?, reviewed_at = now() WHERE id = ?",
     [status, reviewNote, req.auth.sub, id]
   );
-  if (status === "completed") {
-    await run("UPDATE public.enrollments SET payment_status = 'paid', approval_status = 'approved' WHERE id = ?", [
-      pay.enrollment_id,
-    ]);
-  } else if (status === "failed" || status === "pending") {
-    await run("UPDATE public.enrollments SET payment_status = 'pending', approval_status = 'pending' WHERE id = ?", [
-      pay.enrollment_id,
-    ]);
-  } else if (status === "refunded") {
-    await run("UPDATE public.enrollments SET payment_status = 'refunded' WHERE id = ?", [pay.enrollment_id]);
-  }
+  const summary = await syncEnrollmentPaymentState(pay.enrollment_id);
   const updated = await get("SELECT * FROM public.payments WHERE id = ?", [id]);
-  return res.json(updated);
+  return res.json({ ...updated, payment_summary: summary });
 });
 
 app.use("/api", (req, res) => {
