@@ -1158,8 +1158,8 @@
           if (p.status === "awaiting_confirmation") tr.className = "pm-payment-row--awaiting";
           else if (p.status === "completed") tr.className = "pm-payment-row--completed";
           tr.innerHTML = `
-            <td>${p.id}</td>
-            <td>${p.enrollment_id}<br/><small>${p.user_name || "-"} (${p.user_email || "-"})</small></td>
+            <td>${p.enrollment_id}<br/><small>결제 #${p.id}</small></td>
+            <td>${p.user_name || "-"}<br/><small>${p.user_email || "-"}</small></td>
             <td>${p.course_title || "-"}</td>
             <td>${Number(p.amount || 0).toLocaleString("ko-KR")}원</td>
             <td>${toPaymentStatusLabel(p.status)}</td>
