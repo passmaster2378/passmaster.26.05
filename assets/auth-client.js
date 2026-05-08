@@ -713,7 +713,7 @@
     const q = new URLSearchParams(window.location.search).get("id");
     if (q && Number(q) > 0) return Number(q);
     const m = window.location.pathname.match(/enrollment-(\d+)/i);
-    return m ? Number(m[1]) : 1;
+    return m ? Number(m[1]) : 0;
   }
 
   async function mountCourseOpeningsList() {
@@ -939,17 +939,36 @@
     const root = document.querySelector("[data-api='me-enrollment-detail']");
     if (!root) return;
     const id = parseEnrollmentIdFromUrl();
-    try {
-      const e = await request(`/me/enrollments/${id}`);
+    const msg = root.querySelector("[data-api='me-enrollment-error']");
+    const setFields = (e) => {
       root.querySelector("[data-field='id']").textContent = String(e.id);
       root.querySelector("[data-field='course']").textContent = e.course_title || "-";
       root.querySelector("[data-field='payment']").textContent = toPaymentStatusLabel(e.payment_status);
       root.querySelector("[data-field='approval']").textContent = toApprovalStatusLabel(e.approval_status);
       root.querySelector("[data-field='learning']").textContent = e.learning_status || "-";
       root.querySelector("[data-field='progress']").textContent = `${e.progress_percent ?? 0}%`;
+    };
+    try {
+      if (!id) throw new Error("INVALID_OR_MISSING_ID");
+      const e = await request(`/me/enrollments/${id}`);
+      setFields(e);
+      if (msg) showMessage(msg, "수강 상세를 불러왔습니다.", "success");
     } catch (error) {
-      const msg = root.querySelector("[data-api='me-enrollment-error']");
-      if (msg) showMessage(msg, error.message, "error");
+      try {
+        const rows = await request("/me/enrollments");
+        if (!Array.isArray(rows) || !rows.length) {
+          if (msg) showMessage(msg, "수강 신청 내역이 없습니다.", "info");
+          return;
+        }
+        const fallback = rows[0];
+        setFields(fallback);
+        const current = new URL(window.location.href);
+        current.searchParams.set("id", String(fallback.id));
+        window.history.replaceState(null, "", `${current.pathname}${current.search}`);
+        if (msg) showMessage(msg, "요청한 수강 ID를 찾을 수 없어 내 최근 수강으로 표시했습니다.", "info");
+      } catch (fallbackError) {
+        if (msg) showMessage(msg, fallbackError.message || error.message, "error");
+      }
     }
   }
 
