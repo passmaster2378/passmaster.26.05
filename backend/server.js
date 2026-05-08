@@ -7,7 +7,8 @@ const { Pool } = require("pg");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
-const JWT_SECRET = process.env.JWT_SECRET || "passmaster-dev-secret";
+const NODE_ENV = String(process.env.NODE_ENV || "development").toLowerCase();
+const JWT_SECRET = process.env.JWT_SECRET || "";
 const JWT_EXPIRES_IN = "8h";
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
@@ -15,9 +16,10 @@ const KAKAO_REST_API_KEY = process.env.KAKAO_REST_API_KEY || "";
 const KAKAO_CLIENT_SECRET = process.env.KAKAO_CLIENT_SECRET || "";
 const FRONTEND_URL = (process.env.FRONTEND_URL || "").replace(/\/$/, "");
 const DATABASE_URL = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
-const ROOT_ADMIN_EMAIL = "sanahai@naver.com";
-const ROOT_ADMIN_PASSWORD = "@#23782378";
-const ROOT_ADMIN_NAME = "PASSmaster";
+const ROOT_ADMIN_EMAIL = String(process.env.ROOT_ADMIN_EMAIL || "").trim().toLowerCase();
+const ROOT_ADMIN_PASSWORD = String(process.env.ROOT_ADMIN_PASSWORD || "");
+const ROOT_ADMIN_NAME = String(process.env.ROOT_ADMIN_NAME || "PASSmaster").trim() || "PASSmaster";
+const ROOT_ADMIN_BOOTSTRAP = String(process.env.ROOT_ADMIN_BOOTSTRAP || "").toLowerCase() === "true";
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())
@@ -25,6 +27,14 @@ const CORS_ORIGINS = (process.env.CORS_ORIGINS || "")
 
 if (!DATABASE_URL) {
   console.error("SUPABASE_DB_URL (or DATABASE_URL) is required.");
+  process.exit(1);
+}
+if (!JWT_SECRET) {
+  console.error("JWT_SECRET is required.");
+  process.exit(1);
+}
+if (NODE_ENV === "production" && JWT_SECRET.length < 32) {
+  console.error("In production, JWT_SECRET must be at least 32 characters.");
   process.exit(1);
 }
 
@@ -76,13 +86,42 @@ async function all(sql, params = []) {
   return result.rows;
 }
 
+async function withTransaction(work) {
+  const client = await pool.connect();
+  const tx = {
+    async run(sql, params = []) {
+      return client.query(toPgSql(sql), params);
+    },
+    async get(sql, params = []) {
+      const result = await client.query(toPgSql(sql), params);
+      return result.rows[0];
+    },
+    async all(sql, params = []) {
+      const result = await client.query(toPgSql(sql), params);
+      return result.rows;
+    },
+  };
+  try {
+    await client.query("BEGIN");
+    const result = await work(tx);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 function toSafeMoney(value) {
   const num = Number(value || 0);
   return Number.isFinite(num) ? Math.max(0, Math.floor(num)) : 0;
 }
 
-async function summarizeEnrollmentPayments(enrollmentId) {
-  const enrollment = await get(
+async function summarizeEnrollmentPayments(enrollmentId, db = null) {
+  const q = db || { get, all, run };
+  const enrollment = await q.get(
     `SELECT e.id, e.payment_status, e.approval_status, c.price
      FROM public.enrollments e
      JOIN public.courses c ON c.id = e.course_id
@@ -91,7 +130,7 @@ async function summarizeEnrollmentPayments(enrollmentId) {
   );
   if (!enrollment) return null;
 
-  const agg = await get(
+  const agg = await q.get(
     `SELECT
        COALESCE(SUM(CASE WHEN status = 'completed' THEN amount ELSE 0 END), 0)::int AS completed_amount,
        COALESCE(SUM(CASE WHEN status = 'refunded' THEN amount ELSE 0 END), 0)::int AS refunded_amount,
@@ -141,15 +180,36 @@ async function summarizeEnrollmentPayments(enrollmentId) {
   };
 }
 
-async function syncEnrollmentPaymentState(enrollmentId) {
-  const summary = await summarizeEnrollmentPayments(enrollmentId);
+async function syncEnrollmentPaymentState(enrollmentId, db = null) {
+  const q = db || { get, all, run };
+  const summary = await summarizeEnrollmentPayments(enrollmentId, q);
   if (!summary) return null;
-  await run("UPDATE public.enrollments SET payment_status = ?, approval_status = ? WHERE id = ?", [
+  await q.run("UPDATE public.enrollments SET payment_status = ?, approval_status = ? WHERE id = ?", [
     summary.paymentStatus,
     summary.approvalStatus,
     enrollmentId,
   ]);
   return summary;
+}
+
+async function logPaymentAudit(entry, db = null) {
+  const q = db || { run };
+  await q.run(
+    `INSERT INTO public.payment_audit_logs
+      (payment_id, enrollment_id, action, before_status, after_status, amount, note, actor_user_id, meta)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb)`,
+    [
+      entry.paymentId || null,
+      entry.enrollmentId || null,
+      String(entry.action || "").trim() || "unknown",
+      entry.beforeStatus || null,
+      entry.afterStatus || null,
+      entry.amount == null ? null : toSafeMoney(entry.amount),
+      entry.note || null,
+      entry.actorUserId || null,
+      JSON.stringify(entry.meta && typeof entry.meta === "object" ? entry.meta : {}),
+    ]
+  );
 }
 
 function signToken(user) {
@@ -381,6 +441,22 @@ async function initSchema() {
   await run(`ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS reviewed_by BIGINT REFERENCES public.users(id)`);
   await run(`ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS review_note TEXT`);
   await run(`ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ`);
+  await run(`
+    CREATE TABLE IF NOT EXISTS public.payment_audit_logs (
+      id BIGSERIAL PRIMARY KEY,
+      payment_id BIGINT REFERENCES public.payments(id) ON DELETE SET NULL,
+      enrollment_id BIGINT NOT NULL REFERENCES public.enrollments(id) ON DELETE CASCADE,
+      action TEXT NOT NULL,
+      before_status TEXT,
+      after_status TEXT,
+      amount INTEGER,
+      note TEXT,
+      actor_user_id BIGINT REFERENCES public.users(id) ON DELETE SET NULL,
+      meta JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+  await run(`CREATE INDEX IF NOT EXISTS payment_audit_logs_enrollment_idx ON public.payment_audit_logs (enrollment_id, id DESC)`);
 
   await run(`
     CREATE TABLE IF NOT EXISTS public.faqs (
@@ -599,23 +675,20 @@ async function seedData() {
     );
   }
 
-  // 요청된 절대 관리자 계정 보장: 존재하면 관리자 승격/비밀번호 갱신, 없으면 신규 생성
-  const normalizedRootEmail = ROOT_ADMIN_EMAIL.trim().toLowerCase();
-  const rootRow = await get("SELECT id FROM public.users WHERE lower(trim(email)) = lower(trim(?))", [
-    normalizedRootEmail,
-  ]);
-  const rootHash = await bcrypt.hash(ROOT_ADMIN_PASSWORD, 10);
-  if (!rootRow) {
-    await run(
-      "INSERT INTO public.users (name, email, password, role) VALUES (?, ?, ?, 'admin')",
-      [ROOT_ADMIN_NAME, normalizedRootEmail, rootHash]
-    );
-  } else {
-    await run("UPDATE public.users SET name = ?, role = 'admin', password = ? WHERE id = ?", [
-      ROOT_ADMIN_NAME,
-      rootHash,
-      rootRow.id,
+  // 운영 오픈 보안: ROOT_ADMIN_BOOTSTRAP=true일 때만 1회 부트스트랩
+  if (ROOT_ADMIN_BOOTSTRAP && ROOT_ADMIN_EMAIL && ROOT_ADMIN_PASSWORD) {
+    const normalizedRootEmail = ROOT_ADMIN_EMAIL;
+    const rootRow = await get("SELECT id FROM public.users WHERE lower(trim(email)) = lower(trim(?))", [
+      normalizedRootEmail,
     ]);
+    if (!rootRow) {
+      const rootHash = await bcrypt.hash(ROOT_ADMIN_PASSWORD, 10);
+      await run("INSERT INTO public.users (name, email, password, role) VALUES (?, ?, ?, 'admin')", [
+        ROOT_ADMIN_NAME,
+        normalizedRootEmail,
+        rootHash,
+      ]);
+    }
   }
 }
 
@@ -1382,40 +1455,67 @@ app.patch("/api/me/enrollments/:id/deposit", requireAuth, async (req, res) => {
   if (!depositorName) {
     return sendError(res, 400, "입금자명을 입력해 주세요.");
   }
-  const row = await get(
-    `SELECT e.id
-     FROM public.enrollments e
-     WHERE e.id = ? AND e.user_id = ?`,
-    [id, req.auth.sub]
-  );
-  if (!row) return sendError(res, 404, "수강 정보를 찾을 수 없습니다.");
+  const nextSummary = await withTransaction(async (tx) => {
+    const row = await tx.get(
+      `SELECT e.id
+       FROM public.enrollments e
+       WHERE e.id = ? AND e.user_id = ?
+       FOR UPDATE`,
+      [id, req.auth.sub]
+    );
+    if (!row) return { error: { status: 404, message: "수강 정보를 찾을 수 없습니다." } };
 
-  const summary = await summarizeEnrollmentPayments(id);
-  if (!summary) return sendError(res, 404, "수강 정보를 찾을 수 없습니다.");
-  if (summary.outstandingAmount <= 0) {
-    return sendError(res, 409, "이미 결제 완료된 수강입니다.");
-  }
-  if (summary.awaitingCount > 0) {
-    return sendError(res, 409, "이미 입금 확인 대기중인 요청이 있습니다.");
-  }
+    const summary = await summarizeEnrollmentPayments(id, tx);
+    if (!summary) return { error: { status: 404, message: "수강 정보를 찾을 수 없습니다." } };
+    if (summary.outstandingAmount <= 0) {
+      return { error: { status: 409, message: "이미 결제 완료된 수강입니다." } };
+    }
+    if (summary.awaitingCount > 0) {
+      return { error: { status: 409, message: "이미 입금 확인 대기중인 요청이 있습니다." } };
+    }
 
-  const amount = Number.isFinite(requestedAmount)
-    ? Math.max(0, Math.floor(requestedAmount))
-    : summary.outstandingAmount;
-  if (!Number.isInteger(amount) || amount <= 0) {
-    return sendError(res, 400, "유효한 입금 금액이 필요합니다.");
-  }
-  if (amount > summary.outstandingAmount) {
-    return sendError(res, 400, `입금 요청 금액은 미납 금액(${summary.outstandingAmount.toLocaleString("ko-KR")}원) 이하만 가능합니다.`);
-  }
+    const amount = Number.isFinite(requestedAmount)
+      ? Math.max(0, Math.floor(requestedAmount))
+      : summary.outstandingAmount;
+    if (!Number.isInteger(amount) || amount <= 0) {
+      return { error: { status: 400, message: "유효한 입금 금액이 필요합니다." } };
+    }
+    if (amount > summary.outstandingAmount) {
+      return {
+        error: {
+          status: 400,
+          message: `입금 요청 금액은 미납 금액(${summary.outstandingAmount.toLocaleString("ko-KR")}원) 이하만 가능합니다.`,
+        },
+      };
+    }
 
-  await run(
-    `INSERT INTO public.payments
-      (enrollment_id, amount, method, status, depositor_name, transfer_note, submitted_at)
-     VALUES (?, ?, 'bank_transfer', 'awaiting_confirmation', ?, ?, now())`,
-    [id, amount, depositorName, transferNote || null]
-  );
-  const nextSummary = await syncEnrollmentPaymentState(id);
+    const inserted = await tx.run(
+      `INSERT INTO public.payments
+        (enrollment_id, amount, method, status, depositor_name, transfer_note, submitted_at)
+       VALUES (?, ?, 'bank_transfer', 'awaiting_confirmation', ?, ?, now())
+       RETURNING id`,
+      [id, amount, depositorName, transferNote || null]
+    );
+    const paymentId = inserted.rows[0].id;
+    await logPaymentAudit(
+      {
+        paymentId,
+        enrollmentId: id,
+        action: "deposit_requested",
+        beforeStatus: "pending",
+        afterStatus: "awaiting_confirmation",
+        amount,
+        note: transferNote || null,
+        actorUserId: req.auth.sub,
+        meta: { depositorName },
+      },
+      tx
+    );
+    return syncEnrollmentPaymentState(id, tx);
+  });
+  if (nextSummary && nextSummary.error) {
+    return sendError(res, nextSummary.error.status, nextSummary.error.message);
+  }
   const updated = await get(
     `SELECT e.*, c.title AS course_title
      FROM public.enrollments e
@@ -1572,51 +1672,93 @@ app.patch("/api/admin/payments/:id", requireAuth, requireAdmin, async (req, res)
   if (!status) return sendError(res, 400, "status가 필요합니다.");
   const allowed = new Set(["pending", "awaiting_confirmation", "completed", "failed", "refunded"]);
   if (!allowed.has(status)) return sendError(res, 400, "지원하지 않는 결제 상태입니다.");
-  const pay = await get("SELECT * FROM public.payments WHERE id = ?", [id]);
-  if (!pay) return sendError(res, 404, "결제 정보를 찾을 수 없습니다.");
-  let updatedPaymentId = id;
+  const txResult = await withTransaction(async (tx) => {
+    const pay = await tx.get("SELECT * FROM public.payments WHERE id = ? FOR UPDATE", [id]);
+    if (!pay) return { error: { status: 404, message: "결제 정보를 찾을 수 없습니다." } };
+    await tx.get("SELECT id FROM public.enrollments WHERE id = ? FOR UPDATE", [pay.enrollment_id]);
+    let updatedPaymentId = id;
 
-  if (status === "refunded") {
-    if (pay.status !== "completed" && pay.status !== "refunded") {
-      return sendError(res, 400, "환불 처리는 완료된 결제에서만 가능합니다.");
-    }
-    const summaryBefore = await summarizeEnrollmentPayments(pay.enrollment_id);
-    if (!summaryBefore || summaryBefore.netPaid <= 0) {
-      return sendError(res, 409, "환불 가능한 결제 금액이 없습니다.");
-    }
-    const maxRefund = summaryBefore.netPaid;
-    const refundAmount = Number.isFinite(refundAmountRaw) ? Math.floor(refundAmountRaw) : maxRefund;
-    if (!Number.isInteger(refundAmount) || refundAmount <= 0) {
-      return sendError(res, 400, "환불 금액은 1원 이상이어야 합니다.");
-    }
-    if (refundAmount > maxRefund) {
-      return sendError(res, 400, `환불 금액은 환불 가능 금액(${maxRefund.toLocaleString("ko-KR")}원) 이하만 가능합니다.`);
-    }
+    if (status === "refunded") {
+      if (pay.status !== "completed" && pay.status !== "refunded") {
+        return { error: { status: 400, message: "환불 처리는 완료된 결제에서만 가능합니다." } };
+      }
+      const summaryBefore = await summarizeEnrollmentPayments(pay.enrollment_id, tx);
+      if (!summaryBefore || summaryBefore.netPaid <= 0) {
+        return { error: { status: 409, message: "환불 가능한 결제 금액이 없습니다." } };
+      }
+      const maxRefund = summaryBefore.netPaid;
+      const refundAmount = Number.isFinite(refundAmountRaw) ? Math.floor(refundAmountRaw) : maxRefund;
+      if (!Number.isInteger(refundAmount) || refundAmount <= 0) {
+        return { error: { status: 400, message: "환불 금액은 1원 이상이어야 합니다." } };
+      }
+      if (refundAmount > maxRefund) {
+        return {
+          error: {
+            status: 400,
+            message: `환불 금액은 환불 가능 금액(${maxRefund.toLocaleString("ko-KR")}원) 이하만 가능합니다.`,
+          },
+        };
+      }
 
-    if (pay.status === "refunded") {
-      await run(
-        "UPDATE public.payments SET amount = ?, review_note = ?, reviewed_by = ?, reviewed_at = now() WHERE id = ?",
-        [refundAmount, reviewNote, req.auth.sub, id]
+      if (pay.status === "refunded") {
+        await tx.run(
+          "UPDATE public.payments SET amount = ?, review_note = ?, reviewed_by = ?, reviewed_at = now() WHERE id = ?",
+          [refundAmount, reviewNote, req.auth.sub, id]
+        );
+      } else {
+        const inserted = await tx.run(
+          `INSERT INTO public.payments
+            (enrollment_id, amount, method, status, depositor_name, transfer_note, submitted_at, review_note, reviewed_by, reviewed_at)
+           VALUES (?, ?, ?, 'refunded', NULL, NULL, now(), ?, ?, now())
+           RETURNING id`,
+          [pay.enrollment_id, refundAmount, pay.method || "bank_transfer", reviewNote, req.auth.sub]
+        );
+        updatedPaymentId = inserted.rows[0].id;
+      }
+      await logPaymentAudit(
+        {
+          paymentId: updatedPaymentId,
+          enrollmentId: pay.enrollment_id,
+          action: "admin_refund",
+          beforeStatus: pay.status,
+          afterStatus: "refunded",
+          amount: refundAmount,
+          note: reviewNote,
+          actorUserId: req.auth.sub,
+          meta: { sourcePaymentId: id },
+        },
+        tx
       );
     } else {
-      const inserted = await run(
-        `INSERT INTO public.payments
-          (enrollment_id, amount, method, status, depositor_name, transfer_note, submitted_at, review_note, reviewed_by, reviewed_at)
-         VALUES (?, ?, ?, 'refunded', NULL, NULL, now(), ?, ?, now())
-         RETURNING id`,
-        [pay.enrollment_id, refundAmount, pay.method || "bank_transfer", reviewNote, req.auth.sub]
+      await tx.run(
+        "UPDATE public.payments SET status = ?, review_note = ?, reviewed_by = ?, reviewed_at = now() WHERE id = ?",
+        [status, reviewNote, req.auth.sub, id]
       );
-      updatedPaymentId = inserted.rows[0].id;
+      await logPaymentAudit(
+        {
+          paymentId: id,
+          enrollmentId: pay.enrollment_id,
+          action: "admin_status_update",
+          beforeStatus: pay.status,
+          afterStatus: status,
+          amount: pay.amount,
+          note: reviewNote,
+          actorUserId: req.auth.sub,
+          meta: {},
+        },
+        tx
+      );
     }
-  } else {
-    await run(
-      "UPDATE public.payments SET status = ?, review_note = ?, reviewed_by = ?, reviewed_at = now() WHERE id = ?",
-      [status, reviewNote, req.auth.sub, id]
-    );
+
+    const summary = await syncEnrollmentPaymentState(pay.enrollment_id, tx);
+    return { summary, updatedPaymentId };
+  });
+  if (txResult && txResult.error) {
+    return sendError(res, txResult.error.status, txResult.error.message);
   }
 
-  const summary = await syncEnrollmentPaymentState(pay.enrollment_id);
-  const updated = await get("SELECT * FROM public.payments WHERE id = ?", [updatedPaymentId]);
+  const summary = txResult.summary;
+  const updated = await get("SELECT * FROM public.payments WHERE id = ?", [txResult.updatedPaymentId]);
   return res.json({ ...updated, payment_summary: summary });
 });
 
