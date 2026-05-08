@@ -46,27 +46,27 @@
               결제 상태
               <select name="payment_status">
                 <option value="">변경 없음</option>
-                <option value="pending">pending</option>
-                <option value="deposit_submitted">deposit_submitted</option>
-                <option value="paid">paid</option>
+                <option value="pending">결제대기</option>
+                <option value="deposit_submitted">입금요청</option>
+                <option value="paid">결제완료</option>
               </select>
             </label>
             <label>
               승인
               <select name="approval_status">
                 <option value="">변경 없음</option>
-                <option value="pending">pending</option>
-                <option value="approved">approved</option>
-                <option value="rejected">rejected</option>
+                <option value="pending">승인대기</option>
+                <option value="approved">승인완료</option>
+                <option value="rejected">반려</option>
               </select>
             </label>
             <label>
               학습
               <select name="learning_status">
                 <option value="">변경 없음</option>
-                <option value="not_started">not_started</option>
-                <option value="in_progress">in_progress</option>
-                <option value="completed">completed</option>
+                <option value="not_started">학습전</option>
+                <option value="in_progress">학습중</option>
+                <option value="completed">학습완료</option>
               </select>
             </label>
             <p class="auth-message info" data-api="admin-enrollment-form-msg"></p>

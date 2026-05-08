@@ -220,6 +220,31 @@
     target.className = `auth-message ${type}`;
   }
 
+  function toPaymentStatusLabel(status) {
+    const value = String(status || "").trim().toLowerCase();
+    const map = {
+      pending: "결제대기",
+      deposit_submitted: "입금요청",
+      paid: "결제완료",
+      refunded: "환불완료",
+      awaiting_confirmation: "입금확인대기",
+      completed: "확인완료",
+      failed: "확인실패",
+    };
+    return map[value] || (status || "-");
+  }
+
+  function toApprovalStatusLabel(status) {
+    const value = String(status || "").trim().toLowerCase();
+    const map = {
+      pending: "승인대기",
+      approved: "승인완료",
+      rejected: "반려",
+      cancelled: "취소",
+    };
+    return map[value] || (status || "-");
+  }
+
   async function warmupApi() {
     if (apiWarmupPromise) return apiWarmupPromise;
     apiWarmupPromise = fetchWithTimeout(`${API_BASE}/health`, { method: "GET" }, AUTH_TIMEOUT_MS)
@@ -740,8 +765,8 @@
         tr.innerHTML = `
           <td>${e.id}</td>
           <td>${e.course_title || "-"}</td>
-          <td>${e.payment_status || "-"}</td>
-          <td>${e.approval_status || "-"}</td>
+          <td>${toPaymentStatusLabel(e.payment_status)}</td>
+          <td>${toApprovalStatusLabel(e.approval_status)}</td>
           <td>${Number(e.price || 0).toLocaleString("ko-KR")}원</td>
           <td><a class="pm-btn pm-btn-primary" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${detailHref}">상세</a></td>
         `;
@@ -897,8 +922,8 @@
         tr.innerHTML = `
           <td>${e.id}</td>
           <td>${e.course_title || "-"}</td>
-          <td>${e.payment_status || "-"}</td>
-          <td>${e.approval_status || "-"}</td>
+          <td>${toPaymentStatusLabel(e.payment_status)}</td>
+          <td>${toApprovalStatusLabel(e.approval_status)}</td>
           <td>${e.progress_percent ?? 0}%</td>
           <td><a href="${detailHref}">상세</a></td>
         `;
@@ -917,8 +942,8 @@
       const e = await request(`/me/enrollments/${id}`);
       root.querySelector("[data-field='id']").textContent = String(e.id);
       root.querySelector("[data-field='course']").textContent = e.course_title || "-";
-      root.querySelector("[data-field='payment']").textContent = e.payment_status || "-";
-      root.querySelector("[data-field='approval']").textContent = e.approval_status || "-";
+      root.querySelector("[data-field='payment']").textContent = toPaymentStatusLabel(e.payment_status);
+      root.querySelector("[data-field='approval']").textContent = toApprovalStatusLabel(e.approval_status);
       root.querySelector("[data-field='learning']").textContent = e.learning_status || "-";
       root.querySelector("[data-field='progress']").textContent = `${e.progress_percent ?? 0}%`;
     } catch (error) {
@@ -960,14 +985,27 @@
       return;
     }
 
+    const form = document.querySelector("[data-api='payment-transfer-form']");
     const btn = document.querySelector("[data-api='deposit-submit']");
     if (btn) {
       btn.addEventListener("click", async () => {
         try {
+          const depositorName =
+            form && form.depositorName && typeof form.depositorName.value === "string"
+              ? form.depositorName.value.trim()
+              : "";
+          const transferNote =
+            form && form.transferNote && typeof form.transferNote.value === "string"
+              ? form.transferNote.value.trim()
+              : "";
+          if (!depositorName) {
+            alert("입금자명을 입력해 주세요.");
+            return;
+          }
           btn.disabled = true;
           await request(`/me/enrollments/${enrollmentId}/deposit`, {
             method: "PATCH",
-            body: JSON.stringify({}),
+            body: JSON.stringify({ depositorName, transferNote }),
           });
           window.location.href = "../complete/index.html";
         } catch (error) {
@@ -989,7 +1027,9 @@
     }
     try {
       const e = await request(`/me/enrollments/${enrollmentId}`);
-      root.innerHTML = `신청번호 <strong>${e.id}</strong> · ${e.course_title} · 결제상태 ${e.payment_status} · 승인 ${e.approval_status}`;
+      root.innerHTML = `신청번호 <strong>${e.id}</strong> · ${e.course_title} · 결제상태 ${toPaymentStatusLabel(
+        e.payment_status
+      )} · 승인 ${toApprovalStatusLabel(e.approval_status)}`;
     } catch (error) {
       root.textContent = error.message;
     }
@@ -1011,8 +1051,8 @@
           <td>${e.id}</td>
           <td>${e.user_name || "-"}<br/><small>${e.user_email || ""}</small></td>
           <td>${e.course_title || "-"}</td>
-          <td>${e.payment_status || "-"}</td>
-          <td>${e.approval_status || "-"}</td>
+          <td>${toPaymentStatusLabel(e.payment_status)}</td>
+          <td>${toApprovalStatusLabel(e.approval_status)}</td>
           <td>${e.progress_percent ?? 0}%</td>
           <td><a href="./detail-001.html?id=${e.id}">관리</a></td>
         `;
@@ -1033,8 +1073,8 @@
       root.querySelector("[data-field='id']").textContent = String(e.id);
       root.querySelector("[data-field='user']").textContent = `${e.user_name} (${e.user_email})`;
       root.querySelector("[data-field='course']").textContent = e.course_title || "-";
-      root.querySelector("[data-field='payment']").textContent = e.payment_status || "-";
-      root.querySelector("[data-field='approval']").textContent = e.approval_status || "-";
+      root.querySelector("[data-field='payment']").textContent = toPaymentStatusLabel(e.payment_status);
+      root.querySelector("[data-field='approval']").textContent = toApprovalStatusLabel(e.approval_status);
     } catch (error) {
       const msg = root.querySelector("[data-api='admin-enrollment-error']");
       if (msg) showMessage(msg, error.message, "error");
@@ -1056,8 +1096,8 @@
             method: "PATCH",
             body: JSON.stringify(body),
           });
-          root.querySelector("[data-field='payment']").textContent = updated.payment_status || "-";
-          root.querySelector("[data-field='approval']").textContent = updated.approval_status || "-";
+          root.querySelector("[data-field='payment']").textContent = toPaymentStatusLabel(updated.payment_status);
+          root.querySelector("[data-field='approval']").textContent = toApprovalStatusLabel(updated.approval_status);
           const msg = form.querySelector("[data-api='admin-enrollment-form-msg']");
           showMessage(msg, "저장되었습니다.", "success");
         } catch (error) {
@@ -1071,25 +1111,90 @@
   async function mountAdminPaymentsList() {
     const tbody = document.querySelector("[data-api='admin-payments-body']");
     if (!tbody) return;
-    try {
-      const rows = await request("/admin/payments");
-      tbody.innerHTML = "";
-      if (!Array.isArray(rows) || !rows.length) {
-        tbody.innerHTML = "<tr><td colspan='6'>데이터가 없습니다.</td></tr>";
-        return;
-      }
-      rows.forEach((p) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${p.id}</td>
-          <td>${p.enrollment_id}</td>
-          <td>${p.course_title || "-"}</td>
-          <td>${Number(p.amount || 0).toLocaleString("ko-KR")}원</td>
-          <td>${p.status || "-"}</td>
-          <td><a href="./detail-001.html?id=${p.id}">상세</a></td>
-        `;
-        tbody.appendChild(tr);
+    const searchInput = document.getElementById("admin-payments-search");
+    const statusFilter = document.getElementById("admin-payments-status-filter");
+    const refreshBtn = document.getElementById("admin-payments-refresh");
+    const totalEl = document.getElementById("admin-payments-total");
+    const awaitingEl = document.getElementById("admin-payments-awaiting");
+    const completedEl = document.getElementById("admin-payments-completed");
+    const visibleEl = document.getElementById("admin-payments-visible");
+    let allRows = [];
+
+    const render = () => {
+      const q = searchInput ? searchInput.value.trim().toLowerCase() : "";
+      const status = statusFilter ? statusFilter.value : "";
+      const filtered = allRows.filter((p) => {
+        const searchText =
+          `${p.id || ""} ${p.enrollment_id || ""} ${p.user_name || ""} ${p.user_email || ""} ${p.course_title || ""}`.toLowerCase();
+        const qMatch = !q || searchText.includes(q);
+        const statusMatch = !status || String(p.status || "") === status;
+        return qMatch && statusMatch;
       });
+      tbody.innerHTML = "";
+      if (!filtered.length) {
+        tbody.innerHTML = "<tr><td colspan='6'>조건에 맞는 결제 데이터가 없습니다.</td></tr>";
+      } else {
+        filtered.forEach((p) => {
+          const tr = document.createElement("tr");
+          if (p.status === "awaiting_confirmation") tr.className = "pm-payment-row--awaiting";
+          else if (p.status === "completed") tr.className = "pm-payment-row--completed";
+          tr.innerHTML = `
+            <td>${p.id}</td>
+            <td>${p.enrollment_id}<br/><small>${p.user_name || "-"} (${p.user_email || "-"})</small></td>
+            <td>${p.course_title || "-"}</td>
+            <td>${Number(p.amount || 0).toLocaleString("ko-KR")}원</td>
+            <td>${toPaymentStatusLabel(p.status)}</td>
+            <td><a href="./detail-001.html?id=${p.id}">상세</a></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+      if (visibleEl) visibleEl.textContent = String(filtered.length);
+    };
+
+    const bindUi = () => {
+      if (searchInput && !searchInput.dataset.bound) {
+        searchInput.addEventListener("input", render);
+        searchInput.dataset.bound = "1";
+      }
+      if (statusFilter && !statusFilter.dataset.bound) {
+        statusFilter.addEventListener("change", render);
+        statusFilter.dataset.bound = "1";
+      }
+      if (refreshBtn && !refreshBtn.dataset.bound) {
+        refreshBtn.addEventListener("click", loadRows);
+        refreshBtn.dataset.bound = "1";
+      }
+    };
+
+    const updateStats = () => {
+      if (totalEl) totalEl.textContent = String(allRows.length);
+      if (awaitingEl) awaitingEl.textContent = String(allRows.filter((r) => r.status === "awaiting_confirmation").length);
+      if (completedEl) completedEl.textContent = String(allRows.filter((r) => r.status === "completed").length);
+    };
+
+    const loadRows = async () => {
+      try {
+        const rows = await request("/admin/payments");
+        allRows = Array.isArray(rows) ? rows : [];
+        if (!allRows.length) {
+          tbody.innerHTML = "<tr><td colspan='6'>데이터가 없습니다.</td></tr>";
+          if (totalEl) totalEl.textContent = "0";
+          if (awaitingEl) awaitingEl.textContent = "0";
+          if (completedEl) completedEl.textContent = "0";
+          if (visibleEl) visibleEl.textContent = "0";
+          return;
+        }
+        updateStats();
+        render();
+      } catch (error) {
+        tbody.innerHTML = `<tr><td colspan='6'>${error.message}</td></tr>`;
+      }
+    };
+
+    bindUi();
+    try {
+      await loadRows();
     } catch (error) {
       tbody.innerHTML = `<tr><td colspan='6'>${error.message}</td></tr>`;
     }
@@ -1106,8 +1211,22 @@
       loadedPayment = p;
       root.querySelector("[data-field='id']").textContent = String(p.id);
       root.querySelector("[data-field='amount']").textContent = `${Number(p.amount || 0).toLocaleString("ko-KR")}원`;
-      root.querySelector("[data-field='status']").textContent = p.status || "-";
+      root.querySelector("[data-field='status']").textContent = toPaymentStatusLabel(p.status);
       root.querySelector("[data-field='enrollment']").textContent = String(p.enrollment_id);
+      if (root.querySelector("[data-field='user']")) {
+        root.querySelector("[data-field='user']").textContent = `${p.user_name || "-"} (${p.user_email || "-"})`;
+      }
+      if (root.querySelector("[data-field='depositor']")) {
+        root.querySelector("[data-field='depositor']").textContent = p.depositor_name || "-";
+      }
+      if (root.querySelector("[data-field='submittedAt']")) {
+        root.querySelector("[data-field='submittedAt']").textContent = p.submitted_at
+          ? formatDateTime(String(p.submitted_at))
+          : "-";
+      }
+      if (root.querySelector("[data-field='reviewNote']")) {
+        root.querySelector("[data-field='reviewNote']").textContent = p.review_note || "-";
+      }
     } catch (error) {
       const msg = root.querySelector("[data-api='admin-payment-error']");
       if (msg) showMessage(msg, error.message, "error");
@@ -1117,20 +1236,26 @@
     if (form && form.status && loadedPayment && loadedPayment.status) {
       const hasOption = Array.from(form.status.options).some((o) => o.value === loadedPayment.status);
       if (hasOption) form.status.value = loadedPayment.status;
+      if (form.review_note) form.review_note.value = loadedPayment.review_note || "";
     }
     if (form) {
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         const status = form.status.value;
+        const reviewNote =
+          form.review_note && typeof form.review_note.value === "string" ? form.review_note.value.trim() : "";
         try {
           await request(`/admin/payments/${id}`, {
             method: "PATCH",
-            body: JSON.stringify({ status }),
+            body: JSON.stringify({ status, reviewNote }),
           });
           const msg = form.querySelector("[data-api='admin-payment-form-msg']");
           showMessage(msg, "결제 상태가 반영되었습니다.", "success");
           const p = await request(`/admin/payments/${id}`);
-          root.querySelector("[data-field='status']").textContent = p.status || "-";
+          root.querySelector("[data-field='status']").textContent = toPaymentStatusLabel(p.status);
+          if (root.querySelector("[data-field='reviewNote']")) {
+            root.querySelector("[data-field='reviewNote']").textContent = p.review_note || "-";
+          }
         } catch (error) {
           const msg = form.querySelector("[data-api='admin-payment-form-msg']");
           showMessage(msg, error.message, "error");
@@ -1155,7 +1280,7 @@
           <td>${p.id}</td>
           <td>${p.course_title || "-"}</td>
           <td>${Number(p.amount || 0).toLocaleString("ko-KR")}원</td>
-          <td>${p.status || "-"}</td>
+          <td>${toPaymentStatusLabel(p.status)}</td>
           <td>${p.created_at ? formatDateTime(String(p.created_at)) : "-"}</td>
         `;
         tbody.appendChild(tr);

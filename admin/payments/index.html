@@ -6,6 +6,51 @@
     <title>PASSmaster | 결제 관리</title>
     <link rel="stylesheet" href="../../assets/shared.css" />
     <script defer src="../../assets/shared.js"></script>
+    <style>
+      .pm-toolbar {
+        display: grid;
+        grid-template-columns: 1fr 180px 140px;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .pm-toolbar input,
+      .pm-toolbar select {
+        border: 1px solid #d2dae8;
+        border-radius: 10px;
+        min-height: 40px;
+        padding: 0 10px;
+      }
+      .pm-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .pm-stat {
+        border: 1px solid #dce3ef;
+        border-radius: 10px;
+        background: #fff;
+        padding: 9px 10px;
+        font-size: 12px;
+      }
+      .pm-stat strong {
+        display: block;
+        margin-top: 2px;
+        font-size: 16px;
+      }
+      .pm-payment-row--awaiting {
+        background: #fff9e6;
+      }
+      .pm-payment-row--completed {
+        background: #eefaf0;
+      }
+      @media (max-width: 900px) {
+        .pm-toolbar,
+        .pm-stats {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
   </head>
   <body>
     <div class="pm-shell">
@@ -32,6 +77,24 @@
 
         <section class="pm-card">
           <h2>결제 목록 (API)</h2>
+          <div class="pm-toolbar">
+            <input id="admin-payments-search" type="search" placeholder="회원/과정/신청번호 검색" />
+            <select id="admin-payments-status-filter">
+              <option value="">전체 상태</option>
+              <option value="awaiting_confirmation">입금확인대기</option>
+              <option value="completed">확인완료</option>
+              <option value="pending">결제대기</option>
+              <option value="failed">확인실패</option>
+              <option value="refunded">환불완료</option>
+            </select>
+            <button class="pm-btn pm-btn-primary" type="button" id="admin-payments-refresh">새로고침</button>
+          </div>
+          <div class="pm-stats">
+            <div class="pm-stat">전체 건수<strong id="admin-payments-total">0</strong></div>
+            <div class="pm-stat">입금확인대기<strong id="admin-payments-awaiting">0</strong></div>
+            <div class="pm-stat">확인완료<strong id="admin-payments-completed">0</strong></div>
+            <div class="pm-stat">표시중<strong id="admin-payments-visible">0</strong></div>
+          </div>
           <div class="pm-table-wrap">
             <table class="pm-table">
               <thead>

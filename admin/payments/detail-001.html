@@ -36,20 +36,28 @@
           <ul class="pm-link-list" style="list-style: none; padding: 0">
             <li><strong>결제 ID:</strong> <span data-field="id">-</span></li>
             <li><strong>신청 ID:</strong> <span data-field="enrollment">-</span></li>
+            <li><strong>회원:</strong> <span data-field="user">-</span></li>
             <li><strong>금액:</strong> <span data-field="amount">-</span></li>
             <li><strong>상태:</strong> <span data-field="status">-</span></li>
+            <li><strong>입금자명:</strong> <span data-field="depositor">-</span></li>
+            <li><strong>입금요청 시각:</strong> <span data-field="submittedAt">-</span></li>
+            <li><strong>관리자 메모:</strong> <span data-field="reviewNote">-</span></li>
           </ul>
           <form class="pm-form" data-api="admin-payment-patch">
             <h3>결제 상태</h3>
             <label>
               상태
               <select name="status" required>
-                <option value="pending">pending</option>
-                <option value="awaiting_confirmation">awaiting_confirmation</option>
-                <option value="completed">completed</option>
-                <option value="failed">failed</option>
-                <option value="refunded">refunded</option>
+                <option value="pending">결제대기</option>
+                <option value="awaiting_confirmation">입금확인대기</option>
+                <option value="completed">확인완료</option>
+                <option value="failed">확인실패</option>
+                <option value="refunded">환불완료</option>
               </select>
+            </label>
+            <label>
+              처리 메모
+              <textarea name="review_note" rows="3" placeholder="예: 입금내역 확인 완료 / 반려 사유"></textarea>
             </label>
             <p class="auth-message info" data-api="admin-payment-form-msg"></p>
             <button class="pm-btn pm-btn-primary" type="submit">저장</button>

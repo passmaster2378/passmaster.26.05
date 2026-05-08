@@ -37,6 +37,16 @@
             <li><strong>과정:</strong> <span data-field="course">-</span></li>
             <li><strong>납부 금액:</strong> <span data-field="amount">-</span></li>
           </ul>
+          <form class="pm-form" data-api="payment-transfer-form">
+            <label>
+              입금자명
+              <input type="text" name="depositorName" placeholder="예: 홍길동" required />
+            </label>
+            <label>
+              입금 메모 (선택)
+              <input type="text" name="transferNote" placeholder="예: 5/8 13:20 입금" />
+            </label>
+          </form>
           <p class="pm-detail">입금 후 아래 버튼을 누르면 입금 요청 상태로 전환됩니다. (1차: 계좌이체만)</p>
           <button class="pm-btn pm-btn-primary" type="button" data-api="deposit-submit">입금 완료(요청)</button>
         </section>

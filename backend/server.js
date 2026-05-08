@@ -290,9 +290,21 @@ async function initSchema() {
       amount INTEGER NOT NULL,
       method TEXT NOT NULL DEFAULT 'bank_transfer',
       status TEXT NOT NULL DEFAULT 'pending',
+      depositor_name TEXT,
+      transfer_note TEXT,
+      submitted_at TIMESTAMPTZ,
+      reviewed_by BIGINT REFERENCES public.users(id),
+      review_note TEXT,
+      reviewed_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);
+  await run(`ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS depositor_name TEXT`);
+  await run(`ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS transfer_note TEXT`);
+  await run(`ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ`);
+  await run(`ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS reviewed_by BIGINT REFERENCES public.users(id)`);
+  await run(`ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS review_note TEXT`);
+  await run(`ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ`);
 
   await run(`
     CREATE TABLE IF NOT EXISTS public.faqs (
@@ -553,7 +565,7 @@ app.get("/api/docs", async (req, res) => {
       { method: "POST", path: "/enrollments", auth: true },
       { method: "GET", path: "/me/enrollments", auth: true },
       { method: "GET", path: "/me/enrollments/:id", auth: true },
-      { method: "PATCH", path: "/me/enrollments/:id/deposit", auth: true },
+      { method: "PATCH", path: "/me/enrollments/:id/deposit", auth: true, notes: "계좌이체 입금요청" },
       { method: "GET", path: "/me/payments", auth: true },
       { method: "GET", path: "/faqs" },
       { method: "GET", path: "/reviews" },
@@ -1284,13 +1296,26 @@ app.get("/api/me/enrollments/:id", requireAuth, async (req, res) => {
 
 app.patch("/api/me/enrollments/:id/deposit", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
+  const depositorName = String(req.body.depositorName || "").trim();
+  const transferNote = String(req.body.transferNote || "").trim().slice(0, 500);
   if (!Number.isInteger(id) || id <= 0) {
     return sendError(res, 400, "유효한 수강 ID가 필요합니다.");
+  }
+  if (!depositorName) {
+    return sendError(res, 400, "입금자명을 입력해 주세요.");
   }
   const row = await get("SELECT id FROM public.enrollments WHERE id = ? AND user_id = ?", [id, req.auth.sub]);
   if (!row) return sendError(res, 404, "수강 정보를 찾을 수 없습니다.");
   await run("UPDATE public.enrollments SET payment_status = 'deposit_submitted' WHERE id = ?", [id]);
-  await run("UPDATE public.payments SET status = 'awaiting_confirmation' WHERE enrollment_id = ?", [id]);
+  await run(
+    `UPDATE public.payments
+     SET status = 'awaiting_confirmation',
+         depositor_name = ?,
+         transfer_note = ?,
+         submitted_at = now()
+     WHERE enrollment_id = ?`,
+    [depositorName, transferNote || null, id]
+  );
   const updated = await get(
     `SELECT e.*, c.title AS course_title FROM public.enrollments e JOIN public.courses c ON c.id = e.course_id WHERE e.id = ?`,
     [id]
@@ -1300,7 +1325,7 @@ app.patch("/api/me/enrollments/:id/deposit", requireAuth, async (req, res) => {
 
 app.get("/api/me/payments", requireAuth, async (req, res) => {
   const rows = await all(
-    `SELECT p.id, p.amount, p.method, p.status, p.created_at,
+    `SELECT p.id, p.amount, p.method, p.status, p.depositor_name, p.transfer_note, p.submitted_at, p.review_note, p.reviewed_at, p.created_at,
             e.id AS enrollment_id, c.title AS course_title
      FROM public.payments p
      JOIN public.enrollments e ON e.id = p.enrollment_id
@@ -1399,9 +1424,10 @@ app.patch("/api/admin/enrollments/:id", requireAuth, requireAdmin, async (req, r
 
 app.get("/api/admin/payments", requireAuth, requireAdmin, async (req, res) => {
   const rows = await all(
-    `SELECT p.*, e.user_id, e.approval_status, c.title AS course_title
+    `SELECT p.*, e.user_id, e.approval_status, u.name AS user_name, u.email AS user_email, c.title AS course_title
      FROM public.payments p
      JOIN public.enrollments e ON e.id = p.enrollment_id
+     JOIN public.users u ON u.id = e.user_id
      JOIN public.courses c ON c.id = e.course_id
      ORDER BY p.id DESC`
   );
@@ -1414,9 +1440,10 @@ app.get("/api/admin/payments/:id", requireAuth, requireAdmin, async (req, res) =
     return sendError(res, 400, "유효한 결제 ID가 필요합니다.");
   }
   const row = await get(
-    `SELECT p.*, e.user_id, e.id AS enrollment_id, c.title AS course_title
+    `SELECT p.*, e.user_id, e.id AS enrollment_id, e.approval_status, u.name AS user_name, u.email AS user_email, c.title AS course_title
      FROM public.payments p
      JOIN public.enrollments e ON e.id = p.enrollment_id
+     JOIN public.users u ON u.id = e.user_id
      JOIN public.courses c ON c.id = e.course_id
      WHERE p.id = ?`,
     [id]
@@ -1427,16 +1454,30 @@ app.get("/api/admin/payments/:id", requireAuth, requireAdmin, async (req, res) =
 
 app.patch("/api/admin/payments/:id", requireAuth, requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
-  const { status } = req.body;
+  const status = String(req.body.status || "").trim();
+  const reviewNote = req.body.reviewNote == null ? null : String(req.body.reviewNote || "").trim().slice(0, 500);
   if (!Number.isInteger(id) || id <= 0) {
     return sendError(res, 400, "유효한 결제 ID가 필요합니다.");
   }
   if (!status) return sendError(res, 400, "status가 필요합니다.");
+  const allowed = new Set(["pending", "awaiting_confirmation", "completed", "failed", "refunded"]);
+  if (!allowed.has(status)) return sendError(res, 400, "지원하지 않는 결제 상태입니다.");
   const pay = await get("SELECT * FROM public.payments WHERE id = ?", [id]);
   if (!pay) return sendError(res, 404, "결제 정보를 찾을 수 없습니다.");
-  await run("UPDATE public.payments SET status = ? WHERE id = ?", [status, id]);
+  await run(
+    "UPDATE public.payments SET status = ?, review_note = ?, reviewed_by = ?, reviewed_at = now() WHERE id = ?",
+    [status, reviewNote, req.auth.sub, id]
+  );
   if (status === "completed") {
-    await run("UPDATE public.enrollments SET payment_status = 'paid' WHERE id = ?", [pay.enrollment_id]);
+    await run("UPDATE public.enrollments SET payment_status = 'paid', approval_status = 'approved' WHERE id = ?", [
+      pay.enrollment_id,
+    ]);
+  } else if (status === "failed" || status === "pending") {
+    await run("UPDATE public.enrollments SET payment_status = 'pending', approval_status = 'pending' WHERE id = ?", [
+      pay.enrollment_id,
+    ]);
+  } else if (status === "refunded") {
+    await run("UPDATE public.enrollments SET payment_status = 'refunded' WHERE id = ?", [pay.enrollment_id]);
   }
   const updated = await get("SELECT * FROM public.payments WHERE id = ?", [id]);
   return res.json(updated);
