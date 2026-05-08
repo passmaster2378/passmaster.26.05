@@ -1565,6 +1565,7 @@ app.patch("/api/admin/payments/:id", requireAuth, requireAdmin, async (req, res)
   const id = Number(req.params.id);
   const status = String(req.body.status || "").trim();
   const reviewNote = req.body.reviewNote == null ? null : String(req.body.reviewNote || "").trim().slice(0, 500);
+  const refundAmountRaw = Number(req.body.refundAmount);
   if (!Number.isInteger(id) || id <= 0) {
     return sendError(res, 400, "유효한 결제 ID가 필요합니다.");
   }
@@ -1573,12 +1574,49 @@ app.patch("/api/admin/payments/:id", requireAuth, requireAdmin, async (req, res)
   if (!allowed.has(status)) return sendError(res, 400, "지원하지 않는 결제 상태입니다.");
   const pay = await get("SELECT * FROM public.payments WHERE id = ?", [id]);
   if (!pay) return sendError(res, 404, "결제 정보를 찾을 수 없습니다.");
-  await run(
-    "UPDATE public.payments SET status = ?, review_note = ?, reviewed_by = ?, reviewed_at = now() WHERE id = ?",
-    [status, reviewNote, req.auth.sub, id]
-  );
+  let updatedPaymentId = id;
+
+  if (status === "refunded") {
+    if (pay.status !== "completed" && pay.status !== "refunded") {
+      return sendError(res, 400, "환불 처리는 완료된 결제에서만 가능합니다.");
+    }
+    const summaryBefore = await summarizeEnrollmentPayments(pay.enrollment_id);
+    if (!summaryBefore || summaryBefore.netPaid <= 0) {
+      return sendError(res, 409, "환불 가능한 결제 금액이 없습니다.");
+    }
+    const maxRefund = summaryBefore.netPaid;
+    const refundAmount = Number.isFinite(refundAmountRaw) ? Math.floor(refundAmountRaw) : maxRefund;
+    if (!Number.isInteger(refundAmount) || refundAmount <= 0) {
+      return sendError(res, 400, "환불 금액은 1원 이상이어야 합니다.");
+    }
+    if (refundAmount > maxRefund) {
+      return sendError(res, 400, `환불 금액은 환불 가능 금액(${maxRefund.toLocaleString("ko-KR")}원) 이하만 가능합니다.`);
+    }
+
+    if (pay.status === "refunded") {
+      await run(
+        "UPDATE public.payments SET amount = ?, review_note = ?, reviewed_by = ?, reviewed_at = now() WHERE id = ?",
+        [refundAmount, reviewNote, req.auth.sub, id]
+      );
+    } else {
+      const inserted = await run(
+        `INSERT INTO public.payments
+          (enrollment_id, amount, method, status, depositor_name, transfer_note, submitted_at, review_note, reviewed_by, reviewed_at)
+         VALUES (?, ?, ?, 'refunded', NULL, NULL, now(), ?, ?, now())
+         RETURNING id`,
+        [pay.enrollment_id, refundAmount, pay.method || "bank_transfer", reviewNote, req.auth.sub]
+      );
+      updatedPaymentId = inserted.rows[0].id;
+    }
+  } else {
+    await run(
+      "UPDATE public.payments SET status = ?, review_note = ?, reviewed_by = ?, reviewed_at = now() WHERE id = ?",
+      [status, reviewNote, req.auth.sub, id]
+    );
+  }
+
   const summary = await syncEnrollmentPaymentState(pay.enrollment_id);
-  const updated = await get("SELECT * FROM public.payments WHERE id = ?", [id]);
+  const updated = await get("SELECT * FROM public.payments WHERE id = ?", [updatedPaymentId]);
   return res.json({ ...updated, payment_summary: summary });
 });
 

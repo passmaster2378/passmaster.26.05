@@ -1303,6 +1303,10 @@
       const hasOption = Array.from(form.status.options).some((o) => o.value === loadedPayment.status);
       if (hasOption) form.status.value = loadedPayment.status;
       if (form.review_note) form.review_note.value = loadedPayment.review_note || "";
+      if (form.refund_amount && loadedPayment.payment_summary) {
+        const maxRefund = Number(loadedPayment.payment_summary.netPaid || 0);
+        form.refund_amount.max = maxRefund > 0 ? String(maxRefund) : "";
+      }
     }
     if (form) {
       form.addEventListener("submit", async (event) => {
@@ -1310,14 +1314,31 @@
         const status = form.status.value;
         const reviewNote =
           form.review_note && typeof form.review_note.value === "string" ? form.review_note.value.trim() : "";
+        const refundAmount =
+          form.refund_amount && typeof form.refund_amount.value === "string" && form.refund_amount.value.trim()
+            ? Number(form.refund_amount.value)
+            : undefined;
+        if (status === "refunded" && refundAmount !== undefined && (!Number.isFinite(refundAmount) || refundAmount <= 0)) {
+          const msg = form.querySelector("[data-api='admin-payment-form-msg']");
+          showMessage(msg, "환불 금액은 1원 이상 입력해 주세요.", "error");
+          return;
+        }
         try {
+          const body = { status, reviewNote };
+          if (status === "refunded" && refundAmount !== undefined) body.refundAmount = refundAmount;
           await request(`/admin/payments/${id}`, {
             method: "PATCH",
-            body: JSON.stringify({ status, reviewNote }),
+            body: JSON.stringify(body),
           });
           const msg = form.querySelector("[data-api='admin-payment-form-msg']");
           showMessage(msg, "결제 상태가 반영되었습니다.", "success");
           const p = await request(`/admin/payments/${id}`);
+          loadedPayment = p;
+          if (form.refund_amount && p.payment_summary) {
+            const maxRefund = Number(p.payment_summary.netPaid || 0);
+            form.refund_amount.max = maxRefund > 0 ? String(maxRefund) : "";
+            form.refund_amount.value = "";
+          }
           root.querySelector("[data-field='status']").textContent = toPaymentStatusLabel(p.status);
           if (root.querySelector("[data-field='reviewNote']")) {
             root.querySelector("[data-field='reviewNote']").textContent = p.review_note || "-";
