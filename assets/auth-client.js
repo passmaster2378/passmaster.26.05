@@ -941,7 +941,7 @@
       }
       rows.forEach((e) => {
         const tr = document.createElement("tr");
-        const detailHref = `../../my-courses/enrollment-001/index.html?id=${e.id}`;
+        const detailHref = toSitePath(`/my-courses/enrollment-001/index.html?id=${encodeURIComponent(String(e.id))}`);
         tr.innerHTML = `
           <td>${e.id}</td>
           <td>${e.course_title || "-"}</td>

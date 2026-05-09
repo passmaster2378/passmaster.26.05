@@ -5,6 +5,22 @@
   const MOCK_TOTAL = 60;
   const MOCK_ROUNDS = 6;
   const CERT_SLUG = "makeup";
+  const DEFAULT_REMOTE_API_BASE = "https://passmaster-26-05.onrender.com/api";
+  const isLocalHost =
+    window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  const isGitHubPages = /\.github\.io$/i.test(window.location.hostname);
+
+  function normalizeApiBase(raw) {
+    if (raw == null || typeof raw !== "string") return null;
+    let value = raw.trim().replace(/\/+$/, "");
+    if (!value) return null;
+    if (!value.endsWith("/api")) value = `${value}/api`;
+    return value;
+  }
+
+  const API_BASE =
+    normalizeApiBase(window.PASSMASTER_API_BASE) ||
+    (isLocalHost ? "http://localhost:4000/api" : isGitHubPages ? DEFAULT_REMOTE_API_BASE : "/api");
   /** 60문항 정답 수 → 100점 만점 환산 */
   function scorePercent100(correct) {
     return (correct / MOCK_TOTAL) * 100;
@@ -138,7 +154,7 @@
   async function requestApi(path, options = {}) {
     const session = getStoredSession();
     if (!session || !session.token) throw new Error("로그인이 필요합니다.");
-    const response = await fetch(`/api${path}`, {
+    const response = await fetch(`${API_BASE}${path}`, {
       ...options,
       headers: {
         "Content-Type": "application/json",

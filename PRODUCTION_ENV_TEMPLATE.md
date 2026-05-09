@@ -30,7 +30,6 @@ KAKAO_CLIENT_SECRET=<KAKAO_CLIENT_SECRET_OR_EMPTY>
 
 # 보안: 운영에서는 false 고정
 ROOT_ADMIN_BOOTSTRAP=false
-ROOT_ADMIN_EMAIL=
 ROOT_ADMIN_PASSWORD=
 ROOT_ADMIN_NAME=PASSmaster
 
@@ -44,10 +43,10 @@ ADMIN_WRITE_RATE_LIMIT_WINDOW_MS=600000
 ## 2) Backend - 초기 관리자 1회 생성이 필요할 때만
 
 > 이 단계는 **정말 최초 1회만** 사용하고 즉시 `ROOT_ADMIN_BOOTSTRAP=false`로 복구하세요.
+> 관리자 이메일은 코드 정책상 `sanahai@naver.com`으로 고정됩니다.
 
 ```env
 ROOT_ADMIN_BOOTSTRAP=true
-ROOT_ADMIN_EMAIL=<admin@email.com>
 ROOT_ADMIN_PASSWORD=<STRONG_ADMIN_PASSWORD>
 ROOT_ADMIN_NAME=PASSmaster
 ```
@@ -56,7 +55,6 @@ ROOT_ADMIN_NAME=PASSmaster
 
 ```env
 ROOT_ADMIN_BOOTSTRAP=false
-ROOT_ADMIN_EMAIL=
 ROOT_ADMIN_PASSWORD=
 ```
 

@@ -18,7 +18,8 @@
 초기 관리자 1회 생성이 꼭 필요할 때만:
 
 - `ROOT_ADMIN_BOOTSTRAP=true`
-- `ROOT_ADMIN_EMAIL`, `ROOT_ADMIN_PASSWORD`, `ROOT_ADMIN_NAME`
+- `ROOT_ADMIN_PASSWORD`, `ROOT_ADMIN_NAME`
+- 관리자 이메일은 운영 정책상 `sanahai@naver.com`으로 고정
 
 생성 완료 후 즉시 `ROOT_ADMIN_BOOTSTRAP=false`로 되돌립니다.
 

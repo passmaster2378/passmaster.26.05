@@ -24,11 +24,31 @@
       <main class="pm-main">
         <p class="pm-pill">Public Flow</p>
         <h1>이메일 인증</h1>
-        <p class="pm-summary">가입 후 발송된 인증 메일을 확인하고 계정을 활성화합니다.</p>
+        <p class="pm-summary">가입 후 인증 여부를 확인하고 온보딩 단계로 이동합니다.</p>
         <div class="pm-cta-row">
           <a class="pm-btn pm-btn-ghost" href="./register.html">이전 단계</a>
           <a class="pm-btn pm-btn-primary" href="./onboarding.html">다음 단계</a>
         </div>
+
+        <section class="pm-card">
+          <h2>인증 상태 확인</h2>
+          <p class="auth-message info" data-email-verify-msg>인증 정보를 확인하는 중입니다.</p>
+          <div class="pm-link-list" style="display:grid; gap:10px; list-style:none; padding:0; margin:0;">
+            <label>
+              인증 대상 이메일
+              <input
+                type="email"
+                data-email-verify-input
+                placeholder="name@example.com"
+                style="width:100%; min-height:38px; border:1px solid #d8e1f4; border-radius:10px; padding:0 10px; margin-top:6px;"
+              />
+            </label>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="pm-btn pm-btn-primary" type="button" data-email-verify-confirm>인증 완료 처리</button>
+              <a class="pm-btn pm-btn-ghost" href="./login.html">로그인으로 이동</a>
+            </div>
+          </div>
+        </section>
 
         <section class="pm-card">
           <h2>현재 경로</h2>
@@ -50,5 +70,52 @@
         <a href="./pages.html">사이트맵</a>
       </footer>
     </div>
+    <script>
+      (function () {
+        const msg = document.querySelector("[data-email-verify-msg]");
+        const input = document.querySelector("[data-email-verify-input]");
+        const confirmBtn = document.querySelector("[data-email-verify-confirm]");
+        if (!msg || !input || !confirmBtn) return;
+
+        const params = new URLSearchParams(window.location.search);
+        const emailFromQuery = String(params.get("email") || "").trim();
+        let emailFromSession = "";
+        try {
+          const raw = localStorage.getItem("passmaster_auth");
+          const session = raw ? JSON.parse(raw) : null;
+          emailFromSession = session && session.user && session.user.email ? String(session.user.email) : "";
+        } catch (_error) {
+          emailFromSession = "";
+        }
+        input.value = emailFromQuery || emailFromSession;
+        msg.textContent = "이메일 인증 확인 후 온보딩으로 이동하세요.";
+
+        confirmBtn.addEventListener("click", () => {
+          const email = String(input.value || "").trim().toLowerCase();
+          if (!email || !email.includes("@")) {
+            msg.textContent = "유효한 이메일을 입력해 주세요.";
+            msg.className = "auth-message error";
+            return;
+          }
+          try {
+            localStorage.setItem(
+              "passmaster_email_verification",
+              JSON.stringify({
+                email,
+                verified: true,
+                verifiedAt: new Date().toISOString(),
+              })
+            );
+          } catch (_error) {
+            // ignore storage failures
+          }
+          msg.textContent = "인증 확인이 완료되었습니다. 온보딩으로 이동합니다.";
+          msg.className = "auth-message success";
+          setTimeout(() => {
+            window.location.href = `./onboarding.html?email=${encodeURIComponent(email)}`;
+          }, 500);
+        });
+      })();
+    </script>
   </body>
 </html>

@@ -33,7 +33,6 @@ KAKAO_CLIENT_SECRET=
 
 # 보안: 운영에서는 항상 false 유지
 ROOT_ADMIN_BOOTSTRAP=false
-ROOT_ADMIN_EMAIL=
 ROOT_ADMIN_PASSWORD=
 ROOT_ADMIN_NAME=PASSmaster
 
@@ -49,10 +48,10 @@ ADMIN_WRITE_RATE_LIMIT_WINDOW_MS=600000
 ## 2) 최초 관리자 1회 부트스트랩 (필요한 경우만)
 
 > 이 단계는 정말 최초 1회만 사용 후 즉시 OFF
+> 관리자 이메일은 코드 정책상 `sanahai@naver.com` 고정입니다.
 
 ```env
 ROOT_ADMIN_BOOTSTRAP=true
-ROOT_ADMIN_EMAIL=sanahai@naver.com
 ROOT_ADMIN_PASSWORD=<CHANGE_TO_NEW_STRONG_PASSWORD>
 ROOT_ADMIN_NAME=PASSmaster
 ```
@@ -61,7 +60,6 @@ ROOT_ADMIN_NAME=PASSmaster
 
 ```env
 ROOT_ADMIN_BOOTSTRAP=false
-ROOT_ADMIN_EMAIL=
 ROOT_ADMIN_PASSWORD=
 ```
 

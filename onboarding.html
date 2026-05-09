@@ -31,6 +31,44 @@
         </div>
 
         <section class="pm-card">
+          <h2>온보딩 입력</h2>
+          <p class="auth-message info" data-onboarding-msg>학습 진단 정보를 입력해 주세요.</p>
+          <form data-onboarding-form style="display:grid; gap:10px;">
+            <label>
+              관심 자격증
+              <select name="certSlug" style="width:100%; min-height:38px; border:1px solid #d8e1f4; border-radius:10px; padding:0 10px; margin-top:6px;">
+                <option value="makeup">메이크업 미용사</option>
+                <option value="beautician">미용사 일반</option>
+                <option value="skin">피부미용</option>
+                <option value="nail">네일미용</option>
+              </select>
+            </label>
+            <label>
+              목표 시험일
+              <input name="examDate" type="date" style="width:100%; min-height:38px; border:1px solid #d8e1f4; border-radius:10px; padding:0 10px; margin-top:6px;" />
+            </label>
+            <label>
+              주당 학습 시간
+              <select name="weeklyHours" style="width:100%; min-height:38px; border:1px solid #d8e1f4; border-radius:10px; padding:0 10px; margin-top:6px;">
+                <option value="4">4시간</option>
+                <option value="8">8시간</option>
+                <option value="12">12시간</option>
+                <option value="16">16시간 이상</option>
+              </select>
+            </label>
+            <label>
+              현재 수준
+              <select name="level" style="width:100%; min-height:38px; border:1px solid #d8e1f4; border-radius:10px; padding:0 10px; margin-top:6px;">
+                <option value="beginner">입문</option>
+                <option value="intermediate">중급</option>
+                <option value="advanced">상급</option>
+              </select>
+            </label>
+            <button class="pm-btn pm-btn-primary" type="submit">온보딩 저장</button>
+          </form>
+        </section>
+
+        <section class="pm-card">
           <h2>현재 경로</h2>
           <p class="pm-route">/onboarding</p>
         </section>
@@ -50,5 +88,51 @@
         <a href="./pages.html">사이트맵</a>
       </footer>
     </div>
+    <script>
+      (function () {
+        const msg = document.querySelector("[data-onboarding-msg]");
+        const form = document.querySelector("[data-onboarding-form]");
+        if (!msg || !form) return;
+
+        const params = new URLSearchParams(window.location.search);
+        const emailFromQuery = String(params.get("email") || "").trim().toLowerCase();
+        let email = emailFromQuery;
+        if (!email) {
+          try {
+            const raw = localStorage.getItem("passmaster_email_verification");
+            const verification = raw ? JSON.parse(raw) : null;
+            email = verification && verification.email ? String(verification.email).toLowerCase() : "";
+          } catch (_error) {
+            email = "";
+          }
+        }
+
+        form.addEventListener("submit", (event) => {
+          event.preventDefault();
+          const certSlug = String(form.certSlug.value || "").trim();
+          const examDate = String(form.examDate.value || "").trim();
+          const weeklyHours = Number(form.weeklyHours.value || 0);
+          const level = String(form.level.value || "").trim();
+          const payload = {
+            email: email || null,
+            certSlug,
+            examDate: examDate || null,
+            weeklyHours: Number.isFinite(weeklyHours) && weeklyHours > 0 ? weeklyHours : null,
+            level: level || null,
+            updatedAt: new Date().toISOString(),
+          };
+          try {
+            localStorage.setItem("passmaster_onboarding", JSON.stringify(payload));
+          } catch (_error) {
+            // ignore storage failures
+          }
+          msg.textContent = "온보딩이 저장되었습니다. 수강신청 단계로 이동합니다.";
+          msg.className = "auth-message success";
+          setTimeout(() => {
+            window.location.href = "./enroll/index.html";
+          }, 500);
+        });
+      })();
+    </script>
   </body>
 </html>
