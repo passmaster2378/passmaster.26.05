@@ -4,6 +4,8 @@
 
 백엔드(`backend/.env`) 또는 배포 플랫폼 환경변수에 아래를 설정합니다.
 
+복붙 템플릿은 `PRODUCTION_ENV_TEMPLATE.md`를 사용하세요.
+
 - `NODE_ENV=production`
 - `JWT_SECRET` (32자 이상 랜덤 문자열)
 - `SUPABASE_DB_URL` (운영 DB)
