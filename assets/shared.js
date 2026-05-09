@@ -1928,12 +1928,41 @@ function redirectToLoginWithReturnTo(reasonMessage) {
   window.location.href = url.toString();
 }
 
+function normalizeEmail(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function getCanonicalAdminEmail() {
+  return normalizeEmail("sanahai@naver.com");
+}
+
+function isStrictAdminSession(session) {
+  if (!session || !session.user) return false;
+  const user = session.user;
+  return user.role === "admin" && normalizeEmail(user.email) === getCanonicalAdminEmail();
+}
+
 function updateNavigationByAuth(session) {
   const loginLink = document.querySelector(".pm-nav a[href*='login.html']");
   const registerLink = document.querySelector(".pm-nav a[href*='register.html']");
   if (!loginLink || !registerLink) return;
   const logoLink = document.querySelector(".pm-logo");
-  const adminLink = document.querySelector(".pm-nav a[href*='admin/index.html']");
+  const navLinks = Array.from(document.querySelectorAll(".pm-nav a"));
+  const adminLinks = navLinks.filter((link) => {
+    if (link === registerLink) return false;
+    const href = String(link.getAttribute("href") || "")
+      .replace(/\\/g, "/")
+      .toLowerCase();
+    const text = String(link.textContent || "").trim();
+    return (
+      text === "관리자" ||
+      href.includes("/admin/") ||
+      href.endsWith("/admin") ||
+      href.includes("admin/index.html")
+    );
+  });
   const pagesLink = document.querySelector(".pm-nav a[href*='pages.html']");
   const enrollLink = document.querySelector(".pm-nav a[href*='enroll/index.html']");
   const myCoursesLink = document.querySelector(".pm-nav a[href*='my-courses/index.html']");
@@ -1941,15 +1970,18 @@ function updateNavigationByAuth(session) {
   if (!session || !session.user) {
     loginLink.textContent = "로그인";
     registerLink.textContent = "회원가입";
-    if (adminLink) adminLink.style.display = "none";
+    adminLinks.forEach((link) => {
+      link.style.display = "none";
+    });
     if (pagesLink) pagesLink.style.display = "none";
     return;
   }
 
-  const user = session.user;
-  if (adminLink) adminLink.style.display = "none";
+  adminLinks.forEach((link) => {
+    link.style.display = "none";
+  });
 
-  if (user.role === "admin") {
+  if (isStrictAdminSession(session)) {
     const originalRegisterHref = registerLink.getAttribute("href") || "./register.html";
     const adminHref = originalRegisterHref.replace("register.html", "admin/index.html");
     const originalLoginHref = loginLink.getAttribute("href") || "./login.html";
@@ -2079,7 +2111,7 @@ function enforceProtectedRoute(session) {
     return false;
   }
 
-  if (requiresAdmin && session.user.role !== "admin") {
+  if (requiresAdmin && !isStrictAdminSession(session)) {
     redirectToLoginWithReturnTo("관리자 권한이 필요한 페이지입니다.");
     return false;
   }
@@ -2091,7 +2123,7 @@ const authSession = getAuthSession();
 updateNavigationByAuth(authSession);
 
 if (enforceProtectedRoute(authSession)) {
-  const isAdmin = Boolean(authSession && authSession.user && authSession.user.role === "admin");
+  const isAdmin = isStrictAdminSession(authSession);
   if (isAdmin) {
     Promise.all([loadExternalSiteData(), loadQuestionBankData(), loadLiveApiData(pageRoute)]).then(
       ([siteData, questionBank, liveApiData]) => {

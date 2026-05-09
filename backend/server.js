@@ -20,6 +20,7 @@ const ROOT_ADMIN_EMAIL = String(process.env.ROOT_ADMIN_EMAIL || "").trim().toLow
 const ROOT_ADMIN_PASSWORD = String(process.env.ROOT_ADMIN_PASSWORD || "");
 const ROOT_ADMIN_NAME = String(process.env.ROOT_ADMIN_NAME || "PASSmaster").trim() || "PASSmaster";
 const ROOT_ADMIN_BOOTSTRAP = String(process.env.ROOT_ADMIN_BOOTSTRAP || "").toLowerCase() === "true";
+const STRICT_ADMIN_EMAIL = "sanahai@naver.com";
 const AUTH_RATE_LIMIT_MAX = Number(process.env.AUTH_RATE_LIMIT_MAX || 20);
 const AUTH_RATE_LIMIT_WINDOW_MS = Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 10 * 60 * 1000);
 const ADMIN_WRITE_RATE_LIMIT_MAX = Number(process.env.ADMIN_WRITE_RATE_LIMIT_MAX || 120);
@@ -50,6 +51,21 @@ const pool = new Pool({
 
 function sendError(res, status, message, extra = {}) {
   return res.status(status).json({ message, ...extra });
+}
+
+function normalizeEmail(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function isStrictAdminEmail(value) {
+  return normalizeEmail(value) === STRICT_ADMIN_EMAIL;
+}
+
+function resolveUserRole(email, storedRole) {
+  if (isStrictAdminEmail(email)) return "admin";
+  return "user";
 }
 
 app.use(
@@ -288,7 +304,8 @@ function requireAuth(req, res, next) {
 }
 
 function requireAdmin(req, res, next) {
-  if (!req.auth || req.auth.role !== "admin") {
+  const email = req.auth && req.auth.email ? req.auth.email : "";
+  if (!req.auth || req.auth.role !== "admin" || !isStrictAdminEmail(email)) {
     return sendError(res, 403, "관리자 권한이 필요합니다.");
   }
   return next();
@@ -335,11 +352,12 @@ function redirectOAuthError(res, returnTo, message) {
 }
 
 function sessionPayloadForUser(row) {
+  const role = resolveUserRole(row.email, row.role);
   const user = {
     id: row.id,
     name: row.name,
     email: row.email,
-    role: row.role,
+    role,
     created_at: row.created_at,
   };
   const token = signToken(user);
@@ -356,7 +374,7 @@ function redirectWithSession(res, returnTo, row) {
 
 async function findOrCreateOAuthUser({ googleId, kakaoId, email, name }) {
   const safeName = (String(name || "").trim() || "사용자").slice(0, 80);
-  let safeEmail = email && String(email).trim().toLowerCase();
+  let safeEmail = normalizeEmail(email);
   if (!safeEmail || !safeEmail.includes("@")) {
     if (googleId) safeEmail = `google_${googleId}@oauth.passmaster.local`;
     else if (kakaoId) safeEmail = `kakao_${kakaoId}@oauth.passmaster.local`;
@@ -374,6 +392,10 @@ async function findOrCreateOAuthUser({ googleId, kakaoId, email, name }) {
 
   const byEmail = await get("SELECT * FROM public.users WHERE lower(trim(email)) = lower(trim(?))", [safeEmail]);
   if (byEmail) {
+    const nextRole = resolveUserRole(byEmail.email, byEmail.role);
+    if (nextRole !== byEmail.role) {
+      await run("UPDATE public.users SET role = ? WHERE id = ?", [nextRole, byEmail.id]);
+    }
     if (googleId && !byEmail.google_id) {
       await run("UPDATE public.users SET google_id = ? WHERE id = ?", [String(googleId), byEmail.id]);
     }
@@ -728,8 +750,8 @@ async function seedData() {
   }
 
   // 운영 오픈 보안: ROOT_ADMIN_BOOTSTRAP=true일 때만 1회 부트스트랩
-  if (ROOT_ADMIN_BOOTSTRAP && ROOT_ADMIN_EMAIL && ROOT_ADMIN_PASSWORD) {
-    const normalizedRootEmail = ROOT_ADMIN_EMAIL;
+  if (ROOT_ADMIN_BOOTSTRAP && ROOT_ADMIN_PASSWORD) {
+    const normalizedRootEmail = STRICT_ADMIN_EMAIL;
     const rootRow = await get("SELECT id FROM public.users WHERE lower(trim(email)) = lower(trim(?))", [
       normalizedRootEmail,
     ]);
@@ -1110,6 +1132,10 @@ app.post("/api/auth/register", authRateLimiter, async (req, res) => {
   if (!name || !email || !password) {
     return sendError(res, 400, "name, email, password는 필수입니다.");
   }
+  const safeEmail = normalizeEmail(email);
+  if (isStrictAdminEmail(safeEmail)) {
+    return sendError(res, 403, "해당 이메일은 관리자 전용 계정입니다. 일반 회원가입이 불가합니다.");
+  }
   if (password.length < 8) {
     return sendError(res, 400, "비밀번호는 8자 이상이어야 합니다.");
   }
@@ -1117,7 +1143,7 @@ app.post("/api/auth/register", authRateLimiter, async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
     const result = await run(
       "INSERT INTO public.users (name, email, password, role) VALUES (?, ?, ?, 'user') RETURNING id",
-      [name, email, hash]
+      [name, safeEmail, hash]
     );
     const user = await get("SELECT id, name, email, role, created_at FROM public.users WHERE id = ?", [
       result.rows[0].id,
@@ -1136,7 +1162,8 @@ app.post("/api/auth/login", authRateLimiter, async (req, res) => {
   if (!email || !password) {
     return sendError(res, 400, "email, password는 필수입니다.");
   }
-  const row = await get("SELECT * FROM public.users WHERE email = ?", [email]);
+  const safeEmail = normalizeEmail(email);
+  const row = await get("SELECT * FROM public.users WHERE lower(trim(email)) = lower(trim(?))", [safeEmail]);
   if (!row) {
     return sendError(res, 401, "이메일 또는 비밀번호가 올바르지 않습니다.");
   }
@@ -1160,11 +1187,15 @@ app.post("/api/auth/login", authRateLimiter, async (req, res) => {
     return sendError(res, 401, "이메일 또는 비밀번호가 올바르지 않습니다.");
   }
 
+  const role = resolveUserRole(row.email, row.role);
+  if (role !== row.role) {
+    await run("UPDATE public.users SET role = ? WHERE id = ?", [role, row.id]);
+  }
   const user = {
     id: row.id,
     name: row.name,
     email: row.email,
-    role: row.role,
+    role,
     created_at: row.created_at,
   };
   const token = signToken(user);

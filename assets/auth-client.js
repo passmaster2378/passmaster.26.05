@@ -1444,6 +1444,58 @@
     }
   }
 
+  async function mountAdminDashboard() {
+    const tbody = document.querySelector("[data-api='admin-dashboard-body']");
+    if (!tbody) return;
+    const msg = document.querySelector("[data-api='admin-dashboard-msg']");
+    const rows = [];
+
+    const setMessage = (text, isError) => {
+      if (!msg) return;
+      msg.textContent = text || "";
+      msg.classList.toggle("error", Boolean(isError));
+    };
+
+    try {
+      const [users, openings, enrollments, inquiries] = await Promise.all([
+        request("/admin/users"),
+        request("/openings"),
+        request("/admin/enrollments"),
+        request("/admin/inquiries"),
+      ]);
+
+      const usersCount = Array.isArray(users) ? users.length : 0;
+      const openingsCount = Array.isArray(openings) ? openings.length : 0;
+      const enrollmentsCount = Array.isArray(enrollments) ? enrollments.length : 0;
+      const inquiriesList = Array.isArray(inquiries) ? inquiries : [];
+      const pendingInquiries = inquiriesList.filter((item) => item.status !== "resolved").length;
+
+      rows.push(["회원 수", `${usersCount}명`]);
+      rows.push(["개설 과정 수", `${openingsCount}건`]);
+      rows.push(["수강신청 수", `${enrollmentsCount}건`]);
+      rows.push(["미처리 문의", `${pendingInquiries}건`]);
+
+      setMessage("실시간 API 기준 운영 현황입니다.", false);
+    } catch (error) {
+      rows.push(["회원 수", "-"]);
+      rows.push(["개설 과정 수", "-"]);
+      rows.push(["수강신청 수", "-"]);
+      rows.push(["미처리 문의", "-"]);
+      setMessage(`대시보드 데이터를 불러오지 못했습니다: ${error.message}`, true);
+    }
+
+    tbody.innerHTML = rows
+      .map(
+        ([label, value]) => `
+          <tr>
+            <th scope="row">${label}</th>
+            <td>${value}</td>
+          </tr>
+        `
+      )
+      .join("");
+  }
+
   async function handleAdminReplySubmit(event) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -1558,6 +1610,7 @@
 
     mountAdminInquiryList();
     mountAdminInquiryDetail();
+    mountAdminDashboard();
 
     mountCourseOpeningsList();
     mountEnrollMyOnlyTable();
