@@ -1,7 +1,7 @@
 (() => {
   const DEFAULT_REMOTE_API_BASE = "https://passmaster-26-05.onrender.com/api";
-  const DEFAULT_TIMEOUT_MS = 15000;
-  const AUTH_TIMEOUT_MS = 35000;
+  const DEFAULT_TIMEOUT_MS = 30000;
+  const AUTH_TIMEOUT_MS = 45000;
   const isLocalHost =
     window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
   const isFileProtocol = window.location.protocol === "file:";
@@ -73,6 +73,9 @@
 
   async function request(path, options = {}, config = {}) {
     const { timeoutMs = DEFAULT_TIMEOUT_MS, retryNetworkError = false } = config;
+    const method = String((options && options.method) || "GET").toUpperCase();
+    const shouldRetryNetworkError = retryNetworkError || method === "GET" || method === "HEAD";
+    const maxAttempts = shouldRetryNetworkError ? 3 : 1;
     const session = getStoredSession();
     const authHeader =
       session && session.token ? { Authorization: `Bearer ${session.token}` } : {};
@@ -86,21 +89,21 @@
     };
 
     let response;
-    for (let attempt = 0; attempt < (retryNetworkError ? 2 : 1); attempt += 1) {
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       try {
         response = await fetchWithTimeout(`${API_BASE}${path}`, fetchOptions, timeoutMs);
         break;
       } catch (error) {
-        const isLastAttempt = attempt === (retryNetworkError ? 1 : 0);
+        const isLastAttempt = attempt === maxAttempts - 1;
         if (!isLastAttempt) {
           // Render free tier cold start can cause first request timeout/network failure.
-          await new Promise((resolve) => setTimeout(resolve, 600));
+          await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
           continue;
         }
         const isTimeout = error && error.name === "AbortError";
         throw new Error(
           isTimeout
-            ? `요청 시간이 초과되었습니다. (${API_BASE}) 잠시 후 다시 시도해 주세요.`
+            ? `요청 시간이 초과되었습니다. (${API_BASE}) 초기 기동 시 20~40초가 걸릴 수 있어 잠시 후 다시 시도해 주세요.`
             : `API 서버에 연결할 수 없습니다. (${API_BASE}) 백엔드 실행 또는 배포 환경변수를 확인해 주세요.`
         );
       }
@@ -1538,6 +1541,7 @@
   }
 
   async function mountAuthForms() {
+    warmupApi().catch(() => null);
     await mountOAuthButtons();
     if (consumeOAuthHashReturn() === true) {
       return;
