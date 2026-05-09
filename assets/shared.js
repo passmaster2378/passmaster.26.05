@@ -2083,18 +2083,8 @@ function applyStudentView() {
       return;
     }
     if (title === "연결 페이지") {
-      if (titleNode) titleNode.textContent = "추천 이동";
-      const list = card.querySelector(".pm-link-list");
-      if (list) {
-        list.style.listStyle = "none";
-        list.style.paddingLeft = "0";
-        list.style.gap = "10px";
-        list.querySelectorAll("a").forEach((anchor, idx) => {
-          anchor.classList.add("pm-btn", idx === 0 ? "pm-btn-primary" : "pm-btn-ghost");
-          anchor.textContent = prettifyLinkLabel(anchor.getAttribute("href"));
-          anchor.style.textDecoration = "none";
-        });
-      }
+      card.remove();
+      return;
     }
   });
 
@@ -2124,7 +2114,7 @@ updateNavigationByAuth(authSession);
 
 if (enforceProtectedRoute(authSession)) {
   const isAdmin = isStrictAdminSession(authSession);
-  if (isAdmin) {
+  if (isAdmin && pageRoute.startsWith("/admin")) {
     Promise.all([loadExternalSiteData(), loadQuestionBankData(), loadLiveApiData(pageRoute)]).then(
       ([siteData, questionBank, liveApiData]) => {
         renderPage(siteData || {}, questionBank || null, liveApiData || null);

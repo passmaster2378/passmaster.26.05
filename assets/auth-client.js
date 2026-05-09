@@ -777,17 +777,56 @@
     const tbody = document.querySelector("[data-api='mypage-enrollments-body']");
     const statusEl = document.querySelector("[data-api='course-openings-status']");
     if (!tbody) return;
+    const certParam = String(new URLSearchParams(window.location.search).get("cert") || "")
+      .trim()
+      .toLowerCase();
+    const certLabelMap = {
+      forklift: "지게차기능사",
+      excavator: "굴착기기능사",
+      electric: "전기기능사",
+      welding: "용접기능사",
+      hazmat: "위험물산업기사",
+      carrepair: "자동차정비기능사",
+      beautician: "일반미용사",
+      makeup: "메이크업 미용사",
+      skin: "피부미용사",
+      nail: "네일미용사",
+      elevator: "승강기기능사",
+      construction: "건설기능사",
+      cookkr: "한식조리기능사",
+      cookwest: "양식조리기능사",
+      cookcn: "중식조리기능사",
+      cookjp: "일식조리기능사",
+    };
+    let requestNotice = "";
     try {
+      if (certParam) {
+        const openings = await request("/course-openings");
+        const hasMatchingOpening =
+          Array.isArray(openings) &&
+          openings.some((o) => {
+            const code = String(o.course_code || "").trim().toLowerCase();
+            const title = String(o.course_title || "").trim();
+            const label = certLabelMap[certParam] || certParam;
+            return code === certParam || title.includes(label);
+          });
+        if (!hasMatchingOpening) {
+          const label = certLabelMap[certParam] || certParam;
+          requestNotice = `${label} 과정은 현재 수강신청 준비 중입니다. 개설 후 신청 가능합니다.`;
+        }
+      }
       const rows = await request("/me/enrollments");
       tbody.innerHTML = "";
       if (!Array.isArray(rows) || !rows.length) {
         tbody.innerHTML = "<tr><td colspan='6'>신청한 수강 과정이 없습니다.</td></tr>";
-        if (statusEl) showMessage(statusEl, "신청 내역이 없습니다.", "info");
+        if (statusEl) {
+          showMessage(statusEl, requestNotice ? `${requestNotice} / 신청 내역이 없습니다.` : "신청 내역이 없습니다.", "info");
+        }
         return;
       }
       rows.forEach((e) => {
         const tr = document.createElement("tr");
-        const detailHref = `../my-courses/enrollment-001/index.html?id=${e.id}`;
+        const detailHref = toSitePath(`/my-courses/enrollment-001/index.html?id=${encodeURIComponent(String(e.id))}`);
         tr.innerHTML = `
           <td>${e.id}</td>
           <td>${e.course_title || "-"}</td>
@@ -798,7 +837,13 @@
         `;
         tbody.appendChild(tr);
       });
-      if (statusEl) showMessage(statusEl, `내 신청 내역 ${rows.length}건`, "success");
+      if (statusEl) {
+        showMessage(
+          statusEl,
+          requestNotice ? `${requestNotice} / 내 신청 내역 ${rows.length}건` : `내 신청 내역 ${rows.length}건`,
+          requestNotice ? "info" : "success"
+        );
+      }
     } catch (error) {
       tbody.innerHTML = `<tr><td colspan='6'>내 신청 내역을 불러오지 못했습니다: ${error.message}</td></tr>`;
       if (statusEl) showMessage(statusEl, error.message, "error");
