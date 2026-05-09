@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "echo \"No tests configured\""
+    "test": "echo \"No tests configured\"",
+    "smoke:open": "node scripts/smoke-open-check.js"
   },
   "keywords": [],
   "author": "",
