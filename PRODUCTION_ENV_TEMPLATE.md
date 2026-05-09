@@ -14,9 +14,10 @@ JWT_SECRET=<VERY_LONG_RANDOM_SECRET_MIN_32_CHARS>
 # 프론트 실제 도메인만 허용 (콤마 구분)
 CORS_ORIGINS=https://passmaster2378.github.io
 
-# OAuth 리다이렉트 및 외부 호출 기준 API URL
+# OAuth 리다이렉트 및 외부 호출 기준 URL
 PUBLIC_API_URL=https://<your-backend-service>.onrender.com
-FRONTEND_URL=https://passmaster2378.github.io
+# GitHub Pages 프로젝트 사이트 경로까지 포함
+FRONTEND_URL=https://passmaster2378.github.io/passmaster.26.05
 
 # Supabase Postgres
 SUPABASE_DB_URL=postgresql://postgres.<project-ref>:<url-encoded-password>@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres

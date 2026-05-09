@@ -16,7 +16,8 @@ JWT_SECRET=<CHANGE_TO_LONG_RANDOM_SECRET>
 
 # 운영 프론트 도메인
 CORS_ORIGINS=https://passmaster2378.github.io
-FRONTEND_URL=https://passmaster2378.github.io
+# GitHub Pages 프로젝트 사이트 경로까지 포함
+FRONTEND_URL=https://passmaster2378.github.io/passmaster.26.05
 
 # 운영 백엔드 공개 URL
 PUBLIC_API_URL=https://passmaster-26-05.onrender.com

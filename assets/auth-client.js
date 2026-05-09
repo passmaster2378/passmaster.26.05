@@ -7,6 +7,27 @@
   const isFileProtocol = window.location.protocol === "file:";
   const isGitHubPages = /\.github\.io$/i.test(window.location.hostname);
 
+  function detectGitHubPagesProjectBase() {
+    if (!isGitHubPages) return "";
+    const normalized = String(window.location.pathname || "").replace(/\\/g, "/");
+    const segments = normalized.split("/").filter(Boolean);
+    if (!segments.length) return "";
+    const first = segments[0];
+    if (!first || first.endsWith(".html")) return "";
+    return `/${first}`;
+  }
+
+  const GH_PROJECT_BASE = detectGitHubPagesProjectBase();
+
+  function toSitePath(path) {
+    const value = String(path || "").trim();
+    if (!value) return value;
+    if (!value.startsWith("/") || value.startsWith("//")) return value;
+    if (!GH_PROJECT_BASE) return value;
+    if (value === GH_PROJECT_BASE || value.startsWith(`${GH_PROJECT_BASE}/`)) return value;
+    return `${GH_PROJECT_BASE}${value}`;
+  }
+
   function normalizePassmasterApiBase(raw) {
     if (raw == null || typeof raw !== "string") return null;
     let t = raw.trim().replace(/\/+$/, "");
@@ -291,8 +312,9 @@
 
       const fallbackNext = data.user.role === "admin" ? "./admin/index.html" : "./my-courses/index.html";
       const candidate = returnToParam || returnToStored;
-      const next =
-        candidate && candidate.startsWith("/") && !candidate.startsWith("//") ? candidate : fallbackNext;
+      const next = candidate && candidate.startsWith("/") && !candidate.startsWith("//")
+        ? toSitePath(candidate)
+        : fallbackNext;
       setTimeout(() => {
         window.location.href = next;
       }, 800);
