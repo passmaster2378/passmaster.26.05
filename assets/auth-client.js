@@ -1457,21 +1457,14 @@
     };
 
     try {
-      const [users, openings, enrollments, inquiries] = await Promise.all([
-        request("/admin/users"),
-        request("/openings"),
-        request("/admin/enrollments"),
-        request("/admin/inquiries"),
-      ]);
-
-      const usersCount = Array.isArray(users) ? users.length : 0;
-      const openingsCount = Array.isArray(openings) ? openings.length : 0;
-      const enrollmentsCount = Array.isArray(enrollments) ? enrollments.length : 0;
-      const inquiriesList = Array.isArray(inquiries) ? inquiries : [];
-      const pendingInquiries = inquiriesList.filter((item) => item.status !== "resolved").length;
+      const dashboard = await request("/admin/dashboard");
+      const usersCount = Number(dashboard && dashboard.users) || 0;
+      const coursesCount = Number(dashboard && dashboard.courses) || 0;
+      const enrollmentsCount = Number(dashboard && dashboard.enrollments) || 0;
+      const pendingInquiries = Number(dashboard && dashboard.openInquiries) || 0;
 
       rows.push(["회원 수", `${usersCount}명`]);
-      rows.push(["개설 과정 수", `${openingsCount}건`]);
+      rows.push(["개설 과정 수", `${coursesCount}건`]);
       rows.push(["수강신청 수", `${enrollmentsCount}건`]);
       rows.push(["미처리 문의", `${pendingInquiries}건`]);
 
