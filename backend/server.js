@@ -20,6 +20,10 @@ const ROOT_ADMIN_EMAIL = String(process.env.ROOT_ADMIN_EMAIL || "").trim().toLow
 const ROOT_ADMIN_PASSWORD = String(process.env.ROOT_ADMIN_PASSWORD || "");
 const ROOT_ADMIN_NAME = String(process.env.ROOT_ADMIN_NAME || "PASSmaster").trim() || "PASSmaster";
 const ROOT_ADMIN_BOOTSTRAP = String(process.env.ROOT_ADMIN_BOOTSTRAP || "").toLowerCase() === "true";
+const AUTH_RATE_LIMIT_MAX = Number(process.env.AUTH_RATE_LIMIT_MAX || 20);
+const AUTH_RATE_LIMIT_WINDOW_MS = Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 10 * 60 * 1000);
+const ADMIN_WRITE_RATE_LIMIT_MAX = Number(process.env.ADMIN_WRITE_RATE_LIMIT_MAX || 120);
+const ADMIN_WRITE_RATE_LIMIT_WINDOW_MS = Number(process.env.ADMIN_WRITE_RATE_LIMIT_WINDOW_MS || 10 * 60 * 1000);
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())
@@ -60,6 +64,18 @@ app.use(
     credentials: true,
   })
 );
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  // Keep CSP conservative without breaking current inline/static frontend assets.
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self' https: data:; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'self';"
+  );
+  next();
+});
 app.use(express.json());
 
 function toPgSql(sql) {
@@ -211,6 +227,42 @@ async function logPaymentAudit(entry, db = null) {
     ]
   );
 }
+
+function createRateLimiter({ windowMs, max, keyFn, message }) {
+  const bucket = new Map();
+  const safeWindow = Number.isFinite(windowMs) && windowMs > 0 ? windowMs : 60000;
+  const safeMax = Number.isFinite(max) && max > 0 ? max : 60;
+  return (req, res, next) => {
+    const now = Date.now();
+    const key = String((keyFn ? keyFn(req) : req.ip) || "unknown");
+    const row = bucket.get(key);
+    if (!row || row.expiresAt <= now) {
+      bucket.set(key, { count: 1, expiresAt: now + safeWindow });
+      return next();
+    }
+    row.count += 1;
+    if (row.count > safeMax) {
+      const retrySec = Math.max(1, Math.ceil((row.expiresAt - now) / 1000));
+      res.setHeader("Retry-After", String(retrySec));
+      return sendError(res, 429, message || "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.");
+    }
+    return next();
+  };
+}
+
+const authRateLimiter = createRateLimiter({
+  windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
+  max: AUTH_RATE_LIMIT_MAX,
+  keyFn: (req) => `${req.ip || "ip"}:${String((req.body && req.body.email) || "").trim().toLowerCase()}`,
+  message: "인증 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+});
+
+const adminWriteRateLimiter = createRateLimiter({
+  windowMs: ADMIN_WRITE_RATE_LIMIT_WINDOW_MS,
+  max: ADMIN_WRITE_RATE_LIMIT_MAX,
+  keyFn: (req) => `${req.ip || "ip"}:${req.auth && req.auth.sub ? req.auth.sub : "anon"}`,
+  message: "관리자 변경 요청이 많습니다. 잠시 후 다시 시도해 주세요.",
+});
 
 function signToken(user) {
   return jwt.sign({ sub: user.id, role: user.role, email: user.email }, JWT_SECRET, {
@@ -741,6 +793,7 @@ app.get("/api/docs", async (req, res) => {
       { method: "PATCH", path: "/admin/enrollments/:id", auth: true, admin: true },
       { method: "GET", path: "/admin/payments", auth: true, admin: true },
       { method: "GET", path: "/admin/payments/:id", auth: true, admin: true },
+      { method: "GET", path: "/admin/payments/:id/audit", auth: true, admin: true },
       { method: "PATCH", path: "/admin/payments/:id", auth: true, admin: true },
       { method: "PATCH", path: "/inquiries/:id/status", auth: true, admin: true },
       { method: "PATCH", path: "/inquiries/:id/assignee", auth: true, admin: true },
@@ -1052,7 +1105,7 @@ app.post("/api/inquiries/:id/messages", requireAuth, requireAdmin, async (req, r
   return res.status(201).json(created);
 });
 
-app.post("/api/auth/register", async (req, res) => {
+app.post("/api/auth/register", authRateLimiter, async (req, res) => {
   const { name, email, password } = req.body;
   if (!name || !email || !password) {
     return sendError(res, 400, "name, email, password는 필수입니다.");
@@ -1078,7 +1131,7 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", authRateLimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return sendError(res, 400, "email, password는 필수입니다.");
@@ -1658,10 +1711,34 @@ app.get("/api/admin/payments/:id", requireAuth, requireAdmin, async (req, res) =
     [row.enrollment_id]
   );
   const summary = await summarizeEnrollmentPayments(row.enrollment_id);
-  return res.json({ ...row, payment_history: paymentHistory, payment_summary: summary });
+  const auditLogs = await all(
+    `SELECT id, payment_id, enrollment_id, action, before_status, after_status, amount, note, actor_user_id, meta, created_at
+     FROM public.payment_audit_logs
+     WHERE enrollment_id = ?
+     ORDER BY id DESC
+     LIMIT 50`,
+    [row.enrollment_id]
+  );
+  return res.json({ ...row, payment_history: paymentHistory, payment_summary: summary, payment_audit_logs: auditLogs });
 });
 
-app.patch("/api/admin/payments/:id", requireAuth, requireAdmin, async (req, res) => {
+app.get("/api/admin/payments/:id/audit", requireAuth, requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return sendError(res, 400, "유효한 결제 ID가 필요합니다.");
+  const pay = await get("SELECT id, enrollment_id FROM public.payments WHERE id = ?", [id]);
+  if (!pay) return sendError(res, 404, "결제 정보를 찾을 수 없습니다.");
+  const rows = await all(
+    `SELECT id, payment_id, enrollment_id, action, before_status, after_status, amount, note, actor_user_id, meta, created_at
+     FROM public.payment_audit_logs
+     WHERE enrollment_id = ?
+     ORDER BY id DESC
+     LIMIT 100`,
+    [pay.enrollment_id]
+  );
+  return res.json(rows);
+});
+
+app.patch("/api/admin/payments/:id", requireAuth, requireAdmin, adminWriteRateLimiter, async (req, res) => {
   const id = Number(req.params.id);
   const status = String(req.body.status || "").trim();
   const reviewNote = req.body.reviewNote == null ? null : String(req.body.reviewNote || "").trim().slice(0, 500);
