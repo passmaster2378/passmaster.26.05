@@ -27,6 +27,9 @@
         <p class="pm-summary">강의 상세 정보, 수강생, 자료, 노출 설정을 수정합니다.</p>
         <div class="pm-cta-row">
           <a class="pm-btn pm-btn-ghost" href="./new/index.html">이전 단계</a>
+          <a class="pm-btn pm-btn-primary" id="admin-course-q-upload-link" href="./questions-upload/index.html?courseId=1">
+            문제은행 업로드
+          </a>
           <a class="pm-btn pm-btn-primary" href="../enrollments/index.html">다음 단계</a>
         </div>
 
@@ -50,5 +53,13 @@
         <a href="../../pages.html">사이트맵</a>
       </footer>
     </div>
+    <script>
+      (function () {
+        const id = String(new URLSearchParams(window.location.search).get("id") || "1").trim();
+        const link = document.getElementById("admin-course-q-upload-link");
+        if (link) link.href = "./questions-upload/index.html?courseId=" + encodeURIComponent(id);
+      })();
+    </script>
+    <script defer src="../../assets/auth-client.js?v=20260510-qupload"></script>
   </body>
 </html>

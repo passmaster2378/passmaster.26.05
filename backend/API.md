@@ -206,3 +206,34 @@ Request: `{ "assigneeName": "CS팀 김OO" }`
 
 Request: `{ "message": "답변 내용" }`
 
+## Admin · 과정 문제은행(JSON)
+
+테이블: `course_question_sets`, `course_questions`. 과정(`courses.id`)당 **활성 세트 하나** 유지 방식입니다.
+
+### GET `/admin/courses/:courseId/questions/summary` (auth + admin)
+
+활성 세트 요약 및 과정 정보.
+
+### GET `/admin/courses/:courseId/questions/active` (auth + admin)
+
+활성 세트 문항 전체를 배열 형태로 반환합니다.
+
+### POST `/admin/courses/:courseId/questions/import` (auth + admin)
+
+Body 예:
+
+```json
+{
+  "payload": {
+    "questions": [
+      { "question": "예시 문항", "options": ["A", "B", "C"], "answer": 1, "subject": "선택 과목", "explanation": "선택" }
+    ]
+  },
+  "dryRun": false,
+  "sourceFilename": "optional.json"
+}
+```
+
+- `dryRun: true`: 형식 검증만 수행합니다.
+- 본 업로드: 이전 활성 세트를 비활성화한 뒤 새 세트를 활성화합니다.
+

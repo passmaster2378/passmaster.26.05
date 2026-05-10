@@ -92,7 +92,7 @@ app.use((req, res, next) => {
   );
   next();
 });
-app.use(express.json());
+app.use(express.json({ limit: "12mb" }));
 
 function toPgSql(sql) {
   let index = 0;
@@ -604,6 +604,163 @@ async function initSchema() {
   await run(
     `CREATE UNIQUE INDEX IF NOT EXISTS study_artifacts_user_cert_uidx ON public.study_artifacts (user_id, cert_slug)`
   );
+
+  await run(`
+    CREATE TABLE IF NOT EXISTS public.course_question_sets (
+      id BIGSERIAL PRIMARY KEY,
+      course_id BIGINT NOT NULL REFERENCES public.courses(id) ON DELETE CASCADE,
+      source_filename TEXT,
+      uploaded_by_user_id BIGINT REFERENCES public.users(id) ON DELETE SET NULL,
+      is_active BOOLEAN NOT NULL DEFAULT false,
+      question_count INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+  await run(
+    `CREATE INDEX IF NOT EXISTS course_question_sets_course_idx ON public.course_question_sets (course_id)`
+  );
+
+  await run(`
+    CREATE TABLE IF NOT EXISTS public.course_questions (
+      id BIGSERIAL PRIMARY KEY,
+      set_id BIGINT NOT NULL REFERENCES public.course_question_sets(id) ON DELETE CASCADE,
+      ordinal INTEGER NOT NULL,
+      subject TEXT NOT NULL DEFAULT '',
+      stem TEXT NOT NULL,
+      options_json JSONB NOT NULL,
+      correct_index INTEGER NOT NULL,
+      explanation TEXT,
+      meta_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+      is_active BOOLEAN NOT NULL DEFAULT true,
+      quality_score SMALLINT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+  await run(
+    `CREATE UNIQUE INDEX IF NOT EXISTS course_questions_set_ordinal_uidx ON public.course_questions (set_id, ordinal)`
+  );
+  await run(
+    `ALTER TABLE public.course_question_sets ADD COLUMN IF NOT EXISTS question_count INTEGER NOT NULL DEFAULT 0`
+  );
+}
+
+const QUESTION_UPLOAD_MAX_ITEMS = 10000;
+
+/** @typedef {{ subject:string, stem:string, options:string[], correctIndex:number, explanation:string|null, meta:object }} NormalizedQuestion */
+
+function extractQuestionsArray(parsed) {
+  if (parsed == null) throw new Error("비어 있는 JSON입니다.");
+  if (Array.isArray(parsed)) return parsed;
+  if (typeof parsed === "object" && Array.isArray(parsed.questions)) return parsed.questions;
+  throw new Error("최상위에 questions 배열이거나, 문항 객체의 배열이어야 합니다.");
+}
+
+function normalizeOptions(raw, indexLabel) {
+  if (Array.isArray(raw)) {
+    const opts = raw.map((x) => String(x).trim()).filter((s) => s.length > 0);
+    if (opts.length < 2) {
+      throw new Error(`${indexLabel}: 선택지(options)가 2개 이상 필요합니다.`);
+    }
+    return opts;
+  }
+  if (raw && typeof raw === "object") {
+    const keys = Object.keys(raw).sort((a, b) => Number(a) - Number(b));
+    const opts = keys.map((k) => String(raw[k]).trim()).filter((s) => s.length > 0);
+    if (opts.length < 2) {
+      throw new Error(`${indexLabel}: 선택지(options) 객체에서 유효한 항목이 2개 이상 필요합니다.`);
+    }
+    return opts;
+  }
+  throw new Error(`${indexLabel}: options는 배열 또는 번호키 객체여야 합니다.`);
+}
+
+function resolveCorrectIndex(answer, optionCount, indexLabel) {
+  if (answer === undefined || answer === null || answer === "") {
+    throw new Error(`${indexLabel}: answer가 필요합니다.`);
+  }
+  let n;
+  if (typeof answer === "string") {
+    const t = answer.trim();
+    if (!/^-?\d+$/.test(t)) {
+      throw new Error(`${indexLabel}: answer는 숫자(또는 숫자 문자열)여야 합니다.`);
+    }
+    n = parseInt(t, 10);
+  } else if (typeof answer === "number" && Number.isFinite(answer)) {
+    n = Math.trunc(answer);
+  } else {
+    throw new Error(`${indexLabel}: answer 형식을 해석할 수 없습니다.`);
+  }
+  if (n >= 1 && n <= optionCount) return n - 1;
+  if (n >= 0 && n < optionCount) return n;
+  throw new Error(`${indexLabel}: answer ${n}은(는) 선택지 범위(1~${optionCount} 또는 0~${optionCount - 1})를 벗어났습니다.`);
+}
+
+/** @returns {NormalizedQuestion[]} */
+function normalizeQuestionsPayload(payload) {
+  const arr = extractQuestionsArray(payload);
+  if (!arr.length) throw new Error("문항이 한 개도 없습니다.");
+  if (arr.length > QUESTION_UPLOAD_MAX_ITEMS) {
+    throw new Error(`문항은 최대 ${QUESTION_UPLOAD_MAX_ITEMS}개까지 한 번에 업로드할 수 있습니다.`);
+  }
+  const reserved = new Set([
+    "question",
+    "stem",
+    "options",
+    "answer",
+    "subject",
+    "category",
+    "explanation",
+    "id",
+    "difficulty",
+    "concept",
+  ]);
+
+  /** @type {NormalizedQuestion[]} */
+  const result = [];
+
+  arr.forEach((item, idx) => {
+    const label = `#${idx + 1}`;
+    if (!item || typeof item !== "object") throw new Error(`${label}: 객체 형식의 문항이어야 합니다.`);
+    const stem = String(item.question ?? item.stem ?? "").trim();
+    if (!stem) throw new Error(`${label}: question(또는 stem) 필드가 필요합니다.`);
+    const options = normalizeOptions(item.options, label);
+    const correctIndex = resolveCorrectIndex(item.answer, options.length, label);
+    const subject = String(item.subject ?? item.category ?? "").trim();
+    const explanationRaw = item.explanation;
+    const explanation =
+      explanationRaw !== undefined && explanationRaw !== null && String(explanationRaw).trim().length > 0
+        ? String(explanationRaw).trim()
+        : null;
+    const meta = {};
+    Object.keys(item).forEach((k) => {
+      if (!reserved.has(k)) meta[k] = item[k];
+    });
+    result.push({ subject, stem, options, correctIndex, explanation, meta });
+  });
+
+  return result;
+}
+
+function previewNormalizedQuestions(normalized, take = 3) {
+  return normalized.slice(0, take).map((r, i) => ({
+    ordinal: i + 1,
+    subject: r.subject || "(과목 미지정)",
+    stemPreview: r.stem.length > 160 ? `${r.stem.slice(0, 160)}…` : r.stem,
+    optionCount: r.options.length,
+    correctDisplay: r.correctIndex + 1,
+  }));
+}
+
+async function getActiveQuestionSetSummary(courseId) {
+  const setRow = await get(
+    `SELECT id, question_count, source_filename, created_at
+     FROM public.course_question_sets
+     WHERE course_id = ? AND is_active = true
+     ORDER BY id DESC
+     LIMIT 1`,
+    [courseId]
+  );
+  return setRow || null;
 }
 
 async function seedData() {
@@ -810,6 +967,20 @@ app.get("/api/docs", async (req, res) => {
       { method: "GET", path: "/auth/me", auth: true },
       { method: "PATCH", path: "/auth/password", auth: true },
       { method: "GET", path: "/admin/dashboard", auth: true, admin: true },
+      {
+        method: "GET",
+        path: "/admin/courses/:courseId/questions/summary",
+        auth: true,
+        admin: true,
+      },
+      { method: "GET", path: "/admin/courses/:courseId/questions/active", auth: true, admin: true },
+      {
+        method: "POST",
+        path: "/admin/courses/:courseId/questions/import",
+        auth: true,
+        admin: true,
+        notes: "body: { payload, dryRun?, sourceFilename? }",
+      },
       { method: "GET", path: "/admin/enrollments", auth: true, admin: true },
       { method: "GET", path: "/admin/enrollments/:id", auth: true, admin: true },
       { method: "PATCH", path: "/admin/enrollments/:id", auth: true, admin: true },
@@ -1419,6 +1590,158 @@ app.get("/api/admin/dashboard", requireAuth, requireAdmin, async (req, res) => {
     openInquiries: inquiries.count,
   });
 });
+
+app.get("/api/admin/courses/:courseId/questions/summary", requireAuth, requireAdmin, async (req, res) => {
+  const courseId = Number(req.params.courseId);
+  if (!Number.isInteger(courseId) || courseId <= 0) {
+    return sendError(res, 400, "유효한 courseId가 필요합니다.");
+  }
+  const course = await get(`SELECT id, code, title FROM public.courses WHERE id = ?`, [courseId]);
+  if (!course) return sendError(res, 404, "과정을 찾을 수 없습니다.");
+  const summary = await getActiveQuestionSetSummary(courseId);
+  res.json({
+    course,
+    activeSet: summary
+      ? {
+          id: summary.id,
+          questionCount: summary.question_count,
+          sourceFilename: summary.source_filename,
+          createdAt: summary.created_at,
+        }
+      : null,
+  });
+});
+
+app.get("/api/admin/courses/:courseId/questions/active", requireAuth, requireAdmin, async (req, res) => {
+  const courseId = Number(req.params.courseId);
+  if (!Number.isInteger(courseId) || courseId <= 0) {
+    return sendError(res, 400, "유효한 courseId가 필요합니다.");
+  }
+  const course = await get(`SELECT id, code, title FROM public.courses WHERE id = ?`, [courseId]);
+  if (!course) return sendError(res, 404, "과정을 찾을 수 없습니다.");
+  const summary = await getActiveQuestionSetSummary(courseId);
+  if (!summary) {
+    return res.json({ course, questions: [], setId: null });
+  }
+  const rows = await all(
+    `SELECT ordinal, subject, stem, options_json, correct_index, explanation, meta_json
+     FROM public.course_questions
+     WHERE set_id = ?
+     ORDER BY ordinal ASC`,
+    [summary.id]
+  );
+  const questions = rows.map((row) => {
+    const meta = row.meta_json && typeof row.meta_json === "object" ? row.meta_json : {};
+    const opts = row.options_json;
+    return {
+      ...meta,
+      subject: row.subject || undefined,
+      category: row.subject || undefined,
+      question: row.stem,
+      options: opts,
+      answer: row.correct_index + 1,
+      explanation: row.explanation || undefined,
+    };
+  });
+  res.json({
+    course,
+    setId: summary.id,
+    questionCount: questions.length,
+    questions,
+  });
+});
+
+app.post(
+  "/api/admin/courses/:courseId/questions/import",
+  requireAuth,
+  requireAdmin,
+  adminWriteRateLimiter,
+  async (req, res) => {
+    const courseId = Number(req.params.courseId);
+    if (!Number.isInteger(courseId) || courseId <= 0) {
+      return sendError(res, 400, "유효한 courseId가 필요합니다.");
+    }
+    const payload = req.body && req.body.payload != null ? req.body.payload : null;
+    const dryRun = Boolean(req.body && req.body.dryRun);
+    const sourceFilename =
+      req.body && req.body.sourceFilename != null ? String(req.body.sourceFilename).slice(0, 240) : null;
+
+    if (payload === null || payload === undefined) {
+      return sendError(res, 400, "payload 필드에 JSON 객체(questions 배열)를 넣어 주세요.");
+    }
+
+    /** @type {NormalizedQuestion[]} */
+    let normalized;
+    try {
+      normalized = normalizeQuestionsPayload(payload);
+    } catch (err) {
+      return sendError(res, 400, err.message || "JSON 형식이 올바르지 않습니다.");
+    }
+
+    if (dryRun) {
+      return res.json({
+        ok: true,
+        dryRun: true,
+        total: normalized.length,
+        preview: previewNormalizedQuestions(normalized, 3),
+      });
+    }
+
+    const courseExists = await get(`SELECT id FROM public.courses WHERE id = ?`, [courseId]);
+    if (!courseExists) return sendError(res, 404, "과정을 찾을 수 없습니다.");
+
+    try {
+      const result = await withTransaction(async (tx) => {
+        const ins = await tx.run(
+          `INSERT INTO public.course_question_sets (course_id, source_filename, uploaded_by_user_id, question_count, is_active)
+           VALUES (?, ?, ?, ?, false)
+           RETURNING id`,
+          [courseId, sourceFilename, req.auth.sub, normalized.length]
+        );
+        const setId = ins.rows[0].id;
+
+        for (let i = 0; i < normalized.length; i++) {
+          const row = normalized[i];
+          await tx.run(
+            `INSERT INTO public.course_questions (set_id, ordinal, subject, stem, options_json, correct_index, explanation, meta_json, is_active)
+             VALUES (?, ?, ?, ?, ?::jsonb, ?, ?, ?::jsonb, true)`,
+            [
+              setId,
+              i + 1,
+              row.subject,
+              row.stem,
+              JSON.stringify(row.options),
+              row.correctIndex,
+              row.explanation,
+              JSON.stringify(row.meta || {}),
+            ]
+          );
+        }
+
+        await tx.run(`UPDATE public.course_question_sets SET is_active = false WHERE course_id = ?`, [
+          courseId,
+        ]);
+        await tx.run(`UPDATE public.course_question_sets SET is_active = true WHERE id = ?`, [setId]);
+
+        return { setId, count: normalized.length };
+      });
+
+      const summaryAfter = await getActiveQuestionSetSummary(courseId);
+
+      res.json({
+        ok: true,
+        setId: result.setId,
+        importedCount: result.count,
+        activeSetId: summaryAfter ? summaryAfter.id : null,
+        message:
+          `${result.count}건이 저장되어 활성 문제은행 세트(ID ${result.setId})로 교체되었습니다. 현재 과정의 이전 세트는 비활성 처리되었습니다.`,
+      });
+    } catch (err) {
+      console.error(err);
+      return sendError(res, 500, err.message || "문항 저장 중 오류가 발생했습니다.");
+    }
+  }
+);
 
 app.get("/api/course-openings", async (req, res) => {
   const rows = await all(

@@ -1652,6 +1652,174 @@
     }
   }
 
+  function escapeHtmlLite(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  async function mountAdminCoursesList() {
+    const tbody = document.querySelector("[data-api='admin-courses-body']");
+    if (!tbody) return;
+    try {
+      const rows = await request("/courses");
+      if (!Array.isArray(rows) || !rows.length) {
+        tbody.innerHTML = "<tr><td colspan='6'>등록된 과정이 없습니다.</td></tr>";
+        return;
+      }
+      tbody.innerHTML = rows
+        .map(
+          (c) => `
+        <tr>
+          <td>${c.id}</td>
+          <td>${escapeHtmlLite(c.code)}</td>
+          <td>${escapeHtmlLite(c.title)}</td>
+          <td>${escapeHtmlLite(c.category || "-")}</td>
+          <td>${escapeHtmlLite(c.status || "-")}</td>
+          <td style="white-space:nowrap">
+            <a class="pm-btn pm-btn-ghost" style="display:inline-flex;padding:6px 10px;font-size:13px;margin-right:4px" href="./detail-001.html?id=${encodeURIComponent(String(c.id))}">상세</a>
+            <a class="pm-btn pm-btn-primary" style="display:inline-flex;padding:6px 10px;font-size:13px" href="./questions-upload/index.html?courseId=${encodeURIComponent(String(c.id))}">문제은행 업로드</a>
+          </td>
+        </tr>
+      `
+        )
+        .join("");
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan='6'>${escapeHtmlLite(error.message)}</td></tr>`;
+    }
+  }
+
+  async function mountAdminQuestionImportPage() {
+    const root = document.querySelector("[data-api='admin-questions-upload-root']");
+    if (!root) return;
+    const msg = root.querySelector("[data-api='admin-q-upload-msg']");
+    const summaryEl = root.querySelector("[data-api='admin-q-summary']");
+    const previewEl = root.querySelector("[data-api='admin-q-preview']");
+    const fileInput = root.querySelector("[data-api='admin-q-file']");
+    const btnPreview = root.querySelector("[data-api='admin-q-btn-preview']");
+    const btnCommit = root.querySelector("[data-api='admin-q-btn-commit']");
+
+    const params = new URLSearchParams(window.location.search);
+    const courseId = Number(params.get("courseId") || params.get("id") || "0");
+
+    let pendingPayload = null;
+    let sourceFilename = null;
+
+    const setMsg = (text, variant) => {
+      if (!msg) return;
+      msg.textContent = text || "";
+      msg.classList.remove("success", "error", "info");
+      msg.classList.add(variant === "error" ? "error" : variant === "success" ? "success" : "info");
+    };
+
+    if (!Number.isInteger(courseId) || courseId <= 0) {
+      setMsg("URL에 유효한 courseId 파라미터가 필요합니다. 예: questions-upload/index.html?courseId=1", "error");
+      if (btnPreview) btnPreview.disabled = true;
+      if (btnCommit) btnCommit.disabled = true;
+      return;
+    }
+
+    async function loadSummary() {
+      if (!summaryEl) return;
+      try {
+        const data = await request(`/admin/courses/${courseId}/questions/summary`);
+        const c = data.course || {};
+        const s = data.activeSet;
+        summaryEl.innerHTML = `
+          <li><strong>과정:</strong> ${escapeHtmlLite(c.title)} (${escapeHtmlLite(c.code)}) — ID ${escapeHtmlLite(String(c.id))}</li>
+          <li><strong>활성 문제은행 세트:</strong> ${
+            s
+              ? `ID ${escapeHtmlLite(String(s.id))}, 문항 ${escapeHtmlLite(String(s.questionCount))}개, ${escapeHtmlLite(s.createdAt || "-")}`
+              : "아직 업로드된 세트 없음"
+          }</li>
+        `;
+      } catch (e) {
+        summaryEl.innerHTML = `<li>${escapeHtmlLite(e.message)}</li>`;
+      }
+    }
+
+    btnPreview?.addEventListener("click", async () => {
+      if (!pendingPayload) {
+        setMsg("JSON 파일을 먼저 선택해 주세요.", "error");
+        return;
+      }
+      try {
+        setMsg("검증 중…", "info");
+        const result = await request(`/admin/courses/${courseId}/questions/import`, {
+          method: "POST",
+          body: JSON.stringify({ payload: pendingPayload, dryRun: true }),
+        });
+        if (previewEl) previewEl.textContent = JSON.stringify(result, null, 2);
+        setMsg(`${result.total}건 형식 검증 완료(미저장). 내용 확인 후 업로드를 눌러 저장합니다.`, "success");
+      } catch (error) {
+        setMsg(error.message, "error");
+      }
+    });
+
+    btnCommit?.addEventListener("click", async () => {
+      if (!pendingPayload) {
+        setMsg("파일 선택 후 미리 검증 또는 바로 업로드할 JSON을 준비해 주세요.", "error");
+        return;
+      }
+      const ok =
+        typeof window.confirm !== "function" ||
+        window.confirm(
+          `과정(ID ${courseId})의 활성 문제은행을 이 파일로 교체합니다. 이전 활성 세트는 비활성 처리됩니다. 진행할까요?`
+        );
+      if (!ok) return;
+      try {
+        setMsg("업로드 및 저장 중…", "info");
+        if (btnCommit) btnCommit.disabled = true;
+        const result = await request(`/admin/courses/${courseId}/questions/import`, {
+          method: "POST",
+          body: JSON.stringify({
+            payload: pendingPayload,
+            sourceFilename,
+            dryRun: false,
+          }),
+        });
+        setMsg(result.message || "저장했습니다.", "success");
+        await loadSummary();
+      } catch (error) {
+        setMsg(error.message, "error");
+      } finally {
+        if (btnCommit) btnCommit.disabled = false;
+      }
+    });
+
+    fileInput?.addEventListener("change", async (event) => {
+      const input = event.currentTarget;
+      const file = input.files && input.files[0];
+      pendingPayload = null;
+      sourceFilename = null;
+      if (previewEl) previewEl.textContent = "";
+      if (!file) {
+        setMsg("파일을 선택해 주세요.", "info");
+        return;
+      }
+      if (file.size > 11 * 1024 * 1024) {
+        setMsg("파일 크기 상한은 약 10MB입니다. 파일을 줄이거나 분할해 주세요.", "error");
+        input.value = "";
+        return;
+      }
+      sourceFilename = file.name;
+      try {
+        const text = await file.text();
+        pendingPayload = JSON.parse(text);
+        setMsg(`파일 로드 완료: ${file.name}. [미리 검증] 또는 [저장 업로드]를 진행할 수 있습니다.`, "success");
+      } catch (_e) {
+        setMsg("JSON 파싱 실패입니다. 형식 및 UTF-8 인코딩을 확인해 주세요.", "error");
+        pendingPayload = null;
+        sourceFilename = null;
+        input.value = "";
+      }
+    });
+
+    await loadSummary();
+  }
+
   async function mountAdminDashboard() {
     const tbody = document.querySelector("[data-api='admin-dashboard-body']");
     if (!tbody) return;
@@ -1812,6 +1980,8 @@
 
     mountAdminInquiryList();
     mountAdminInquiryDetail();
+    mountAdminCoursesList();
+    mountAdminQuestionImportPage();
     mountAdminDashboard();
 
     mountCourseOpeningsList();
