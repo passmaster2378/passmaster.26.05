@@ -798,6 +798,13 @@
       cookcn: "중식조리기능사",
       cookjp: "일식조리기능사",
     };
+    const matchesRequestedCert = (row) => {
+      if (!certParam) return true;
+      const rowCode = String(row.course_code || "").trim().toLowerCase();
+      const rowTitle = String(row.course_title || "").trim();
+      const label = certLabelMap[certParam] || certParam;
+      return rowCode === certParam || rowTitle.includes(label);
+    };
     let requestNotice = "";
     try {
       if (certParam) {
@@ -816,15 +823,29 @@
         }
       }
       const rows = await request("/me/enrollments");
+      const visibleRows = Array.isArray(rows) ? rows.filter(matchesRequestedCert) : [];
       tbody.innerHTML = "";
-      if (!Array.isArray(rows) || !rows.length) {
-        tbody.innerHTML = "<tr><td colspan='6'>신청한 수강 과정이 없습니다.</td></tr>";
+      if (!visibleRows.length) {
+        const emptyLabel = certParam ? certLabelMap[certParam] || certParam : null;
+        tbody.innerHTML = `<tr><td colspan='6'>${
+          emptyLabel
+            ? `${emptyLabel} 신청 내역이 없습니다.`
+            : "신청한 수강 과정이 없습니다."
+        }</td></tr>`;
         if (statusEl) {
-          showMessage(statusEl, requestNotice ? `${requestNotice} / 신청 내역이 없습니다.` : "신청 내역이 없습니다.", "info");
+          showMessage(
+            statusEl,
+            requestNotice
+              ? `${requestNotice} / 신청 내역이 없습니다.`
+              : emptyLabel
+                ? `${emptyLabel} 신청 내역이 없습니다.`
+                : "신청 내역이 없습니다.",
+            "info"
+          );
         }
         return;
       }
-      rows.forEach((e) => {
+      visibleRows.forEach((e) => {
         const tr = document.createElement("tr");
         const detailHref = toSitePath(`/my-courses/enrollment-001/index.html?id=${encodeURIComponent(String(e.id))}`);
         tr.innerHTML = `
@@ -840,7 +861,11 @@
       if (statusEl) {
         showMessage(
           statusEl,
-          requestNotice ? `${requestNotice} / 내 신청 내역 ${rows.length}건` : `내 신청 내역 ${rows.length}건`,
+          requestNotice
+            ? `${requestNotice} / 내 신청 내역 ${visibleRows.length}건`
+            : certParam
+              ? `선택 과정 기준 신청 내역 ${visibleRows.length}건`
+              : `내 신청 내역 ${visibleRows.length}건`,
           requestNotice ? "info" : "success"
         );
       }
