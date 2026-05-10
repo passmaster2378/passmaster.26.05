@@ -2134,3 +2134,21 @@ document.querySelectorAll(".pm-nav a").forEach((link) => {
     link.classList.add("active");
   }
 });
+
+function injectUnifiedFooterMeta() {
+  const footerNodes = document.querySelectorAll("footer");
+  footerNodes.forEach((footer) => {
+    if (footer.classList.contains("footer")) return; // landing page custom footer
+    if (footer.querySelector("[data-passmaster-footer-meta]")) return;
+    const meta = document.createElement("p");
+    meta.setAttribute("data-passmaster-footer-meta", "1");
+    meta.style.margin = "8px 0 0";
+    meta.style.fontSize = "12px";
+    meta.style.color = "#667085";
+    meta.textContent =
+      "패스마스터 · 정보관리자: 이태나 · 사업자등록번호: 326-58-00636 · 신한은행 이동길 110-623-996861";
+    footer.appendChild(meta);
+  });
+}
+
+injectUnifiedFooterMeta();
