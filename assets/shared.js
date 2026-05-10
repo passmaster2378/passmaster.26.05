@@ -2136,17 +2136,39 @@ document.querySelectorAll(".pm-nav a").forEach((link) => {
 });
 
 function injectUnifiedFooterMeta() {
+  const isGitHubPagesHost = /\.github\.io$/i.test(window.location.hostname || "");
+  const normalizedPath = String(window.location.pathname || "").replace(/\\/g, "/");
+  const segments = normalizedPath.split("/").filter(Boolean);
+  const projectBase =
+    isGitHubPagesHost && segments.length && !segments[0].endsWith(".html") ? `/${segments[0]}` : "";
+  const withBase = (path) => `${projectBase}${path}`;
   const footerNodes = document.querySelectorAll("footer");
   footerNodes.forEach((footer) => {
     if (footer.classList.contains("footer")) return; // landing page custom footer
-    if (footer.querySelector("[data-passmaster-footer-meta]")) return;
+    if (footer.querySelector("[data-passmaster-footer-standard]")) return;
+    footer.innerHTML = "";
+    const links = document.createElement("div");
+    links.setAttribute("data-passmaster-footer-standard", "links");
+    links.style.display = "flex";
+    links.style.flexWrap = "wrap";
+    links.style.gap = "8px 14px";
+    links.style.width = "100%";
+    links.innerHTML = `
+      <a href="${withBase("/index.html")}">메인으로</a>
+      <a href="${withBase("/support/index.html")}">고객센터</a>
+      <a href="${withBase("/legal.html#terms")}">이용약관</a>
+      <a href="${withBase("/legal.html#privacy")}">개인정보처리방침</a>
+      <a href="${withBase("/legal.html#refund")}">환불정책</a>
+    `;
     const meta = document.createElement("p");
-    meta.setAttribute("data-passmaster-footer-meta", "1");
+    meta.setAttribute("data-passmaster-footer-standard", "meta");
+    meta.style.width = "100%";
     meta.style.margin = "8px 0 0";
     meta.style.fontSize = "12px";
     meta.style.color = "#667085";
     meta.textContent =
       "패스마스터 · 정보관리자: 이태나 · 사업자등록번호: 326-58-00636 · 신한은행 이동길 110-623-996861";
+    footer.appendChild(links);
     footer.appendChild(meta);
   });
 }
