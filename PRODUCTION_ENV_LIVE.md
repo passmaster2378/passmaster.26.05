@@ -25,11 +25,14 @@ PUBLIC_API_URL=https://passmaster-26-05.onrender.com
 # Supabase Postgres (운영값으로 교체)
 SUPABASE_DB_URL=postgresql://postgres.<project-ref>:<url-encoded-password>@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres
 
-# OAuth (사용 시 입력)
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-KAKAO_REST_API_KEY=
-KAKAO_CLIENT_SECRET=
+# OAuth — 실제 키 값은 Render 대시보드에만 입력 (이 Git 문서에 비밀 커밋 금지)
+# Redirect URI 등록 (구글·카카오 개발자 콘솔):
+#   https://passmaster-26-05.onrender.com/api/auth/oauth/google/callback
+#   https://passmaster-26-05.onrender.com/api/auth/oauth/kakao/callback
+GOOGLE_CLIENT_ID=<구글_OAuth_클라이언트_ID>
+GOOGLE_CLIENT_SECRET=<구글_클라이언트_보안_비밀>
+KAKAO_REST_API_KEY=<카카오_REST_API_키>
+KAKAO_CLIENT_SECRET=<선택_카카오_Client_Secret>
 
 # 보안: 운영에서는 항상 false 유지
 ROOT_ADMIN_BOOTSTRAP=false
