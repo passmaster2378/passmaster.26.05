@@ -2154,11 +2154,11 @@ function injectUnifiedFooterMeta() {
     links.style.gap = "8px 14px";
     links.style.width = "100%";
     links.innerHTML = `
-      <a href="${withBase("/index.html")}">메인으로</a>
-      <a href="${withBase("/support/index.html")}">고객센터</a>
+      <a href="${withBase("/legal.html#company")}">회사정보</a>
       <a href="${withBase("/legal.html#terms")}">이용약관</a>
       <a href="${withBase("/legal.html#privacy")}">개인정보처리방침</a>
       <a href="${withBase("/legal.html#refund")}">환불정책</a>
+      <a href="${withBase("/support/index.html")}">고객센터</a>
     `;
     const meta = document.createElement("p");
     meta.setAttribute("data-passmaster-footer-standard", "meta");
