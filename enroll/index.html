@@ -73,6 +73,73 @@
         <a href="../pages.html">사이트맵</a>
       </footer>
     </div>
-    <script defer src="../assets/auth-client.js"></script>
+    <script defer src="../assets/auth-client.js?v=20260510-1"></script>
+    <script>
+      (function () {
+        const certParam = String(new URLSearchParams(window.location.search).get("cert") || "")
+          .trim()
+          .toLowerCase();
+        if (!certParam) return;
+
+        const certLabelMap = {
+          forklift: "지게차기능사",
+          excavator: "굴착기기능사",
+          electric: "전기기능사",
+          welding: "용접기능사",
+          hazmat: "위험물산업기사",
+          carrepair: "자동차정비기능사",
+          beautician: "일반미용사",
+          makeup: "메이크업 미용사",
+          skin: "피부미용사",
+          nail: "네일미용사",
+          elevator: "승강기기능사",
+          construction: "건설기능사",
+          cookkr: "한식조리기능사",
+          cookwest: "양식조리기능사",
+          cookcn: "중식조리기능사",
+          cookjp: "일식조리기능사",
+        };
+        const selectedLabel = certLabelMap[certParam] || certParam;
+        const statusEl = document.querySelector("[data-api='course-openings-status']");
+        const tbody = document.querySelector("[data-api='mypage-enrollments-body']");
+        const heading = document.querySelector("#enroll-openings h2");
+        if (heading) heading.textContent = `${selectedLabel} 신청 내역`;
+
+        const rowMatches = (tr) => {
+          const text = (tr.textContent || "").trim();
+          return text.includes(selectedLabel);
+        };
+
+        const applyFilter = () => {
+          if (!tbody) return;
+          const rows = Array.from(tbody.querySelectorAll("tr"));
+          if (!rows.length) return;
+          let visibleCount = 0;
+          rows.forEach((tr) => {
+            const isDataRow = tr.querySelector("td") != null;
+            if (!isDataRow) return;
+            const visible = rowMatches(tr);
+            tr.style.display = visible ? "" : "none";
+            if (visible) visibleCount += 1;
+          });
+          if (visibleCount === 0) {
+            tbody.innerHTML = `<tr><td colspan="6">${selectedLabel} 신청 내역이 없습니다.</td></tr>`;
+            if (statusEl) {
+              statusEl.textContent = `${selectedLabel} 과정은 현재 수강신청 준비 중입니다. 개설 후 신청 가능합니다.`;
+              statusEl.className = "auth-message info";
+            }
+            return;
+          }
+          if (statusEl) {
+            statusEl.textContent = `선택 과정(${selectedLabel}) 신청 내역 ${visibleCount}건`;
+            statusEl.className = "auth-message success";
+          }
+        };
+
+        const observer = new MutationObserver(() => applyFilter());
+        if (tbody) observer.observe(tbody, { childList: true, subtree: true });
+        window.addEventListener("DOMContentLoaded", applyFilter);
+      })();
+    </script>
   </body>
 </html>
