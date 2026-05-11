@@ -1903,7 +1903,11 @@ function getAuthSession() {
 }
 
 function getLoginHref() {
-  const loginLink = document.querySelector(".pm-nav a[href*='login.html']");
+  const nav =
+    document.querySelector(".pm-header nav.pm-nav") ||
+    document.querySelector(".pm-header .pm-nav") ||
+    document.querySelector("nav.pm-nav");
+  const loginLink = nav && nav.querySelector("a[href*='login.html']");
   return loginLink ? loginLink.getAttribute("href") : "./login.html";
 }
 
@@ -1945,11 +1949,24 @@ function isStrictAdminSession(session) {
 }
 
 function updateNavigationByAuth(session) {
-  const loginLink = document.querySelector(".pm-nav a[href*='login.html']");
-  const registerLink = document.querySelector(".pm-nav a[href*='register.html']");
+  const nav =
+    document.querySelector(".pm-header nav.pm-nav") ||
+    document.querySelector(".pm-header .pm-nav") ||
+    document.querySelector("nav.pm-nav");
+  if (!nav) return;
+
+  const loginLink = nav.querySelector("a[href*='login.html']");
+  const registerLink = nav.querySelector("a[href*='register.html']");
   if (!loginLink || !registerLink) return;
-  const logoLink = document.querySelector(".pm-logo");
-  const navLinks = Array.from(document.querySelectorAll(".pm-nav a"));
+
+  loginLink.hidden = false;
+  registerLink.hidden = false;
+  loginLink.style.display = "";
+  registerLink.style.display = "";
+
+  const logoLink =
+    document.querySelector(".pm-header .pm-logo") || document.querySelector(".pm-logo");
+  const navLinks = Array.from(nav.querySelectorAll("a"));
   const adminLinks = navLinks.filter((link) => {
     if (link === registerLink) return false;
     const href = String(link.getAttribute("href") || "")
@@ -1963,9 +1980,9 @@ function updateNavigationByAuth(session) {
       href.includes("admin/index.html")
     );
   });
-  const pagesLink = document.querySelector(".pm-nav a[href*='pages.html']");
-  const enrollLink = document.querySelector(".pm-nav a[href*='enroll/index.html']");
-  const myCoursesLink = document.querySelector(".pm-nav a[href*='my-courses/index.html']");
+  const pagesLink = nav.querySelector("a[href*='pages.html']");
+  const enrollLink = nav.querySelector("a[href*='enroll/index.html']");
+  const myCoursesLink = nav.querySelector("a[href*='my-courses/index.html']");
 
   if (!session || !session.user) {
     loginLink.textContent = "로그인";
@@ -2017,6 +2034,10 @@ function updateNavigationByAuth(session) {
   if (myCoursesLink) myCoursesLink.textContent = "내강의";
   if (pagesLink) pagesLink.style.display = "none";
 }
+
+window.__PASSMASTER_REFRESH_NAV__ = function passmasterRefreshNavFromAuth() {
+  updateNavigationByAuth(getAuthSession());
+};
 
 function prettifyLinkLabel(href) {
   if (!href) return "페이지";

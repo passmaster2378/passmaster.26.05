@@ -2176,14 +2176,26 @@
     }
   }
 
+  function refreshPassmasterSiteNavigation() {
+    try {
+      if (typeof window.__PASSMASTER_REFRESH_NAV__ === "function") {
+        window.__PASSMASTER_REFRESH_NAV__();
+      }
+    } catch (_e) {
+      /* ignore */
+    }
+  }
+
   async function mountAuthForms() {
     warmupApi().catch(() => null);
     await mountOAuthButtons();
     if (consumeOAuthHashReturn() === true) {
+      refreshPassmasterSiteNavigation();
       syncSupportGuestMemberSections();
       return;
     }
 
+    refreshPassmasterSiteNavigation();
     syncSupportGuestMemberSections();
 
     const params = new URLSearchParams(window.location.search);
