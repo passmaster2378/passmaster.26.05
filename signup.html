@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PASSmaster | 회원가입 안내</title>
+    <link rel="stylesheet" href="./assets/shared.css" />
+    <script defer src="./assets/shared.js"></script>
     <style>
       :root {
         --bg: #f2f6ff;
@@ -16,15 +18,9 @@
       * {
         box-sizing: border-box;
       }
-      body {
-        margin: 0;
-        min-height: 100vh;
-        font-family: "Pretendard", "Noto Sans KR", "Malgun Gothic", sans-serif;
-        background: radial-gradient(circle at 10% 8%, #dce9ff 0, #edf3ff 44%, var(--bg) 74%);
+      body.passmaster-signup-shell {
+        background: radial-gradient(at 10% 8%, #dce9ff 0, #edf3ff 44%, var(--bg) 74%);
         color: var(--text);
-        display: grid;
-        place-items: center;
-        padding: 20px;
       }
       .card {
         width: min(760px, 100%);
@@ -90,22 +86,14 @@
         color: #446294;
         font-size: 14px;
       }
-      .page-footer {
-        margin-top: 14px;
-        text-align: center;
-        font-size: 12px;
-        color: #5f7398;
-      }
-      .page-footer a {
-        color: #355284;
-        text-decoration: none;
-        margin: 0 8px;
-        font-weight: 700;
+      .passmaster-signup-shell {
+        font-family: "Pretendard", "Noto Sans KR", "Malgun Gothic", sans-serif;
       }
     </style>
   </head>
-  <body>
-    <main class="card">
+  <body class="passmaster-auth-layout passmaster-signup-shell">
+    <div class="passmaster-auth-layout__center" style="padding: 20px">
+      <main class="card">
       <section class="hero">
         <img
           src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1400&q=80"
@@ -129,16 +117,8 @@
         </div>
         <div class="meta">운영 공지: 경로 통합 정책 적용일 2026-05-01</div>
       </section>
-    </main>
-    <footer class="page-footer">
-      <a href="./legal.html#company">회사정보</a>
-      <a href="./legal.html#terms">이용약관</a>
-      <a href="./legal.html#privacy">개인정보처리방침</a>
-      <a href="./legal.html#refund">환불정책</a>
-      <a href="./support/index.html">고객센터</a>
-      <div style="margin-top:8px; color:#667085;">
-        패스마스터 · 정보관리자: 이태나 · 사업자등록번호: 326-58-00636 · 신한은행 이동길 110-623-996861
-      </div>
-    </footer>
+      </main>
+    </div>
+    <footer class="pm-footer"></footer>
   </body>
 </html>

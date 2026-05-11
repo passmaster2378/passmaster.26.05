@@ -2144,32 +2144,36 @@ function injectUnifiedFooterMeta() {
   const withBase = (path) => `${projectBase}${path}`;
   const footerNodes = document.querySelectorAll("footer");
   footerNodes.forEach((footer) => {
-    if (footer.classList.contains("footer")) return; // landing page custom footer
-    if (footer.querySelector("[data-passmaster-footer-standard]")) return;
+    if (footer.classList.contains("footer")) return; // landing 메인 전용 하단 블록
+    if (footer.querySelector("[data-passmaster-footer-standard='root']")) return;
     footer.innerHTML = "";
-    const links = document.createElement("div");
-    links.setAttribute("data-passmaster-footer-standard", "links");
-    links.style.display = "flex";
-    links.style.flexWrap = "wrap";
-    links.style.gap = "8px 14px";
-    links.style.width = "100%";
-    links.innerHTML = `
-      <a href="${withBase("/legal.html#company")}">회사정보</a>
-      <a href="${withBase("/legal.html#terms")}">이용약관</a>
-      <a href="${withBase("/legal.html#privacy")}">개인정보처리방침</a>
-      <a href="${withBase("/legal.html#refund")}">환불정책</a>
-      <a href="${withBase("/support/index.html")}">고객센터</a>
+    footer.classList.add("pm-footer", "pm-footer--site");
+    const wrap = document.createElement("div");
+    wrap.setAttribute("data-passmaster-footer-standard", "root");
+    wrap.innerHTML = `
+      <div class="pm-site-footer-top">
+        <div class="pm-site-footer-brand">
+          <strong>PASSmaster</strong>
+          <p>필기 합격을 위한 온라인 학습 · 수강 신청</p>
+        </div>
+        <nav class="pm-site-footer-links" aria-label="약관 및 고객센터">
+          <a href="${withBase("/legal.html#company")}">회사정보</a>
+          <a href="${withBase("/legal.html#terms")}">이용약관</a>
+          <a href="${withBase("/legal.html#privacy")}">개인정보처리방침</a>
+          <a href="${withBase("/legal.html#refund")}">환불정책</a>
+          <a href="${withBase("/support/index.html")}">고객센터</a>
+        </nav>
+      </div>
+      <div class="pm-site-footer-company">
+        <p><strong>주식회사 모든코퍼레이션</strong> · 대표이사 이동길 · 사업자등록번호 402-86-15931</p>
+        <p>통신판매업 신고 제2022-인천서구-1321호 · 주소 인천광역시 서구 가재울로 20</p>
+        <p>개인정보보호책임자 이태나 · 무통장 입금 계좌 등은 수강·결제 단계 안내를 따릅니다.</p>
+      </div>
+      <div class="pm-site-footer-bottom">
+        <span>© ${new Date().getFullYear()} 주식회사 모든코퍼레이션. All rights reserved.</span>
+      </div>
     `;
-    const meta = document.createElement("p");
-    meta.setAttribute("data-passmaster-footer-standard", "meta");
-    meta.style.width = "100%";
-    meta.style.margin = "8px 0 0";
-    meta.style.fontSize = "12px";
-    meta.style.color = "#667085";
-    meta.textContent =
-      "패스마스터 · 정보관리자: 이태나 · 사업자등록번호: 326-58-00636 · 신한은행 이동길 110-623-996861";
-    footer.appendChild(links);
-    footer.appendChild(meta);
+    footer.appendChild(wrap);
   });
 }
 

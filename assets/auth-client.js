@@ -1876,11 +1876,135 @@
     await loadSummary();
   }
 
+  const ADMIN_DASH_LS = "passmaster.admin.dashboard.quick";
+  const ADMIN_QUICK_ITEMS = [
+    { key: "courses", label: "과정 · 문제", href: "./courses/index.html" },
+    { key: "enrollments", label: "수강신청", href: "./enrollments/index.html" },
+    { key: "payments", label: "결제", href: "./payments/index.html" },
+    { key: "users", label: "회원", href: "./users/index.html" },
+    { key: "inquiries", label: "문의", href: "./inquiries/index.html" },
+    { key: "faqs", label: "FAQ 관리", href: "./faqs/index.html" },
+    { key: "reviews", label: "후기", href: "./reviews/index.html" },
+    { key: "learning", label: "학습 이력", href: "./learning/index.html" },
+  ];
+
+  function readAdminDashboardPrefs() {
+    try {
+      const raw = localStorage.getItem(ADMIN_DASH_LS);
+      const parsed = raw ? JSON.parse(raw) : {};
+      const links =
+        parsed && typeof parsed.links === "object" && parsed.links !== null ? parsed.links : {};
+      const next = {
+        showQuick: parsed.showQuick !== false,
+        links: {},
+      };
+      ADMIN_QUICK_ITEMS.forEach((item) => {
+        next.links[item.key] = links[item.key] !== false;
+      });
+      return next;
+    } catch (_e) {
+      return { showQuick: true, links: Object.fromEntries(ADMIN_QUICK_ITEMS.map((i) => [i.key, true])) };
+    }
+  }
+
+  function writeAdminDashboardPrefs(prefs) {
+    try {
+      localStorage.setItem(ADMIN_DASH_LS, JSON.stringify(prefs));
+    } catch (_e) {
+      /* ignore */
+    }
+  }
+
+  function runCountUp(el, nextValue, opts) {
+    if (!el) return;
+    const duration = (opts && opts.duration) || 550;
+    const raw = String(el.textContent).replace(/[^\d.-]/g, "");
+    const start = Number.isFinite(Number(raw)) ? Number(raw) : 0;
+    const end = Math.max(0, Math.floor(Number(nextValue) || 0));
+    if (start === end) {
+      el.textContent = String(end);
+      return;
+    }
+    const t0 = performance.now();
+    const step = (t) => {
+      const p = Math.min(1, (t - t0) / duration);
+      const eased = 1 - (1 - p) * (1 - p);
+      const cur = Math.round(start + (end - start) * eased);
+      el.textContent = String(cur);
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  function mountAdminQuicklinksUI(prefs, onChange) {
+    const wrap = document.querySelector("[data-admin-quick-wrap]");
+    const host = document.querySelector("[data-admin-quick-toggles]");
+    const bar = document.querySelector("[data-admin-quick-bar]");
+    const master = document.getElementById("admin-dash-show-quick");
+    if (!wrap || !host || !bar) return;
+
+    const applyVisibility = () => {
+      wrap.hidden = !prefs.showQuick;
+      if (master) master.checked = prefs.showQuick;
+    };
+
+    const renderBar = () => {
+      bar.innerHTML = ADMIN_QUICK_ITEMS.filter((item) => prefs.links[item.key]).map(
+        (item) => `<a href="${item.href}">${item.label}</a>`
+      ).join("");
+    };
+
+    if (!host.dataset.passmasterQuickInit) {
+      host.dataset.passmasterQuickInit = "1";
+      host.innerHTML = ADMIN_QUICK_ITEMS.map(
+        (item) => `
+          <label>
+            <input type="checkbox" data-admin-quick-key="${item.key}" />
+            ${item.label}
+          </label>
+        `
+      ).join("");
+
+      host.querySelectorAll("input[data-admin-quick-key]").forEach((input) => {
+        input.addEventListener("change", () => {
+          const key = input.getAttribute("data-admin-quick-key");
+          if (!key) return;
+          prefs.links[key] = Boolean(input.checked);
+          writeAdminDashboardPrefs(prefs);
+          renderBar();
+          onChange();
+        });
+      });
+
+      if (master) {
+        master.addEventListener("change", () => {
+          prefs.showQuick = Boolean(master.checked);
+          writeAdminDashboardPrefs(prefs);
+          applyVisibility();
+          onChange();
+        });
+      }
+    }
+
+    host.querySelectorAll("input[data-admin-quick-key]").forEach((input) => {
+      const key = input.getAttribute("data-admin-quick-key");
+      if (key) input.checked = Boolean(prefs.links[key]);
+    });
+    applyVisibility();
+    renderBar();
+  }
+
   async function mountAdminDashboard() {
     const tbody = document.querySelector("[data-api='admin-dashboard-body']");
-    if (!tbody) return;
+    const grid = document.querySelector("[data-dash-stats]");
+    if (!tbody && !grid) return;
     const msg = document.querySelector("[data-api='admin-dashboard-msg']");
-    const rows = [];
+    const refreshBtn = document.getElementById("admin-dash-refresh");
+    const dashPrefs = readAdminDashboardPrefs();
+    mountAdminQuicklinksUI(dashPrefs, () => {});
+
+    let loadSeq = 0;
+    let lastSnapshot = null;
 
     const setMessage = (text, isError) => {
       if (!msg) return;
@@ -1888,37 +2012,94 @@
       msg.classList.toggle("error", Boolean(isError));
     };
 
-    try {
-      const dashboard = await request("/admin/dashboard");
-      const usersCount = Number(dashboard && dashboard.users) || 0;
-      const coursesCount = Number(dashboard && dashboard.courses) || 0;
-      const enrollmentsCount = Number(dashboard && dashboard.enrollments) || 0;
-      const pendingInquiries = Number(dashboard && dashboard.openInquiries) || 0;
+    const applyPulse = () => {
+      const n = lastSnapshot ? lastSnapshot.inquiries : 0;
+      document.querySelectorAll("[data-dash-stat-card]").forEach((card) => {
+        card.classList.remove("pm-dash-pulse");
+      });
+      const inqCard = document.querySelector('[data-dash-stat-card="inquiries"]');
+      if (inqCard && n > 0) inqCard.classList.add("pm-dash-pulse");
+    };
 
-      rows.push(["회원 수", `${usersCount}명`]);
-      rows.push(["개설 과정 수", `${coursesCount}건`]);
-      rows.push(["수강신청 수", `${enrollmentsCount}건`]);
-      rows.push(["미처리 문의", `${pendingInquiries}건`]);
-
-      setMessage("실시간 API 기준 운영 현황입니다.", false);
-    } catch (error) {
-      rows.push(["회원 수", "-"]);
-      rows.push(["개설 과정 수", "-"]);
-      rows.push(["수강신청 수", "-"]);
-      rows.push(["미처리 문의", "-"]);
-      setMessage(`대시보드 데이터를 불러오지 못했습니다: ${error.message}`, true);
-    }
-
-    tbody.innerHTML = rows
-      .map(
-        ([label, value]) => `
+    const fillTableAndCards = () => {
+      if (!lastSnapshot) return;
+      const { users, courses, enrollments, inquiries } = lastSnapshot;
+      const rows = [
+        ["회원 수", `${users}명`],
+        ["개설 과정 수", `${courses}건`],
+        ["수강신청 수", `${enrollments}건`],
+        ["미처리 문의", `${inquiries}건`],
+      ];
+      if (tbody) {
+        tbody.innerHTML = rows
+          .map(
+            ([label, value]) => `
           <tr>
             <th scope="row">${label}</th>
             <td>${value}</td>
           </tr>
         `
-      )
-      .join("");
+          )
+          .join("");
+      }
+      runCountUp(document.querySelector("[data-dash-value='users']"), users);
+      runCountUp(document.querySelector("[data-dash-value='courses']"), courses);
+      runCountUp(document.querySelector("[data-dash-value='enrollments']"), enrollments);
+      runCountUp(document.querySelector("[data-dash-value='inquiries']"), inquiries);
+      applyPulse();
+    };
+
+    const load = async () => {
+      const mySeq = ++loadSeq;
+      if (refreshBtn) {
+        refreshBtn.disabled = true;
+        refreshBtn.classList.add("pm-dash-refresh-spin");
+        window.setTimeout(() => refreshBtn.classList.remove("pm-dash-refresh-spin"), 700);
+      }
+      try {
+        const dashboard = await request("/admin/dashboard");
+        if (mySeq !== loadSeq) return;
+        const users = Number(dashboard && dashboard.users) || 0;
+        const courses = Number(dashboard && dashboard.courses) || 0;
+        const enrollments = Number(dashboard && dashboard.enrollments) || 0;
+        const inquiries = Number(dashboard && dashboard.openInquiries) || 0;
+        lastSnapshot = { users, courses, enrollments, inquiries };
+        setMessage("실시간 API 기준 운영 현황입니다.", false);
+        fillTableAndCards();
+      } catch (error) {
+        if (mySeq !== loadSeq) return;
+        lastSnapshot = { users: 0, courses: 0, enrollments: 0, inquiries: 0 };
+        if (tbody) {
+          tbody.innerHTML = [
+            ["회원 수", "-"],
+            ["개설 과정 수", "-"],
+            ["수강신청 수", "-"],
+            ["미처리 문의", "-"],
+          ]
+            .map(
+              ([label, value]) =>
+                `<tr><th scope="row">${label}</th><td>${value}</td></tr>`
+            )
+            .join("");
+        }
+        runCountUp(document.querySelector("[data-dash-value='users']"), 0);
+        runCountUp(document.querySelector("[data-dash-value='courses']"), 0);
+        runCountUp(document.querySelector("[data-dash-value='enrollments']"), 0);
+        runCountUp(document.querySelector("[data-dash-value='inquiries']"), 0);
+        applyPulse();
+        setMessage(`대시보드 데이터를 불러오지 못했습니다: ${error.message}`, true);
+      } finally {
+        if (refreshBtn) refreshBtn.disabled = false;
+      }
+    };
+
+    if (refreshBtn) {
+      refreshBtn.addEventListener("click", () => {
+        load();
+      });
+    }
+
+    await load();
   }
 
   async function handleAdminReplySubmit(event) {

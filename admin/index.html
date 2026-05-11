@@ -31,18 +31,75 @@
         </div>
 
         <section class="pm-card">
-          <h2>운영 요약 (API)</h2>
+          <div class="pm-dash-head">
+            <div>
+              <h2 style="margin: 0 0 4px">운영 요약</h2>
+              <p class="pm-detail" style="margin: 0; font-size: 14px">실시간 API 기준 · 카드 수치는 갱신 시 짧게 올라갑니다.</p>
+            </div>
+            <div class="pm-dash-controls">
+              <button type="button" class="pm-btn pm-btn-ghost" id="admin-dash-refresh" aria-label="운영 요약 새로고침">
+                새로고침
+              </button>
+              <label>
+                <input type="checkbox" id="admin-dash-show-quick" checked />
+                바로가기 표시
+              </label>
+            </div>
+          </div>
           <p class="auth-message info" data-api="admin-dashboard-msg"></p>
-          <div class="pm-table-wrap">
-            <table class="pm-table">
-              <thead>
-                <tr>
-                  <th>지표</th>
-                  <th>현재값</th>
-                </tr>
-              </thead>
-              <tbody data-api="admin-dashboard-body"></tbody>
-            </table>
+          <div class="pm-dash-grid" data-dash-stats>
+            <a class="pm-dash-stat" href="./users/index.html" data-dash-stat-card="users">
+              <div class="pm-dash-label">회원 수</div>
+              <div class="pm-dash-value">
+                <span data-dash-value="users">0</span><span class="pm-dash-unit">명</span>
+              </div>
+              <div class="pm-dash-hint">회원 목록으로 이동</div>
+            </a>
+            <a class="pm-dash-stat" href="./courses/index.html" data-dash-stat-card="courses">
+              <div class="pm-dash-label">개설 과정 수</div>
+              <div class="pm-dash-value">
+                <span data-dash-value="courses">0</span><span class="pm-dash-unit">건</span>
+              </div>
+              <div class="pm-dash-hint">과정 · 문제 업로드</div>
+            </a>
+            <a class="pm-dash-stat" href="./enrollments/index.html" data-dash-stat-card="enrollments">
+              <div class="pm-dash-label">수강신청 수</div>
+              <div class="pm-dash-value">
+                <span data-dash-value="enrollments">0</span><span class="pm-dash-unit">건</span>
+              </div>
+              <div class="pm-dash-hint">수강신청 처리</div>
+            </a>
+            <a class="pm-dash-stat" href="./inquiries/index.html" data-dash-stat-card="inquiries">
+              <div class="pm-dash-label">미처리 문의</div>
+              <div class="pm-dash-value">
+                <span data-dash-value="inquiries">0</span><span class="pm-dash-unit">건</span>
+              </div>
+              <div class="pm-dash-hint">문의 우선 처리</div>
+            </a>
+          </div>
+
+          <div class="pm-quicklinks-panel" data-admin-quick-wrap>
+            <h3 style="margin-top: 0">표시할 바로가기</h3>
+            <p class="pm-detail" style="margin-top: 0">
+              선택한 링크만 아래 줄에 표시됩니다. 설정은 이 브라우저에만 저장됩니다.
+            </p>
+            <div class="pm-quicklinks-grid" data-admin-quick-toggles></div>
+            <nav class="pm-quicklinks-bar" data-admin-quick-bar aria-label="관리 바로가기"></nav>
+          </div>
+
+          <div class="pm-table-wrap" style="margin-top: 18px">
+            <details>
+              <summary style="cursor: pointer; font-weight: 800; color: #375486">지표 원본 표 보기</summary>
+              <table class="pm-table" style="margin-top: 12px">
+                <thead>
+                  <tr>
+                    <th>지표</th>
+                    <th>현재값</th>
+                  </tr>
+                </thead>
+                <tbody data-api="admin-dashboard-body"></tbody>
+              </table>
+            </details>
           </div>
         </section>
 
@@ -50,23 +107,9 @@
           <h2>현재 경로</h2>
           <p class="pm-route">/admin</p>
         </section>
-
-        <section class="pm-card">
-          <h2>연결 페이지</h2>
-          <ul class="pm-link-list">
-          <li><a href="./courses/index.html">/admin/courses (문제은행 업로드)</a></li>
-          <li><a href="./enrollments/index.html">/admin/enrollments</a></li>
-          <li><a href="./payments/index.html">/admin/payments</a></li>
-          <li><a href="./users/index.html">/admin/users</a></li>
-          </ul>
-        </section>
       </main>
 
-      <footer class="pm-footer">
-        <a href="../index.html">메인으로</a>
-        <a href="../support/index.html">고객센터</a>
-        <a href="../pages.html">사이트맵</a>
-      </footer>
+      <footer class="pm-footer"></footer>
     </div>
     <script defer src="../assets/auth-client.js?v=20260510-qupload"></script>
   </body>
