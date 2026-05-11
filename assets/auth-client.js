@@ -61,6 +61,24 @@
     }
   }
 
+  /** 로그아웃·만료 반영 후 1:1 문의 등 고객센터 회원 기능 사용 가능 여부 */
+  function hasSupportMemberSession() {
+    const session = getStoredSession();
+    const user = getCurrentUser();
+    return Boolean(session && session.token && user);
+  }
+
+  /** `[data-support-guest-only]` / `[data-support-member-only]` 표시 동기화 */
+  function syncSupportGuestMemberSections() {
+    const member = hasSupportMemberSession();
+    document.querySelectorAll("[data-support-member-only]").forEach((el) => {
+      el.hidden = !member;
+    });
+    document.querySelectorAll("[data-support-guest-only]").forEach((el) => {
+      el.hidden = member;
+    });
+  }
+
   async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -380,6 +398,15 @@
     const messageNode = form.querySelector("[data-auth-message]");
     const submitButton = form.querySelector("[data-auth-submit]");
 
+    if (!hasSupportMemberSession()) {
+      showMessage(
+        messageNode,
+        "1:1 문의는 로그인 후 이용할 수 있습니다. 로그인 또는 회원가입을 진행해 주세요.",
+        "error"
+      );
+      return;
+    }
+
     if (!userName || !type || !title || !content) {
       showMessage(messageNode, "문의자명, 유형, 제목, 내용을 모두 입력해 주세요.", "error");
       return;
@@ -483,6 +510,14 @@
     if (!tableBody) return;
 
     const summaryNode = document.querySelector("[data-inquiry-list-summary]");
+    if (!hasSupportMemberSession()) {
+      syncSupportGuestMemberSections();
+      tableBody.innerHTML =
+        "<tr><td colspan=\"5\">1:1 문의 목록은 로그인한 회원만 이용할 수 있습니다. 로그인 또는 회원가입 후 다시 접속해 주세요.</td></tr>";
+      if (summaryNode) summaryNode.textContent = "로그인 필요";
+      return;
+    }
+
     try {
       const params = new URLSearchParams(window.location.search);
       const page = params.get("page") || "1";
@@ -544,6 +579,19 @@
   async function mountInquiryDetail() {
     const detailRoot = document.querySelector("[data-inquiry-detail]");
     if (!detailRoot) return;
+
+    if (!hasSupportMemberSession()) {
+      syncSupportGuestMemberSections();
+      const errorNode = detailRoot.querySelector("[data-inquiry-error]");
+      const tableWrap = detailRoot.querySelector(".pm-table-wrap");
+      if (errorNode) {
+        errorNode.textContent =
+          "문의 상세는 로그인한 회원만 볼 수 있습니다. 로그인 또는 회원가입 후 이용해 주세요.";
+        errorNode.className = "auth-message error";
+      }
+      if (tableWrap) tableWrap.hidden = true;
+      return;
+    }
 
     const params = new URLSearchParams(window.location.search);
     const id = params.get("id") || "1";
@@ -2132,8 +2180,11 @@
     warmupApi().catch(() => null);
     await mountOAuthButtons();
     if (consumeOAuthHashReturn() === true) {
+      syncSupportGuestMemberSections();
       return;
     }
+
+    syncSupportGuestMemberSections();
 
     const params = new URLSearchParams(window.location.search);
     if (params.get("registered") === "1") {
@@ -2167,10 +2218,6 @@
       const nameInput = inquiryForm.querySelector("input[name='userName']");
       if (nameInput && currentUser && currentUser.name) {
         nameInput.value = currentUser.name;
-      }
-      if (!currentUser) {
-        const messageNode = inquiryForm.querySelector("[data-auth-message]");
-        showMessage(messageNode, "문의 등록은 로그인 후 이용 가능합니다.", "info");
       }
       inquiryForm.addEventListener("submit", handleInquirySubmit);
     }

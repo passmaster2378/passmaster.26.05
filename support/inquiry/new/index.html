@@ -72,13 +72,30 @@
       <main class="pm-main">
         <p class="pm-pill">User Flow</p>
         <h1>문의 작성</h1>
-        <p class="pm-summary">문의 유형을 선택하고 상세 내용을 작성해 새 티켓을 발행합니다.</p>
+        <p class="pm-summary">
+          문의 유형을 선택하고 상세 내용을 작성하면 새 티켓이 접수됩니다. <strong>로그인한 회원</strong>만 이용할 수
+          있습니다.
+        </p>
         <div class="pm-cta-row">
-          <a class="pm-btn pm-btn-ghost" href="../index.html">이전 단계</a>
-          <a class="pm-btn pm-btn-primary" href="../detail-001.html">다음 단계</a>
+          <a class="pm-btn pm-btn-ghost" href="../index.html">문의 목록</a>
+          <a class="pm-btn pm-btn-ghost" href="../../login.html" data-support-guest-only>로그인</a>
+          <a class="pm-btn pm-btn-primary" href="../../register.html" data-support-guest-only>회원가입</a>
         </div>
 
-        <section class="pm-card">
+        <section class="pm-card" data-support-guest-only>
+          <h2>로그인 또는 회원가입이 필요합니다</h2>
+          <p class="pm-detail">
+            1:1 문의 접수는 회원 전용 기능입니다. 먼저 로그인하거나, 새 계정을 만든 뒤 다시 이 페이지를 열어
+            주세요.
+          </p>
+          <div class="pm-cta-row" style="margin: 0">
+            <a class="pm-btn pm-btn-primary" href="../../login.html">로그인</a>
+            <a class="pm-btn pm-btn-ghost" href="../../register.html">회원가입</a>
+            <a class="pm-btn pm-btn-ghost" href="../faq/index.html">FAQ만 보기</a>
+          </div>
+        </section>
+
+        <section class="pm-card" data-support-member-only hidden>
           <h2>1:1 문의 등록</h2>
           <form class="inquiry-form" data-support-form="inquiry-new" data-success-href="../index.html">
             <div>
@@ -109,28 +126,24 @@
               ></textarea>
             </div>
             <button class="pm-btn pm-btn-primary" type="submit" data-auth-submit>문의 접수하기</button>
-            <p class="auth-message info" data-auth-message>로그인 상태에서 문의를 등록할 수 있습니다.</p>
+            <p class="auth-message info" data-auth-message>입력 후 문의 접수하기를 눌러 주세요.</p>
           </form>
         </section>
 
-        <section class="pm-card">
+        <section class="pm-card" data-support-member-only hidden>
           <h2>현재 경로</h2>
           <p class="pm-route">/support/inquiry/new</p>
         </section>
 
-        <section class="pm-card">
-          <h2>연결 페이지</h2>
+        <section class="pm-card" data-support-member-only hidden>
+          <h2>연결</h2>
           <ul class="pm-link-list">
-          <li><a href="../../faq/index.html">/support/faq</a></li>
+            <li><a href="../../faq/index.html">FAQ</a></li>
           </ul>
         </section>
       </main>
 
-      <footer class="pm-footer">
-        <a href="../../../index.html">메인으로</a>
-        <a href="../../index.html">고객센터</a>
-        <a href="../../../pages.html">사이트맵</a>
-      </footer>
+      <footer class="pm-footer"></footer>
     </div>
     <script defer src="../../../assets/auth-client.js"></script>
   </body>
