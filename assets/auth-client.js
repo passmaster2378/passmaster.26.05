@@ -1996,8 +1996,8 @@
 
   async function mountAdminDashboard() {
     const tbody = document.querySelector("[data-api='admin-dashboard-body']");
-    const grid = document.querySelector("[data-dash-stats]");
-    if (!tbody && !grid) return;
+    const hasStatCards = Boolean(document.querySelector("[data-dash-stats]"));
+    if (!tbody && !hasStatCards) return;
     const msg = document.querySelector("[data-api='admin-dashboard-msg']");
     const refreshBtn = document.getElementById("admin-dash-refresh");
     const dashPrefs = readAdminDashboardPrefs();
