@@ -874,21 +874,55 @@
         : "내 수강신청 내역";
     }
 
-    try {
-      if (certParam) {
-        try {
-          openingsSnapshot = await request("/course-openings");
-          if (!Array.isArray(openingsSnapshot)) openingsSnapshot = [];
-        } catch (_e) {
-          openingsSnapshot = [];
-        }
-        const hasMatchingOpening = openingsSnapshot.some(openingMatchesCert);
-        if (!hasMatchingOpening) {
-          const label = certLabelMap[certParam] || certParam;
-          requestNotice = `${label} 과정은 현재 수강신청 준비 중입니다. 개설 후 신청 가능합니다.`;
-        }
-      }
+    const session = getStoredSession();
+    const hasToken = !!(session && typeof session.token === "string" && session.token.length > 0);
 
+    if (certParam) {
+      try {
+        openingsSnapshot = await request("/course-openings");
+        if (!Array.isArray(openingsSnapshot)) openingsSnapshot = [];
+      } catch (_e) {
+        openingsSnapshot = [];
+      }
+      const hasMatchingOpening = openingsSnapshot.some(openingMatchesCert);
+      if (!hasMatchingOpening) {
+        const label = certLabelMap[certParam] || certParam;
+        requestNotice = `${label} 과정은 현재 수강신청 준비 중입니다. 개설 후 신청 가능합니다.`;
+      }
+    }
+
+    if (!hasToken) {
+      const returnPath = `${window.location.pathname || ""}${window.location.search || ""}`;
+      const safeReturn =
+        returnPath.startsWith("/") && !returnPath.startsWith("//")
+          ? returnPath
+          : "/enroll/index.html";
+      const loginHref = `../login.html?returnTo=${encodeURIComponent(safeReturn)}`;
+      tbody.innerHTML = `<tr><td colspan='6'>
+        나의 신청 내역을 보려면 로그인이 필요합니다.
+        <a class="pm-btn pm-btn-primary" style="display:inline-flex;margin-left:10px;margin-top:4px;margin-bottom:4px;padding:6px 12px;font-size:13px;text-decoration:none" href="${loginHref}">로그인 후 계속</a>
+        <a class="pm-btn pm-btn-ghost" style="display:inline-flex;margin-left:6px;margin-top:4px;margin-bottom:4px;padding:6px 12px;font-size:13px;text-decoration:none" href="../register.html">회원가입</a>
+      </td></tr>`;
+      if (statusEl) {
+        showMessage(
+          statusEl,
+          certParam
+            ? "로그인하면 이 과정에 대한 신청 내역을 확인할 수 있습니다. 로그인 전에도 아래에서 신청을 시작할 수 있습니다."
+            : "로그인하면 신청 내역과 결제·승인 상태를 확인할 수 있습니다.",
+          "info"
+        );
+      }
+      const matchingOpenings = certParam ? openingsSnapshot.filter(openingMatchesCert) : [];
+      if (certParam && matchingOpenings.length && ctaPanel) {
+        ctaPanel.style.display = "";
+        ctaPanel.innerHTML = renderCertApplyCta(matchingOpenings);
+      } else if (ctaPanel) {
+        hideCertCtaPanel();
+      }
+      return;
+    }
+
+    try {
       hideCertCtaPanel();
 
       let visibleRows = [];
@@ -896,6 +930,28 @@
         const rows = await request("/me/enrollments");
         visibleRows = Array.isArray(rows) ? rows.filter(matchesRequestedCert) : [];
       } catch (enrollmentError) {
+        const errText = String(enrollmentError.message || "");
+        const needRelogin =
+          /인증 토큰|유효하지 않거나 만료된 토큰|401|로그인/i.test(errText);
+        if (needRelogin) {
+          const returnPath = `${window.location.pathname || ""}${window.location.search || ""}`;
+          const safeReturn =
+            returnPath.startsWith("/") && !returnPath.startsWith("//")
+              ? returnPath
+              : "/enroll/index.html";
+          const loginHref = `../login.html?returnTo=${encodeURIComponent(safeReturn)}`;
+          tbody.innerHTML = `<tr><td colspan='6'>
+            로그인 시간이 만료되었거나 세션이 없습니다. 다시 로그인해 주세요.
+            <a class="pm-btn pm-btn-primary" style="display:inline-flex;margin-left:10px;margin-top:4px;margin-bottom:4px;padding:6px 12px;font-size:13px;text-decoration:none" href="${loginHref}">다시 로그인</a>
+          </td></tr>`;
+          if (statusEl) showMessage(statusEl, "인증이 필요합니다. 재로그인 후 신청 내역을 확인할 수 있습니다.", "info");
+          const matchingOpenings = certParam ? openingsSnapshot.filter(openingMatchesCert) : [];
+          if (certParam && matchingOpenings.length && ctaPanel) {
+            ctaPanel.style.display = "";
+            ctaPanel.innerHTML = renderCertApplyCta(matchingOpenings);
+          }
+          return;
+        }
         tbody.innerHTML = `<tr><td colspan='6'>내 신청 내역을 불러오지 못했습니다: ${enrollmentError.message}</td></tr>`;
         if (statusEl) showMessage(statusEl, enrollmentError.message, "error");
         const matchingOpenings = openingsSnapshot.filter(openingMatchesCert);
@@ -905,7 +961,7 @@
           if (statusEl) {
             showMessage(
               statusEl,
-              `로그인 후 신청 내역을 확인할 수 있습니다. 선택한 과정 모집이 열려 있으므로 아래에서 수강신청을 진행해 보세요.`,
+              `일부 정보를 불러오지 못했습니다. 선택한 과정 모집이 열려 있으면 아래에서 수강신청을 진행해 보세요.`,
               "info"
             );
           }
