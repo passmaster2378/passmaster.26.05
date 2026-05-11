@@ -137,6 +137,38 @@
         gap: 10px;
       }
 
+      .landing-auth-guest {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .landing-auth-member {
+        display: none;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .landing-auth-member.is-visible {
+        display: flex;
+      }
+
+      .landing-user-pill {
+        font-size: 14px;
+        font-weight: 800;
+        color: #1a3a6e;
+        max-width: min(200px, 28vw);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .landing-auth-member .btn {
+        text-decoration: none;
+      }
+
       .btn {
         border: 0;
         cursor: pointer;
@@ -897,13 +929,23 @@
           <nav class="nav" aria-label="주요 메뉴">
             <a href="./enroll/index.html">수강신청</a>
             <a href="#cert-courses">자격증</a>
-            <a href="./my-courses/index.html">학습플로우</a>
+            <a href="./login.html" data-landing-nav-guest-only>학습 시작</a>
+            <a href="./my-courses/index.html" data-landing-nav-member-only hidden>내 강의</a>
             <a href="#reviews">수강후기</a>
             <a href="./support/index.html">고객센터</a>
+            <a href="./mypage/index.html" data-landing-nav-member-only hidden>마이페이지</a>
           </nav>
-          <div class="auth">
-            <a class="btn btn-ghost" href="./login.html">로그인</a>
-            <a class="btn btn-primary" href="./register.html">회원가입</a>
+          <div class="auth" data-landing-auth>
+            <div class="landing-auth-guest" data-landing-auth-guest>
+              <a class="btn btn-ghost" href="./login.html">로그인</a>
+              <a class="btn btn-primary" href="./register.html">회원가입</a>
+            </div>
+            <div class="landing-auth-member" data-landing-auth-member aria-live="polite">
+              <span class="landing-user-pill"><span data-landing-user-label>회원</span>님</span>
+              <a class="btn btn-ghost" href="./mypage/index.html">마이페이지</a>
+              <a class="btn btn-primary" href="./admin/index.html" data-landing-admin-btn hidden>관리자</a>
+              <a class="btn btn-ghost" href="#" data-landing-logout-btn>로그아웃</a>
+            </div>
           </div>
         </header>
 
@@ -1441,6 +1483,76 @@
         normalizePassmasterApiBase(window.PASSMASTER_API_BASE) ||
         (isLocalHost ? "http://localhost:4000/api" : isGitHubPages ? "https://passmaster-26-05.onrender.com/api" : "/api");
 
+      function refreshLandingTopNav() {
+        const session = getLandingSession();
+        const guestNav = document.querySelectorAll("[data-landing-nav-guest-only]");
+        const memberNav = document.querySelectorAll("[data-landing-nav-member-only]");
+        const authGuest = document.querySelector("[data-landing-auth-guest]");
+        const authMember = document.querySelector("[data-landing-auth-member]");
+        const userLabel = document.querySelector("[data-landing-user-label]");
+        const adminBtn = document.querySelector("[data-landing-admin-btn]");
+        const logoutBtn = document.querySelector("[data-landing-logout-btn]");
+
+        guestNav.forEach((el) => {
+          el.hidden = Boolean(session);
+        });
+        memberNav.forEach((el) => {
+          el.hidden = !session;
+        });
+
+        if (authGuest) authGuest.style.display = session ? "none" : "";
+        if (authMember) authMember.classList.toggle("is-visible", Boolean(session));
+
+        if (!session) return;
+
+        if (userLabel) {
+          userLabel.textContent =
+            session.user.name || String(session.user.email || "").split("@")[0] || "회원";
+        }
+
+        const isAdminUser = isLandingStrictAdmin(session);
+        if (adminBtn) {
+          adminBtn.hidden = !isAdminUser;
+        }
+
+        if (logoutBtn && logoutBtn.dataset.landingLogoutBound !== "1") {
+          logoutBtn.dataset.landingLogoutBound = "1";
+          logoutBtn.addEventListener("click", (event) => {
+            event.preventDefault();
+            localStorage.removeItem("passmaster_auth");
+            try {
+              sessionStorage.removeItem("passmaster_return_to");
+            } catch (_e) {
+              /* ignore */
+            }
+            window.location.href = "./index.html";
+          });
+        }
+      }
+
+      function normalizeLandingEmail(value) {
+        return String(value || "")
+          .trim()
+          .toLowerCase();
+      }
+
+      /** shared.js 의 관리자 식별과 동일해야 합니다. */
+      function isLandingStrictAdmin(session) {
+        if (!session || !session.user) return false;
+        const u = session.user;
+        return u.role === "admin" && normalizeLandingEmail(u.email) === normalizeLandingEmail("sanahai@naver.com");
+      }
+
+      function getLandingSession() {
+        const s = getStoredSession();
+        if (!s || !s.user || !s.token) return null;
+        if (s.expiresAt && new Date(s.expiresAt).getTime() < Date.now()) {
+          localStorage.removeItem("passmaster_auth");
+          return null;
+        }
+        return s;
+      }
+
       function getStoredSession() {
         try {
           const raw = localStorage.getItem("passmaster_auth");
@@ -1533,6 +1645,7 @@
         observer.observe(el);
       });
 
+      refreshLandingTopNav();
       mountQuickLearningCard();
     </script>
   </body>
