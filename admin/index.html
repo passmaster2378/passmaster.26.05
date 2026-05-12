@@ -26,6 +26,36 @@
         <h1>관리자 대시보드</h1>
         <p class="pm-summary">운영 현황과 핵심 지표를 한 번에 확인하는 관리자 메인 페이지입니다.</p>
 
+        <section class="pm-admin-dash-intro">
+          <h2>이 페이지에서 할 일</h2>
+          <p>
+            지표 카드로 규모를 보고, 아래 타일로 세부 관리 화면으로 바로 이동합니다. 신청·결제·문의는 운영 우선순위가 높은 메뉴입니다.
+          </p>
+          <div class="pm-admin-ops-group">
+            <h3>수강 · 결제</h3>
+            <div class="pm-admin-ops-grid">
+              <a class="pm-admin-ops-tile" href="./enrollments/index.html">수강 신청 <small>승인·상태 변경</small></a>
+              <a class="pm-admin-ops-tile" href="./payments/index.html">결제 <small>입금 확인·환불</small></a>
+              <a class="pm-admin-ops-tile" href="./learning/index.html">학습 운영 <small>진도·세션</small></a>
+            </div>
+          </div>
+          <div class="pm-admin-ops-group">
+            <h3>콘텐츠 · 회원</h3>
+            <div class="pm-admin-ops-grid">
+              <a class="pm-admin-ops-tile" href="./courses/index.html">과정·문제 <small>과정 마스터·JSON 업로드</small></a>
+              <a class="pm-admin-ops-tile" href="./users/index.html">회원 <small>목록·상세</small></a>
+            </div>
+          </div>
+          <div class="pm-admin-ops-group">
+            <h3>고객 응대</h3>
+            <div class="pm-admin-ops-grid">
+              <a class="pm-admin-ops-tile" href="./inquiries/index.html">문의 <small>미처리 큐</small></a>
+              <a class="pm-admin-ops-tile" href="./faqs/index.html">FAQ <small>노출·문구</small></a>
+              <a class="pm-admin-ops-tile" href="./reviews/index.html">후기 검수 <small>승인·숨김</small></a>
+            </div>
+          </div>
+        </section>
+
         <section class="pm-card">
           <div class="pm-dash-head">
             <div>
@@ -119,6 +149,6 @@
 
       <footer class="pm-footer"></footer>
     </div>
-    <script defer src="../assets/auth-client.js?v=20260511-opsreset"></script>
+    <script defer src="../assets/auth-client.js?v=20260512-admin"></script>
   </body>
 </html>

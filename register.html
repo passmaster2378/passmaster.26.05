@@ -107,7 +107,18 @@
             </div>
             <div>
               <label for="email">이메일</label>
-              <input id="email" name="email" type="email" placeholder="name@example.com" />
+              <input id="email" name="email" type="email" placeholder="name@example.com" autocomplete="email" />
+            </div>
+            <div>
+              <label for="phone">휴대전화</label>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                inputmode="numeric"
+                autocomplete="tel"
+                placeholder="01012345678 (하이픈 없이 가능)"
+              />
             </div>
             <div>
               <label for="password">비밀번호</label>
@@ -116,7 +127,19 @@
                 name="password"
                 type="password"
                 minlength="8"
+                autocomplete="new-password"
                 placeholder="8자 이상 비밀번호"
+              />
+            </div>
+            <div>
+              <label for="passwordConfirm">비밀번호 확인</label>
+              <input
+                id="passwordConfirm"
+                name="passwordConfirm"
+                type="password"
+                minlength="8"
+                autocomplete="new-password"
+                placeholder="비밀번호를 한 번 더 입력"
               />
             </div>
             <button class="pm-btn pm-btn-primary" type="submit" data-auth-submit>회원가입 완료</button>

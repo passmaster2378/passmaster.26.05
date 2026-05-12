@@ -355,6 +355,14 @@ function redirectOAuthError(res, returnTo, message) {
   return res.redirect(302, `${clean}#pm_oauth_error=${encodeURIComponent(message)}`);
 }
 
+function normalizePhone(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.length < 10 || digits.length > 11) return "";
+  if (!digits.startsWith("0")) return "";
+  return digits;
+}
+
 function sessionPayloadForUser(row) {
   const role = resolveUserRole(row.email, row.role);
   const user = {
@@ -363,6 +371,7 @@ function sessionPayloadForUser(row) {
     email: row.email,
     role,
     created_at: row.created_at,
+    phone: row.phone || null,
   };
   const token = signToken(user);
   const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
@@ -442,6 +451,10 @@ async function migrateAuthOAuthColumns() {
   await run(
     `CREATE UNIQUE INDEX IF NOT EXISTS users_kakao_id_uidx ON public.users (kakao_id) WHERE kakao_id IS NOT NULL`
   );
+}
+
+async function migrateUserPhoneColumn() {
+  await run(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS phone TEXT`);
 }
 
 async function initSchema() {
@@ -1314,7 +1327,7 @@ app.post("/api/inquiries/:id/messages", requireAuth, requireAdmin, async (req, r
 });
 
 app.post("/api/auth/register", authRateLimiter, async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, phone } = req.body;
   if (!name || !email || !password) {
     return sendError(res, 400, "name, email, password는 필수입니다.");
   }
@@ -1322,16 +1335,20 @@ app.post("/api/auth/register", authRateLimiter, async (req, res) => {
   if (isStrictAdminEmail(safeEmail)) {
     return sendError(res, 403, "해당 이메일은 관리자 전용 계정입니다. 일반 회원가입이 불가합니다.");
   }
+  const safePhone = normalizePhone(phone);
+  if (!safePhone) {
+    return sendError(res, 400, "연락 가능한 휴대전화 번호를 입력해 주세요. (예: 01012345678)");
+  }
   if (password.length < 8) {
     return sendError(res, 400, "비밀번호는 8자 이상이어야 합니다.");
   }
   try {
     const hash = await bcrypt.hash(password, 10);
     const result = await run(
-      "INSERT INTO public.users (name, email, password, role) VALUES (?, ?, ?, 'user') RETURNING id",
-      [name, safeEmail, hash]
+      "INSERT INTO public.users (name, email, password, phone, role) VALUES (?, ?, ?, ?, 'user') RETURNING id",
+      [name, safeEmail, hash, safePhone]
     );
-    const user = await get("SELECT id, name, email, role, created_at FROM public.users WHERE id = ?", [
+    const user = await get("SELECT id, name, email, phone, role, created_at FROM public.users WHERE id = ?", [
       result.rows[0].id,
     ]);
     return res.status(201).json(user);
@@ -1383,6 +1400,7 @@ app.post("/api/auth/login", authRateLimiter, async (req, res) => {
     email: row.email,
     role,
     created_at: row.created_at,
+    phone: row.phone || null,
   };
   const token = signToken(user);
   const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
@@ -1583,7 +1601,7 @@ app.patch("/api/auth/password", requireAuth, async (req, res) => {
 });
 
 app.get("/api/auth/me", requireAuth, async (req, res) => {
-  const user = await get("SELECT id, name, email, role, created_at FROM public.users WHERE id = ?", [
+  const user = await get("SELECT id, name, email, phone, role, created_at FROM public.users WHERE id = ?", [
     req.auth.sub,
   ]);
   if (!user) return sendError(res, 404, "사용자를 찾을 수 없습니다.");
@@ -2278,6 +2296,7 @@ app.use((error, req, res, _next) => {
 async function start() {
   await initSchema();
   await migrateAuthOAuthColumns();
+  await migrateUserPhoneColumn();
   await seedData();
   app.listen(PORT, () => {
     console.log(`PASSmaster API server running on http://localhost:${PORT}`);

@@ -13,7 +13,7 @@
         <a class="pm-logo" href="../index.html">PASSmaster</a>
         <nav class="pm-nav" aria-label="공통 이동">
           <a href="../login.html">로그인</a>
-          <a href="../register.html">내정보관리</a>
+          <a href="../register.html">회원가입</a>
           <a href="./index.html">수강신청</a>
           <a href="../my-courses/index.html">내 강의</a>
           <a href="../admin/index.html">관리자</a>
@@ -24,13 +24,42 @@
       <main class="pm-main">
         <p class="pm-pill">User Flow</p>
         <h1>수강 신청</h1>
-        <p class="pm-summary">내가 신청한 수강 과정 현황을 확인합니다. 내역 조회는 로그인이 필요하며, 과정을 고른 뒤에는 비로그인 상태에서도 신청 절차를 시작할 수 있습니다.</p>
-        <div class="pm-cta-row">
-          <a class="pm-btn pm-btn-ghost" href="../onboarding.html">이전 단계</a>
-          <a class="pm-btn pm-btn-primary" href="#enroll-openings">내 신청 내역</a>
-        </div>
+        <p class="pm-summary">
+          <strong>수강 신청은 로그인이 필요합니다.</strong> 로그인한 상태에서만 신청서 제출과 결제 절차를 진행할 수 있습니다.
+          모집 중인 과정을 선택한 뒤 <strong>상세·신청 안내</strong>로 이동해 단계별로 진행해 주세요.
+        </p>
 
-        <section class="pm-card" id="enroll-openings">
+        <section class="pm-card">
+          <h2>신청 절차</h2>
+          <ol class="pm-link-list" style="line-height: 1.7; margin: 0; padding-left: 1.25rem">
+            <li>아래 <strong>모집 중인 과정</strong>에서 원하는 회차의 <strong>상세·신청 안내</strong>를 누릅니다.</li>
+            <li>모집 상세를 확인하고 <strong>신청서 작성</strong>으로 이동합니다.</li>
+            <li><strong>로그인</strong>이 되어 있어야 신청 제출과 이후 <strong>결제(입금)</strong> 페이지로 이동합니다.</li>
+            <li>제출 후 <strong>내 수강신청 내역</strong>에서 결제·승인 상태를 확인합니다.</li>
+          </ol>
+        </section>
+
+        <section class="pm-card">
+          <h2>모집 중인 과정</h2>
+          <p class="auth-message info" data-api="enroll-openings-public-status">모집 정보를 불러오는 중…</p>
+          <div class="pm-table-wrap">
+            <table class="pm-table">
+              <thead>
+                <tr>
+                  <th>모집 ID</th>
+                  <th>과정명</th>
+                  <th>기간</th>
+                  <th>상태</th>
+                  <th>가격</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody data-api="enroll-public-openings-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="pm-card" id="enroll-my-history">
           <h2>내 수강신청 내역</h2>
           <p class="auth-message info" data-api="course-openings-status">내 신청 내역을 불러오는 중…</p>
           <div class="pm-table-wrap">
@@ -45,7 +74,7 @@
                   <th></th>
                 </tr>
               </thead>
-              <tbody data-api="mypage-enrollments-body"></tbody>
+              <tbody data-api="enroll-index-enrollments-body"></tbody>
             </table>
           </div>
           <section
@@ -56,6 +85,11 @@
           ></section>
         </section>
 
+        <div class="pm-cta-row pm-flow-nav-before-route" aria-label="페이지 이동">
+          <a class="pm-btn pm-btn-ghost" href="../index.html">이전 단계</a>
+          <a class="pm-btn pm-btn-primary" href="#enroll-my-history">내 신청 내역</a>
+        </div>
+
         <section class="pm-card">
           <h2>현재 경로</h2>
           <p class="pm-route">/enroll</p>
@@ -64,8 +98,8 @@
         <section class="pm-card">
           <h2>연결 페이지</h2>
           <ul class="pm-link-list">
-          <li><a href="../my-courses/index.html">/my-courses</a></li>
-          <li><a href="../support/faq/index.html">/support/faq</a></li>
+            <li><a href="../my-courses/index.html">/my-courses</a></li>
+            <li><a href="../support/faq/index.html">/support/faq</a></li>
             <li><a href="./opening/index.html?openingId=1">/enroll/opening (예시)</a></li>
             <li><a href="./apply/index.html?openingId=1">/enroll/apply (예시)</a></li>
             <li><a href="./payment/index.html">/enroll/payment</a></li>
@@ -79,6 +113,6 @@
         <a href="../pages.html">사이트맵</a>
       </footer>
     </div>
-    <script defer src="../assets/auth-client.js?v=20260510-4"></script>
+    <script defer src="../assets/auth-client.js?v=20260512-enroll"></script>
   </body>
 </html>

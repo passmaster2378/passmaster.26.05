@@ -104,6 +104,68 @@ h1 {
 .pm-summary + .pm-flow-nav-before-route {
   margin-top: 0;
 }
+
+/* 관리자 대시보드: 업무 영역 정리 */
+.pm-admin-dash-intro {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 20px;
+  padding: 16px 18px;
+  border: 1px solid #dce3ef;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f8fafc 0%, #eef4ff 100%);
+}
+.pm-admin-dash-intro h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: #1e3a5f;
+}
+.pm-admin-dash-intro p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #475569;
+}
+.pm-admin-ops-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  margin-top: 4px;
+}
+.pm-admin-ops-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid #dce3ef;
+  border-radius: 12px;
+  background: #fff;
+  text-decoration: none;
+  color: #1e293b;
+  font-weight: 800;
+  font-size: 15px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.pm-admin-ops-tile:hover {
+  border-color: #8eb0e8;
+  box-shadow: 0 4px 16px rgba(55, 84, 134, 0.1);
+}
+.pm-admin-ops-tile small {
+  font-weight: 600;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.pm-admin-ops-group {
+  margin-top: 18px;
+}
+.pm-admin-ops-group h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #375486;
+  letter-spacing: -0.02em;
+}
 .pm-btn {
   min-height: 44px;
   padding: 10px 16px;

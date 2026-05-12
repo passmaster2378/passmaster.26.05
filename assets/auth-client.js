@@ -361,17 +361,30 @@
     const form = event.currentTarget;
     const name = form.name.value.trim();
     const email = form.email.value.trim();
+    const phone = form.phone ? String(form.phone.value).trim() : "";
     const password = form.password.value;
+    const passwordConfirm = form.passwordConfirm ? form.passwordConfirm.value : "";
     const messageNode = form.querySelector("[data-auth-message]");
     const submitButton = form.querySelector("[data-auth-submit]");
 
-    if (!name || !email || !password) {
-      showMessage(messageNode, "이름, 이메일, 비밀번호를 모두 입력해 주세요.", "error");
+    if (!name || !email || !password || !phone) {
+      showMessage(messageNode, "이름, 이메일, 휴대전화, 비밀번호를 모두 입력해 주세요.", "error");
       return;
     }
 
     if (password.length < 8) {
       showMessage(messageNode, "비밀번호는 8자 이상 입력해 주세요.", "error");
+      return;
+    }
+
+    if (password !== passwordConfirm) {
+      showMessage(messageNode, "비밀번호와 비밀번호 확인이 일치하지 않습니다.", "error");
+      return;
+    }
+
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 10 || digits.length > 11 || !digits.startsWith("0")) {
+      showMessage(messageNode, "올바른 휴대전화 번호를 입력해 주세요. (예: 01012345678)", "error");
       return;
     }
 
@@ -381,7 +394,7 @@
       await warmupApi();
       await request("/auth/register", {
         method: "POST",
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, phone: digits, password }),
       }, { timeoutMs: AUTH_TIMEOUT_MS, retryNetworkError: true });
       showMessage(
         messageNode,
@@ -800,15 +813,19 @@
   }
 
   async function mountCourseOpeningsList() {
-    const tbody = document.querySelector("[data-api='course-openings-body']");
-    if (!tbody) return;
-    const statusEl = document.querySelector("[data-api='course-openings-status']");
-    try {
-      const rows = await request("/course-openings");
+    const targets = [
+      { tbody: document.querySelector("[data-api='course-openings-body']"), status: document.querySelector("[data-api='course-openings-status']") },
+      {
+        tbody: document.querySelector("[data-api='enroll-public-openings-body']"),
+        status: document.querySelector("[data-api='enroll-openings-public-status']"),
+      },
+    ].filter((t) => t.tbody);
+    if (!targets.length) return;
+
+    const renderRows = (tbody, rows) => {
       tbody.innerHTML = "";
       if (!Array.isArray(rows) || !rows.length) {
         tbody.innerHTML = "<tr><td colspan='6'>모집 중인 과정이 없습니다.</td></tr>";
-        if (statusEl) showMessage(statusEl, "표시할 모집이 없습니다.", "info");
         return;
       }
       rows.forEach((o) => {
@@ -820,22 +837,38 @@
           <td>${o.start_date || "-"} ~ ${o.end_date || "-"}</td>
           <td>${o.application_status || "-"}</td>
           <td>${Number(o.price || 0).toLocaleString("ko-KR")}원</td>
-          <td><a class="pm-btn pm-btn-primary" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${href}">상세</a></td>
+          <td><a class="pm-btn pm-btn-primary" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${href}">상세·신청 안내</a></td>
         `;
         tbody.appendChild(tr);
       });
-      if (statusEl) showMessage(statusEl, `총 ${rows.length}건을 API에서 불러왔습니다.`, "success");
+    };
+
+    try {
+      const rows = await request("/course-openings");
+      targets.forEach(({ tbody }) => renderRows(tbody, rows));
+
+      targets.forEach(({ status }) => {
+        if (status && Array.isArray(rows) && rows.length) {
+          showMessage(status, `모집 ${rows.length}건을 불러왔습니다. 상세에서 신청 단계로 이동합니다.`, "success");
+        } else if (status) {
+          showMessage(status, "현재 신청 가능한 공개 모집이 없습니다.", "info");
+        }
+      });
     } catch (error) {
-      tbody.innerHTML = `<tr><td colspan='6'>목록을 불러오지 못했습니다: ${error.message}</td></tr>`;
-      if (statusEl) showMessage(statusEl, error.message, "error");
+      targets.forEach(({ tbody }) => {
+        tbody.innerHTML = `<tr><td colspan='6'>목록을 불러오지 못했습니다: ${error.message}</td></tr>`;
+      });
+      targets.forEach(({ status }) => {
+        if (status) showMessage(status, error.message, "error");
+      });
     }
   }
 
   async function mountEnrollMyOnlyTable() {
-    const tbody = document.querySelector("[data-api='mypage-enrollments-body']");
+    const tbody = document.querySelector("[data-api='enroll-index-enrollments-body']");
     const statusEl = document.querySelector("[data-api='course-openings-status']");
     const ctaPanel = document.querySelector("[data-api='enroll-cert-cta-panel']");
-    const heading = document.querySelector("#enroll-openings h2");
+    const heading = document.querySelector("#enroll-my-history h2");
     if (!tbody) return;
     const certParam = String(new URLSearchParams(window.location.search).get("cert") || "")
       .trim()
@@ -965,18 +998,12 @@
         showMessage(
           statusEl,
           certParam
-            ? "로그인하면 이 과정에 대한 신청 내역을 확인할 수 있습니다. 로그인 전에도 아래에서 신청을 시작할 수 있습니다."
-            : "로그인하면 신청 내역과 결제·승인 상태를 확인할 수 있습니다.",
+            ? "로그인하면 이 과정 신청 내역을 확인할 수 있습니다. 수강 신청·결제 진행도 로그인 후에 가능합니다."
+            : "수강 신청 및 내역 확인은 로그인 후 이용할 수 있습니다. 아래 모집 목록에서 과정 상세를 눌러 흐름을 확인할 수 있습니다.",
           "info"
         );
       }
-      const matchingOpenings = certParam ? openingsSnapshot.filter(openingMatchesCert) : [];
-      if (certParam && matchingOpenings.length && ctaPanel) {
-        ctaPanel.style.display = "";
-        ctaPanel.innerHTML = renderCertApplyCta(matchingOpenings);
-      } else if (ctaPanel) {
-        hideCertCtaPanel();
-      }
+      if (ctaPanel) hideCertCtaPanel();
       return;
     }
 
@@ -1050,8 +1077,8 @@
 
         tbody.innerHTML = `<tr><td colspan='6'>${
           emptyLabel
-            ? `${emptyLabel} 신청 내역이 없습니다.`
-            : "신청한 수강 과정이 없습니다."
+            ? `${emptyLabel}에 대한 현재 신청 내역이 없습니다.`
+            : "현재 신청 내역이 없습니다."
         }</td></tr>`;
         if (statusEl) {
           showMessage(
@@ -1059,8 +1086,8 @@
             requestNotice
               ? `${requestNotice} 신청 가능한 회차가 열리면 이 페이지 또는 메인에서 다시 신청해 주세요.`
               : emptyLabel
-                ? `${emptyLabel} 신청 내역이 없습니다.`
-                : "신청 내역이 없습니다.",
+                ? `${emptyLabel}에 대한 현재 신청 내역이 없습니다.`
+                : "현재 신청 내역이 없습니다.",
             requestNotice ? "info" : "info"
           );
         }
@@ -1236,7 +1263,7 @@
       const rows = await request("/me/enrollments");
       tbody.innerHTML = "";
       if (!Array.isArray(rows) || !rows.length) {
-        tbody.innerHTML = "<tr><td colspan='6'>신청 내역이 없습니다.</td></tr>";
+        tbody.innerHTML = "<tr><td colspan='6'>현재 신청 내역이 없습니다.</td></tr>";
         return;
       }
       rows.forEach((e) => {
