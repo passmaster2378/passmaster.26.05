@@ -25,6 +25,10 @@ const AUTH_RATE_LIMIT_MAX = Number(process.env.AUTH_RATE_LIMIT_MAX || 20);
 const AUTH_RATE_LIMIT_WINDOW_MS = Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 10 * 60 * 1000);
 const ADMIN_WRITE_RATE_LIMIT_MAX = Number(process.env.ADMIN_WRITE_RATE_LIMIT_MAX || 120);
 const ADMIN_WRITE_RATE_LIMIT_WINDOW_MS = Number(process.env.ADMIN_WRITE_RATE_LIMIT_WINDOW_MS || 10 * 60 * 1000);
+/** 운영 DB 초기화 API: production에서는 true일 때만 POST /admin/operations-reset 허용 */
+const ALLOW_ADMIN_OPERATIONS_RESET =
+  String(process.env.ALLOW_ADMIN_OPERATIONS_RESET || "").toLowerCase() === "true";
+const OPS_RESET_CONFIRM = "RESET_PASSMASTER_OPERATIONS";
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())
@@ -830,22 +834,26 @@ async function seedData() {
     const isCourse = await get("SELECT id FROM public.courses WHERE code = ?", ["IS"]);
     const eeCourse = await get("SELECT id FROM public.courses WHERE code = ?", ["EE"]);
     const itCourse = await get("SELECT id FROM public.courses WHERE code = ?", ["IT"]);
-    const o1 = await get("SELECT id FROM public.course_openings WHERE course_id = ? ORDER BY id ASC LIMIT 1", [
-      isCourse.id,
-    ]);
-    const o2 = await get("SELECT id FROM public.course_openings WHERE course_id = ? ORDER BY id ASC LIMIT 1", [
-      eeCourse.id,
-    ]);
-    const o3 = await get("SELECT id FROM public.course_openings WHERE course_id = ? ORDER BY id ASC LIMIT 1", [
-      itCourse.id,
-    ]);
-    await run(
-      `INSERT INTO public.enrollments (user_id, course_id, opening_id, payment_status, approval_status, application_status, learning_status, progress_percent) VALUES
-      (?, ?, ?, 'paid', 'approved', 'submitted', 'in_progress', 64),
-      (?, ?, ?, 'paid', 'pending', 'submitted', 'not_started', 10),
-      (?, ?, ?, 'paid', 'approved', 'submitted', 'in_progress', 82)`,
-      [student1.id, isCourse.id, o1.id, student1.id, eeCourse.id, o2.id, student2.id, itCourse.id, o3.id]
-    );
+    if (student1 && student2 && isCourse && eeCourse && itCourse) {
+      const o1 = await get("SELECT id FROM public.course_openings WHERE course_id = ? ORDER BY id ASC LIMIT 1", [
+        isCourse.id,
+      ]);
+      const o2 = await get("SELECT id FROM public.course_openings WHERE course_id = ? ORDER BY id ASC LIMIT 1", [
+        eeCourse.id,
+      ]);
+      const o3 = await get("SELECT id FROM public.course_openings WHERE course_id = ? ORDER BY id ASC LIMIT 1", [
+        itCourse.id,
+      ]);
+      if (o1 && o2 && o3) {
+        await run(
+          `INSERT INTO public.enrollments (user_id, course_id, opening_id, payment_status, approval_status, application_status, learning_status, progress_percent) VALUES
+          (?, ?, ?, 'paid', 'approved', 'submitted', 'in_progress', 64),
+          (?, ?, ?, 'paid', 'pending', 'submitted', 'not_started', 10),
+          (?, ?, ?, 'paid', 'approved', 'submitted', 'in_progress', 82)`,
+          [student1.id, isCourse.id, o1.id, student1.id, eeCourse.id, o2.id, student2.id, itCourse.id, o3.id]
+        );
+      }
+    }
   }
 
   const paymentCount = await get("SELECT COUNT(*)::int AS count FROM public.payments");
@@ -967,6 +975,13 @@ app.get("/api/docs", async (req, res) => {
       { method: "GET", path: "/auth/me", auth: true },
       { method: "PATCH", path: "/auth/password", auth: true },
       { method: "GET", path: "/admin/dashboard", auth: true, admin: true },
+      {
+        method: "POST",
+        path: "/admin/operations-reset",
+        auth: true,
+        admin: true,
+        notes: `production 허용: ALLOW_ADMIN_OPERATIONS_RESET=true · body.confirm="${OPS_RESET_CONFIRM}"`,
+      },
       {
         method: "GET",
         path: "/admin/courses/:courseId/questions/summary",
@@ -1589,6 +1604,61 @@ app.get("/api/admin/dashboard", requireAuth, requireAdmin, async (req, res) => {
     enrollments: enrollments.count,
     openInquiries: inquiries.count,
   });
+});
+
+async function fetchAdminDashboardSnapshot() {
+  const [users, courses, enrollments, inquiries] = await Promise.all([
+    get("SELECT COUNT(*)::int AS count FROM public.users"),
+    get("SELECT COUNT(*)::int AS count FROM public.courses"),
+    get("SELECT COUNT(*)::int AS count FROM public.enrollments"),
+    get("SELECT COUNT(*)::int AS count FROM public.inquiries WHERE status != 'done'"),
+  ]);
+  return {
+    users: users.count,
+    courses: courses.count,
+    enrollments: enrollments.count,
+    openInquiries: inquiries.count,
+  };
+}
+
+/**
+ * 대시보드 지표를 0에 가깝게 만듭니다(관리자 계정은 유지).
+ * enrollments 삭제 시 payments·payment_audit_logs는 FK CASCADE로 정리됩니다.
+ */
+async function wipeOperationalTablesForAdminReset(tx) {
+  await tx.run("DELETE FROM public.enrollments");
+  await tx.run("DELETE FROM public.study_artifacts");
+  await tx.run("DELETE FROM public.reviews");
+  await tx.run("DELETE FROM public.inquiries");
+  await tx.run("DELETE FROM public.courses");
+  await tx.run("DELETE FROM public.users WHERE lower(trim(role)) <> 'admin'");
+}
+
+app.post("/api/admin/operations-reset", requireAuth, requireAdmin, async (req, res) => {
+  if (NODE_ENV === "production" && !ALLOW_ADMIN_OPERATIONS_RESET) {
+    return sendError(
+      res,
+      403,
+      "운영 환경에서는 Render에 ALLOW_ADMIN_OPERATIONS_RESET=true 를 설정한 경우에만 초기화할 수 있습니다."
+    );
+  }
+  if (!req.body || req.body.confirm !== OPS_RESET_CONFIRM) {
+    return sendError(
+      res,
+      400,
+      `확인 문구가 필요합니다. JSON body: { "confirm": "${OPS_RESET_CONFIRM}" }`
+    );
+  }
+  try {
+    await withTransaction(async (tx) => {
+      await wipeOperationalTablesForAdminReset(tx);
+    });
+  } catch (error) {
+    console.error("operations-reset failed:", error);
+    return sendError(res, 500, "데이터 초기화 중 오류가 발생했습니다.");
+  }
+  const dashboard = await fetchAdminDashboardSnapshot();
+  return res.json({ ok: true, message: "운영 데이터가 초기화되었습니다.", dashboard });
 });
 
 app.get("/api/admin/courses/:courseId/questions/summary", requireAuth, requireAdmin, async (req, res) => {

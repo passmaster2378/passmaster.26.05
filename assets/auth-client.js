@@ -2181,6 +2181,49 @@
       });
     }
 
+    const OPS_RESET_CONFIRM_PHRASE = "RESET_PASSMASTER_OPERATIONS";
+    const opsResetBtn = document.getElementById("admin-ops-reset");
+    if (opsResetBtn && !opsResetBtn.dataset.bound) {
+      opsResetBtn.dataset.bound = "1";
+      opsResetBtn.addEventListener("click", async () => {
+        const ok = window.confirm(
+          "일반 회원, 개설 과정, 수강신청·결제, 문의, 후기, 학습 메모 등이 서버 DB에서 삭제됩니다.\n관리자 계정과 FAQ는 유지됩니다.\n\n진행할까요?"
+        );
+        if (!ok) return;
+        const typed = window.prompt(`계속하려면 다음 문구를 그대로 입력하세요:\n${OPS_RESET_CONFIRM_PHRASE}`);
+        if (typed !== OPS_RESET_CONFIRM_PHRASE) {
+          setMessage("확인 문구가 일치하지 않아 초기화를 취소했습니다.", true);
+          return;
+        }
+        opsResetBtn.disabled = true;
+        try {
+          const result = await request("/admin/operations-reset", {
+            method: "POST",
+            body: JSON.stringify({ confirm: OPS_RESET_CONFIRM_PHRASE }),
+          });
+          try {
+            localStorage.removeItem(ADMIN_DASH_LS);
+          } catch (_removeErr) {
+            /* ignore */
+          }
+          mountAdminQuicklinksUI(readAdminDashboardPrefs(), () => {});
+          const d = result && result.dashboard ? result.dashboard : {};
+          lastSnapshot = {
+            users: Number(d.users) || 0,
+            courses: Number(d.courses) || 0,
+            enrollments: Number(d.enrollments) || 0,
+            inquiries: Number(d.openInquiries) || 0,
+          };
+          fillTableAndCards();
+          setMessage((result && result.message) || "운영 데이터가 초기화되었습니다.", false);
+        } catch (error) {
+          setMessage(error.message, true);
+        } finally {
+          opsResetBtn.disabled = false;
+        }
+      });
+    }
+
     await load();
   }
 

@@ -44,6 +44,9 @@ AUTH_RATE_LIMIT_MAX=20
 AUTH_RATE_LIMIT_WINDOW_MS=600000
 ADMIN_WRITE_RATE_LIMIT_MAX=120
 ADMIN_WRITE_RATE_LIMIT_WINDOW_MS=600000
+
+# 관리자 대시보드 「운영 데이터 초기화」(DB 일괄 삭제). 평소 false. 테스트할 때만 true로 두고 끝나면 false로 되돌림.
+ALLOW_ADMIN_OPERATIONS_RESET=false
 ```
 
 ---

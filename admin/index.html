@@ -40,6 +40,9 @@
               <button type="button" class="pm-btn pm-btn-ghost" id="admin-dash-refresh" aria-label="운영 요약 새로고침">
                 새로고침
               </button>
+              <button type="button" class="pm-btn pm-btn-ghost" id="admin-ops-reset" aria-label="운영 데이터 초기화">
+                운영 데이터 초기화
+              </button>
               <label>
                 <input type="checkbox" id="admin-dash-show-quick" checked />
                 바로가기 표시
@@ -47,6 +50,10 @@
             </div>
           </div>
           <p class="auth-message info" data-api="admin-dashboard-msg"></p>
+          <p class="pm-detail" style="margin: 12px 0 0">
+            <strong>초기화</strong>는 DB에서 일반 회원·개설 과정·수강신청·결제·문의·후기 등을 삭제합니다(관리자 계정·FAQ 유지).
+            호스팅이 production일 때는 <code style="white-space: nowrap">ALLOW_ADMIN_OPERATIONS_RESET=true</code> 필요.
+          </p>
           <div class="pm-dash-grid" data-dash-stats>
             <a class="pm-dash-stat" href="./users/index.html" data-dash-stat-card="users">
               <div class="pm-dash-label">회원 수</div>
@@ -111,6 +118,6 @@
 
       <footer class="pm-footer"></footer>
     </div>
-    <script defer src="../assets/auth-client.js?v=20260510-qupload"></script>
+    <script defer src="../assets/auth-client.js?v=20260511-opsreset"></script>
   </body>
 </html>
