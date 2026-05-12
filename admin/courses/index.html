@@ -27,10 +27,6 @@
         <p class="pm-summary">
           과정 마스터(courses) 목록입니다. 신규·수정·노출 CRUD 화면은 단계적으로 보강 중이며, 문제은행 JSON은 과정별로 업로드할 수 있습니다.
         </p>
-        <div class="pm-cta-row">
-          <a class="pm-btn pm-btn-ghost" href="../index.html">관리자 대시보드</a>
-          <a class="pm-btn pm-btn-primary" href="./new/index.html">샘플 · 신규 등록 페이지</a>
-        </div>
 
         <section class="pm-card">
           <h2>과정 목록 (API)</h2>
@@ -52,6 +48,11 @@
           </div>
         </section>
 
+        <div class="pm-cta-row pm-flow-nav-before-route" aria-label="페이지 이동">
+          <a class="pm-btn pm-btn-ghost" href="./index.html">목록</a>
+          <a class="pm-btn pm-btn-ghost" href="../index.html">이전 단계</a>
+          <a class="pm-btn pm-btn-primary" href="./new/index.html">샘플 · 신규 등록</a>
+        </div>
         <section class="pm-card">
           <h2>현재 경로</h2>
           <p class="pm-route">/admin/courses</p>

@@ -96,6 +96,14 @@ h1 {
   gap: 10px;
   margin: 0 0 20px;
 }
+/* 관리 플로우: 목록·이전·다음 줄을 「현재 경로」 카드 바로 위에 둠 */
+.pm-flow-nav-before-route {
+  margin-top: 28px;
+  margin-bottom: 14px;
+}
+.pm-summary + .pm-flow-nav-before-route {
+  margin-top: 0;
+}
 .pm-btn {
   min-height: 44px;
   padding: 10px 16px;

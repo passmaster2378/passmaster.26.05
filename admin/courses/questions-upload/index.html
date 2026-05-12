@@ -28,10 +28,6 @@
           흐름도 기준 과정별 JSON을 검증·미리 보기 후 DB에 적재합니다. 로그인 후 절대 관리자 계정만 사용할 수 있습니다. 한 번 저장하면 해당 과정의
           활성 문제은행 세트가 교체됩니다.
         </p>
-        <div class="pm-cta-row">
-          <a class="pm-btn pm-btn-ghost" href="../index.html">강의 목록</a>
-          <a class="pm-btn pm-btn-ghost" id="admin-q-back-detail" href="../detail-001.html">강의 상세</a>
-        </div>
 
         <section class="pm-card" data-api="admin-questions-upload-root">
           <h2>적용 과정 및 현황</h2>
@@ -72,6 +68,16 @@
   ]
 }
           </pre>
+        </section>
+
+        <div class="pm-cta-row pm-flow-nav-before-route" aria-label="페이지 이동">
+          <a class="pm-btn pm-btn-ghost" href="../index.html">목록</a>
+          <a class="pm-btn pm-btn-ghost" id="admin-q-back-detail" href="../detail-001.html">이전 단계</a>
+          <a class="pm-btn pm-btn-primary" href="../new/index.html">다음 단계</a>
+        </div>
+        <section class="pm-card">
+          <h2>현재 경로</h2>
+          <p class="pm-route">/admin/courses/questions-upload</p>
         </section>
       </main>
 
