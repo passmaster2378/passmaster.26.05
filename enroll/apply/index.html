@@ -22,33 +22,91 @@
       </header>
 
       <main class="pm-main">
-        <p class="pm-pill">User Flow · 3/4 신청서</p>
+        <p class="pm-pill">User Flow · 신청서</p>
         <h1>수강 신청서</h1>
-        <p class="pm-summary">모집 정보를 확인하고 약관에 동의한 뒤 신청을 확정합니다. 로그인한 회원만 제출할 수 있습니다.</p>
+        <p class="pm-summary">
+          모집 과정을 선택하고 인적 사항을 입력한 뒤 입금 안내로 진행합니다. 제출은 로그인한 회원만 가능합니다.
+        </p>
         <div class="pm-cta-row">
           <a class="pm-btn pm-btn-ghost" data-api="enroll-apply-back" href="../index.html">이전 단계</a>
+          <a class="pm-btn pm-btn-ghost" href="../../mypage/index.html">마이페이지</a>
         </div>
 
         <section class="pm-card" data-api="enroll-apply-root">
-          <h2>신청 대상 모집</h2>
           <p class="auth-message info" data-api="enroll-apply-message">불러오는 중…</p>
-          <ul class="pm-link-list" style="list-style: none; padding: 0">
-            <li><strong>과정명:</strong> <span data-field="title">-</span></li>
-            <li><strong>기간:</strong> <span data-field="period">-</span></li>
-            <li><strong>가격:</strong> <span data-field="price">-</span></li>
-          </ul>
 
-          <form class="pm-card" style="margin-top: 16px" data-api="enroll-apply-form">
-            <h3 style="margin-top: 0">확인 사항</h3>
-            <label style="display: flex; gap: 8px; align-items: flex-start; margin-bottom: 10px">
-              <input type="checkbox" name="agreeTerms" value="1" required />
-              <span><a href="../../legal.html#terms" target="_blank" rel="noopener">이용약관</a> 및 <a href="../../legal.html#privacy" target="_blank" rel="noopener">개인정보처리방침</a>을 확인했으며 이에 동의합니다.</span>
-            </label>
-            <label style="display: flex; gap: 8px; align-items: flex-start; margin-bottom: 10px">
-              <input type="checkbox" name="agreeRefund" value="1" required />
-              <span><a href="../../legal.html#refund" target="_blank" rel="noopener">환불 규정</a>을 확인했습니다.</span>
-            </label>
-            <button class="pm-btn pm-btn-primary" type="submit" data-api="enroll-apply-submit">신청 확정 및 결제 안내로</button>
+          <form data-api="enroll-apply-form" class="pm-stack" style="margin-top: 16px; gap: 0">
+            <input type="hidden" name="openingId" value="" />
+
+            <details open style="border: 1px solid var(--pm-border, #e4e7ec); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px">
+              <summary style="cursor: pointer; font-weight: 600">1. 강의 정보</summary>
+              <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px">
+                <label for="enroll-opening-select">과정 선택</label>
+                <select
+                  id="enroll-opening-select"
+                  data-api="enroll-apply-opening-select"
+                  aria-label="모집 과정 선택"
+                  style="width: 100%; max-width: 520px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--pm-border, #e4e7ec)"
+                ></select>
+                <ul class="pm-link-list" style="list-style: none; padding: 0; margin: 4px 0 0">
+                  <li><strong>표시 과정명:</strong> <span data-field="title">-</span></li>
+                  <li><strong>교육기간:</strong> <span data-field="period">-</span></li>
+                  <li><strong>수강료:</strong> <span data-field="price">-</span></li>
+                </ul>
+              </div>
+            </details>
+
+            <details open style="border: 1px solid var(--pm-border, #e4e7ec); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px">
+              <summary style="cursor: pointer; font-weight: 600">2. 신청자 인적사항</summary>
+              <div style="margin-top: 12px; display: grid; gap: 12px; max-width: 520px">
+                <label>
+                  성명
+                  <input type="text" name="applicantName" required autocomplete="name" style="width: 100%; margin-top: 4px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--pm-border, #e4e7ec)" />
+                </label>
+                <label>
+                  생년월일
+                  <input type="date" name="applicantBirth" required style="width: 100%; margin-top: 4px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--pm-border, #e4e7ec)" />
+                </label>
+                <label>
+                  연락처 (휴대전화)
+                  <input type="tel" name="applicantPhone" required inputmode="numeric" autocomplete="tel" placeholder="예: 01012345678" style="width: 100%; margin-top: 4px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--pm-border, #e4e7ec)" />
+                </label>
+                <label>
+                  이메일
+                  <input type="email" name="applicantEmail" required autocomplete="email" style="width: 100%; margin-top: 4px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--pm-border, #e4e7ec)" />
+                </label>
+              </div>
+            </details>
+
+            <details open style="border: 1px solid var(--pm-border, #e4e7ec); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px">
+              <summary style="cursor: pointer; font-weight: 600">3. 결제 방법 (무통장 입금)</summary>
+              <div style="margin-top: 12px; line-height: 1.65">
+                <p style="margin: 0 0 8px">신청 후 안내드리는 금액을 아래 계좌로 이체해 주세요.</p>
+                <ul class="pm-link-list" style="margin: 0; padding-left: 1.1rem">
+                  <li><strong>은행:</strong> 신한은행</li>
+                  <li><strong>계좌번호:</strong> 01058022589</li>
+                  <li><strong>예금주:</strong> 이동길</li>
+                </ul>
+              </div>
+            </details>
+
+            <details open style="border: 1px solid var(--pm-border, #e4e7ec); border-radius: 10px; padding: 12px 14px; margin-bottom: 16px">
+              <summary style="cursor: pointer; font-weight: 600">4. 동의 사항 (필수)</summary>
+              <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 10px">
+                <label style="display: flex; gap: 10px; align-items: flex-start">
+                  <input type="checkbox" name="agreeRefund" value="1" required style="margin-top: 4px" />
+                  <span><a href="../../legal.html#refund" target="_blank" rel="noopener">취소 및 환불 규정</a>을 확인하였으며 이에 동의합니다.</span>
+                </label>
+                <label style="display: flex; gap: 10px; align-items: flex-start">
+                  <input type="checkbox" name="agreePrivacy" value="1" required style="margin-top: 4px" />
+                  <span
+                    ><a href="../../legal.html#privacy" target="_blank" rel="noopener">개인정보 수집 및 이용</a>에 동의합니다.</span
+                  >
+                </label>
+              </div>
+            </details>
+
+            <button class="pm-btn pm-btn-primary" type="submit" data-api="enroll-apply-submit">신청하기</button>
           </form>
         </section>
 
@@ -64,6 +122,6 @@
         <a href="../../pages.html">사이트맵</a>
       </footer>
     </div>
-    <script defer src="../../assets/auth-client.js"></script>
+    <script defer src="../../assets/auth-client.js?v=20260512-apply"></script>
   </body>
 </html>

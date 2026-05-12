@@ -341,7 +341,7 @@
         returnToStored = null;
       }
 
-      const fallbackNext = data.user.role === "admin" ? "./admin/index.html" : "./my-courses/index.html";
+      const fallbackNext = data.user.role === "admin" ? "./admin/index.html" : "./mypage/index.html";
       const candidate = returnToParam || returnToStored;
       const next = candidate && candidate.startsWith("/") && !candidate.startsWith("//")
         ? toSitePath(candidate)
@@ -812,6 +812,13 @@
     return m ? Number(m[1]) : 0;
   }
 
+  function formatEnrollPublicCourseTitle(raw) {
+    const t = String(raw || "").trim();
+    if (!t) return "-";
+    if (/국가자격증\s*필기반/.test(t)) return t;
+    return `${t} 국가자격증 필기반`;
+  }
+
   async function mountCourseOpeningsList() {
     const targets = [
       { tbody: document.querySelector("[data-api='course-openings-body']"), status: document.querySelector("[data-api='course-openings-status']") },
@@ -824,6 +831,8 @@
 
     const renderRows = (tbody, rows) => {
       tbody.innerHTML = "";
+      const mode = tbody.getAttribute("data-api") || "";
+      const enrollPublic = mode === "enroll-public-openings-body";
       if (!Array.isArray(rows) || !rows.length) {
         tbody.innerHTML = "<tr><td colspan='6'>모집 중인 과정이 없습니다.</td></tr>";
         return;
@@ -831,10 +840,12 @@
       rows.forEach((o) => {
         const tr = document.createElement("tr");
         const href = openingDetailHref(o.id);
+        const titleCell = enrollPublic ? formatEnrollPublicCourseTitle(o.course_title) : o.course_title || "-";
+        const periodCell = enrollPublic ? "2개월" : `${o.start_date || "-"} ~ ${o.end_date || "-"}`;
         tr.innerHTML = `
           <td>${o.id}</td>
-          <td>${o.course_title || "-"}</td>
-          <td>${o.start_date || "-"} ~ ${o.end_date || "-"}</td>
+          <td>${titleCell}</td>
+          <td>${periodCell}</td>
           <td>${o.application_status || "-"}</td>
           <td>${Number(o.price || 0).toLocaleString("ko-KR")}원</td>
           <td><a class="pm-btn pm-btn-primary" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${href}">상세·신청 안내</a></td>
@@ -866,10 +877,7 @@
 
   async function mountEnrollMyOnlyTable() {
     const tbody = document.querySelector("[data-api='enroll-index-enrollments-body']");
-    const statusEl = document.querySelector("[data-api='course-openings-status']");
     const ctaPanel = document.querySelector("[data-api='enroll-cert-cta-panel']");
-    const heading = document.querySelector("#enroll-my-history h2");
-    if (!tbody) return;
     const certParam = String(new URLSearchParams(window.location.search).get("cert") || "")
       .trim()
       .toLowerCase();
@@ -908,14 +916,6 @@
       return code === certParam || title.includes(label);
     }
 
-    const matchesRequestedCert = (row) => {
-      if (!certParam) return true;
-      const rowCode = String(row.course_code || "").trim().toLowerCase();
-      const rowTitle = String(row.course_title || "").trim();
-      const label = certLabelMap[certParam] || certParam;
-      return rowCode === certParam || rowTitle.includes(label);
-    };
-
     function hideCertCtaPanel() {
       if (!ctaPanel) return;
       ctaPanel.style.display = "none";
@@ -926,17 +926,16 @@
       if (!ctaPanel || !matchingOpenings.length) return "";
       const items = matchingOpenings
         .map((o) => {
-          const title = escapeHtml(o.course_title || "과정");
+          const title = escapeHtml(formatEnrollPublicCourseTitle(o.course_title || "과정"));
           const oid = encodeURIComponent(String(o.id));
           const applyHref = `./apply/index.html?openingId=${oid}`;
           const openHref = `./opening/index.html?openingId=${oid}`;
-          const period = `${escapeHtml(o.start_date || "-")} ~ ${escapeHtml(o.end_date || "-")}`;
           const price = Number(o.price || 0).toLocaleString("ko-KR");
           return `
           <li class="pm-card" style="margin: 0; list-style: none; padding: 14px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between">
             <div>
               <strong>${title}</strong>
-              <div style="font-size:13px;color:#667085;margin-top:4px">${period} · ${price}원</div>
+              <div style="font-size:13px;color:#667085;margin-top:4px">2개월 · ${price}원</div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <a class="pm-btn pm-btn-ghost" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${openHref}">모집 상세</a>
@@ -948,7 +947,7 @@
       return `
         <h3 style="margin-top: 0">수강신청 진행</h3>
         <p class="pm-summary" style="margin-top: 8px">
-          해당 과정에 대한 기존 신청이 없습니다. 아래 회차에서 <strong>수강신청 진행</strong>을 눌러 신청서를 작성해 주세요.
+          선택하신 자격 과정 모집이 열려 있으면 아래에서 <strong>수강신청 진행</strong>을 눌러 신청서를 작성해 주세요.
         </p>
         <ul style="list-style: none; padding: 0; margin: 16px 0 0; display: flex; flex-direction: column; gap: 12px">
           ${items}
@@ -956,176 +955,30 @@
       `;
     }
 
-    let requestNotice = "";
-    let openingsSnapshot = [];
-
-    if (heading) {
-      heading.textContent = certParam
-        ? `${certLabelMap[certParam] || certParam} 신청 내역`
-        : "내 수강신청 내역";
-    }
-
-    const session = getStoredSession();
-    const hasToken = !!(session && typeof session.token === "string" && session.token.length > 0);
-
-    if (certParam) {
+    if (!tbody) {
+      if (!certParam || !ctaPanel) return;
+      hideCertCtaPanel();
       try {
-        openingsSnapshot = await request("/course-openings");
-        if (!Array.isArray(openingsSnapshot)) openingsSnapshot = [];
-      } catch (_e) {
-        openingsSnapshot = [];
-      }
-      const hasMatchingOpening = openingsSnapshot.some(openingMatchesCert);
-      if (!hasMatchingOpening) {
+        const openingsSnapshot = await request("/course-openings");
+        const list = Array.isArray(openingsSnapshot) ? openingsSnapshot : [];
+        const matchingOpenings = list.filter(openingMatchesCert);
         const label = certLabelMap[certParam] || certParam;
-        requestNotice = `${label} 과정은 현재 수강신청 준비 중입니다. 개설 후 신청 가능합니다.`;
-      }
-    }
-
-    if (!hasToken) {
-      const returnPath = `${window.location.pathname || ""}${window.location.search || ""}`;
-      const safeReturn =
-        returnPath.startsWith("/") && !returnPath.startsWith("//")
-          ? returnPath
-          : "/enroll/index.html";
-      const loginHref = `../login.html?returnTo=${encodeURIComponent(safeReturn)}`;
-      tbody.innerHTML = `<tr><td colspan='6'>
-        나의 신청 내역을 보려면 로그인이 필요합니다.
-        <a class="pm-btn pm-btn-primary" style="display:inline-flex;margin-left:10px;margin-top:4px;margin-bottom:4px;padding:6px 12px;font-size:13px;text-decoration:none" href="${loginHref}">로그인 후 계속</a>
-        <a class="pm-btn pm-btn-ghost" style="display:inline-flex;margin-left:6px;margin-top:4px;margin-bottom:4px;padding:6px 12px;font-size:13px;text-decoration:none" href="../register.html">회원가입</a>
-      </td></tr>`;
-      if (statusEl) {
-        showMessage(
-          statusEl,
-          certParam
-            ? "로그인하면 이 과정 신청 내역을 확인할 수 있습니다. 수강 신청·결제 진행도 로그인 후에 가능합니다."
-            : "수강 신청 및 내역 확인은 로그인 후 이용할 수 있습니다. 아래 모집 목록에서 과정 상세를 눌러 흐름을 확인할 수 있습니다.",
-          "info"
-        );
-      }
-      if (ctaPanel) hideCertCtaPanel();
-      return;
-    }
-
-    try {
-      hideCertCtaPanel();
-
-      let visibleRows = [];
-      try {
-        const rows = await request("/me/enrollments");
-        visibleRows = Array.isArray(rows) ? rows.filter(matchesRequestedCert) : [];
-      } catch (enrollmentError) {
-        const errText = String(enrollmentError.message || "");
-        const needRelogin =
-          /인증 토큰|유효하지 않거나 만료된 토큰|401|로그인/i.test(errText);
-        if (needRelogin) {
-          const returnPath = `${window.location.pathname || ""}${window.location.search || ""}`;
-          const safeReturn =
-            returnPath.startsWith("/") && !returnPath.startsWith("//")
-              ? returnPath
-              : "/enroll/index.html";
-          const loginHref = `../login.html?returnTo=${encodeURIComponent(safeReturn)}`;
-          tbody.innerHTML = `<tr><td colspan='6'>
-            로그인 시간이 만료되었거나 세션이 없습니다. 다시 로그인해 주세요.
-            <a class="pm-btn pm-btn-primary" style="display:inline-flex;margin-left:10px;margin-top:4px;margin-bottom:4px;padding:6px 12px;font-size:13px;text-decoration:none" href="${loginHref}">다시 로그인</a>
-          </td></tr>`;
-          if (statusEl) showMessage(statusEl, "인증이 필요합니다. 재로그인 후 신청 내역을 확인할 수 있습니다.", "info");
-          const matchingOpenings = certParam ? openingsSnapshot.filter(openingMatchesCert) : [];
-          if (certParam && matchingOpenings.length && ctaPanel) {
-            ctaPanel.style.display = "";
-            ctaPanel.innerHTML = renderCertApplyCta(matchingOpenings);
-          }
-          return;
-        }
-        tbody.innerHTML = `<tr><td colspan='6'>내 신청 내역을 불러오지 못했습니다: ${enrollmentError.message}</td></tr>`;
-        if (statusEl) showMessage(statusEl, enrollmentError.message, "error");
-        const matchingOpenings = openingsSnapshot.filter(openingMatchesCert);
-        if (certParam && matchingOpenings.length && ctaPanel) {
+        if (matchingOpenings.length) {
           ctaPanel.style.display = "";
-          ctaPanel.innerHTML = renderCertApplyCta(matchingOpenings);
-          if (statusEl) {
-            showMessage(
-              statusEl,
-              `일부 정보를 불러오지 못했습니다. 선택한 과정 모집이 열려 있으면 아래에서 수강신청을 진행해 보세요.`,
-              "info"
-            );
-          }
+          ctaPanel.innerHTML = `
+            <h2 style="margin-top: 0">${label} 수강신청</h2>
+            <p class="pm-summary">로그인 후 신청서 작성 및 입금 안내까지 이어집니다. 신청 내역은 <a href="../mypage/index.html">마이페이지</a>에서 확인할 수 있습니다.</p>
+            ${renderCertApplyCta(matchingOpenings)}
+          `;
+        } else {
+          ctaPanel.style.display = "";
+          ctaPanel.innerHTML = `<p class="pm-summary"><strong>${label}</strong> 과정은 현재 모집 준비 중입니다. 모집이 열리면 이 안내가 갱신됩니다.</p>`;
         }
-        return;
+      } catch (error) {
+        ctaPanel.style.display = "";
+        ctaPanel.innerHTML = `<p class="auth-message error">${error.message}</p>`;
       }
-
-      tbody.innerHTML = "";
-      const emptyLabel = certParam ? certLabelMap[certParam] || certParam : null;
-      const matchingOpeningsForCert = certParam ? openingsSnapshot.filter(openingMatchesCert) : [];
-
-      if (!visibleRows.length) {
-        if (certParam && matchingOpeningsForCert.length) {
-          tbody.innerHTML = `<tr><td colspan='6'>${emptyLabel}에 대한 기존 신청 내역이 없습니다. 화면 하단에서 <strong>수강신청 진행</strong> 버튼을 눌러 신청해 주세요.</td></tr>`;
-          if (statusEl) {
-            showMessage(
-              statusEl,
-              `${emptyLabel} 모집이 진행 중입니다. 신청서 작성으로 이동해 과정 신청을 완료해 주세요.`,
-              "success"
-            );
-          }
-          if (ctaPanel) {
-            ctaPanel.style.display = "";
-            ctaPanel.innerHTML = renderCertApplyCta(matchingOpeningsForCert);
-          }
-          return;
-        }
-
-        tbody.innerHTML = `<tr><td colspan='6'>${
-          emptyLabel
-            ? `${emptyLabel}에 대한 현재 신청 내역이 없습니다.`
-            : "현재 신청 내역이 없습니다."
-        }</td></tr>`;
-        if (statusEl) {
-          showMessage(
-            statusEl,
-            requestNotice
-              ? `${requestNotice} 신청 가능한 회차가 열리면 이 페이지 또는 메인에서 다시 신청해 주세요.`
-              : emptyLabel
-                ? `${emptyLabel}에 대한 현재 신청 내역이 없습니다.`
-                : "현재 신청 내역이 없습니다.",
-            requestNotice ? "info" : "info"
-          );
-        }
-        hideCertCtaPanel();
-        return;
-      }
-
-      visibleRows.forEach((e) => {
-        const tr = document.createElement("tr");
-        const detailHref = toSitePath(
-          `/my-courses/enrollment-001/index.html?id=${encodeURIComponent(String(e.id))}`
-        );
-        tr.innerHTML = `
-          <td>${e.id}</td>
-          <td>${e.course_title || "-"}</td>
-          <td>${toPaymentStatusLabel(e.payment_status)}</td>
-          <td>${toApprovalStatusLabel(e.approval_status)}</td>
-          <td>${Number(e.price || 0).toLocaleString("ko-KR")}원</td>
-          <td><a class="pm-btn pm-btn-primary" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${detailHref}">상세</a></td>
-        `;
-        tbody.appendChild(tr);
-      });
-      if (statusEl) {
-        showMessage(
-          statusEl,
-          requestNotice
-            ? `${requestNotice} (선택 과정 포함) 내 신청 내역 ${visibleRows.length}건`
-            : certParam
-              ? `선택 과정 기준 신청 내역 ${visibleRows.length}건`
-              : `내 신청 내역 ${visibleRows.length}건`,
-          requestNotice ? "info" : "success"
-        );
-      }
-      hideCertCtaPanel();
-    } catch (error) {
-      tbody.innerHTML = `<tr><td colspan='6'>내 신청 내역을 불러오지 못했습니다: ${error.message}</td></tr>`;
-      if (statusEl) showMessage(statusEl, error.message, "error");
-      hideCertCtaPanel();
+      return;
     }
   }
 
@@ -1156,8 +1009,8 @@
 
     try {
       const o = await request(`/course-openings/${openingId}`);
-      root.querySelector("[data-field='title']").textContent = o.course_title || "-";
-      root.querySelector("[data-field='period']").textContent = `${o.start_date || "-"} ~ ${o.end_date || "-"}`;
+      root.querySelector("[data-field='title']").textContent = formatEnrollPublicCourseTitle(o.course_title);
+      root.querySelector("[data-field='period']").textContent = "2개월 (입금 확인 후 학습 기간 안내)";
       root.querySelector("[data-field='status']").textContent = o.application_status || "-";
       root.querySelector("[data-field='price']").textContent = `${Number(o.price || 0).toLocaleString("ko-KR")}원`;
       root.querySelector("[data-field='category']").textContent = o.category || "-";
@@ -1168,20 +1021,9 @@
 
     const legacyBtn = document.querySelector("[data-api='opening-enroll-btn']");
     if (legacyBtn) {
-      legacyBtn.addEventListener("click", async () => {
-        try {
-          legacyBtn.disabled = true;
-          const created = await request("/enrollments", {
-            method: "POST",
-            body: JSON.stringify({ openingId }),
-          });
-          localStorage.setItem("passmaster_last_enrollment_id", String(created.id));
-          window.location.href = "../payment/index.html?enrollmentId=" + encodeURIComponent(String(created.id));
-        } catch (error) {
-          alert(error.message);
-        } finally {
-          legacyBtn.disabled = false;
-        }
+      legacyBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        window.location.href = `../apply/index.html?openingId=${openingId}`;
       });
     }
   }
@@ -1192,37 +1034,146 @@
     if (!form || !root) return;
 
     const messageEl = root.querySelector("[data-api='enroll-apply-message']");
-    const openingId = parseOpeningIdFromUrl();
+    const submitBtn = form.querySelector("[data-api='enroll-apply-submit']");
+    const openingSelect = form.querySelector("[data-api='enroll-apply-opening-select']");
+    const hiddenOpeningId = form.querySelector("input[name='openingId']");
     const back = document.querySelector("[data-api='enroll-apply-back']");
-    if (back) {
+
+    function syncBackLink(openingId) {
+      if (!back) return;
       back.href = openingId ? `../opening/index.html?openingId=${openingId}` : "../index.html";
     }
 
-    const submitBtn = form.querySelector("[data-api='enroll-apply-submit']");
-
-    if (!openingId) {
-      if (messageEl) {
-        showMessage(messageEl, "잘못된 주소입니다. 수강 신청 목록으로 돌아가 주세요.", "error");
+    function applyOpeningToDisplay(o) {
+      const titleDisplay = formatEnrollPublicCourseTitle(o.course_title);
+      const titleNode = root.querySelector("[data-field='title']");
+      const periodNode = root.querySelector("[data-field='period']");
+      const priceNode = root.querySelector("[data-field='price']");
+      if (titleNode) titleNode.textContent = titleDisplay;
+      if (periodNode) {
+        periodNode.textContent = "2개월 (입금 확인 완료일부터 안내된 학습 기간이 적용됩니다)";
       }
-      if (submitBtn) submitBtn.disabled = true;
-      return;
+      if (priceNode) priceNode.textContent = `${Number(o.price || 0).toLocaleString("ko-KR")}원`;
     }
 
+    let openingsCache = [];
+    let activeOpeningId = parseOpeningIdFromUrl();
+
     try {
-      const o = await request(`/course-openings/${openingId}`);
-      root.querySelector("[data-field='title']").textContent = o.course_title || "-";
-      root.querySelector("[data-field='period']").textContent = `${o.start_date || "-"} ~ ${o.end_date || "-"}`;
-      root.querySelector("[data-field='price']").textContent = `${Number(o.price || 0).toLocaleString("ko-KR")}원`;
-      sessionStorage.setItem("passmaster_last_apply_opening_id", String(openingId));
-      if (messageEl) showMessage(messageEl, "모집 정보를 불러왔습니다. 아래 내용을 확인한 뒤 제출해 주세요.", "success");
+      openingsCache = await request("/course-openings");
+      if (!Array.isArray(openingsCache)) openingsCache = [];
     } catch (error) {
       if (messageEl) showMessage(messageEl, error.message, "error");
       if (submitBtn) submitBtn.disabled = true;
       return;
     }
 
+    if (openingSelect) {
+      openingSelect.innerHTML = "";
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "과정을 선택하세요";
+      openingSelect.appendChild(placeholder);
+      openingsCache.forEach((o) => {
+        const opt = document.createElement("option");
+        opt.value = String(o.id);
+        opt.textContent = `${formatEnrollPublicCourseTitle(o.course_title)} (모집 ${o.id})`;
+        openingSelect.appendChild(opt);
+      });
+    }
+
+    if (!openingsCache.length) {
+      if (messageEl) showMessage(messageEl, "현재 신청 가능한 모집이 없습니다.", "error");
+      if (submitBtn) submitBtn.disabled = true;
+      return;
+    }
+
+    if (activeOpeningId && !openingsCache.some((o) => Number(o.id) === activeOpeningId)) {
+      activeOpeningId = 0;
+    }
+
+    if (hiddenOpeningId) {
+      hiddenOpeningId.value = activeOpeningId ? String(activeOpeningId) : "";
+    }
+    if (openingSelect) {
+      openingSelect.value = activeOpeningId ? String(activeOpeningId) : "";
+    }
+    syncBackLink(activeOpeningId);
+
+    async function loadOpening(openingId) {
+      if (!openingId) {
+        const titleNode = root.querySelector("[data-field='title']");
+        const periodNode = root.querySelector("[data-field='period']");
+        const priceNode = root.querySelector("[data-field='price']");
+        if (titleNode) titleNode.textContent = "-";
+        if (periodNode) periodNode.textContent = "-";
+        if (priceNode) priceNode.textContent = "-";
+        if (messageEl) {
+          showMessage(messageEl, "상단 목록에서 신청할 과정을 선택해 주세요.", "info");
+        }
+        if (submitBtn) submitBtn.disabled = true;
+        return;
+      }
+      if (hiddenOpeningId) hiddenOpeningId.value = String(openingId);
+      syncBackLink(openingId);
+      try {
+        const o = await request(`/course-openings/${openingId}`);
+        applyOpeningToDisplay(o);
+        sessionStorage.setItem("passmaster_last_apply_opening_id", String(openingId));
+        if (messageEl) {
+          showMessage(messageEl, "모집 정보를 불러왔습니다. 인적 사항과 동의를 확인한 뒤 신청해 주세요.", "success");
+        }
+        if (submitBtn) submitBtn.disabled = false;
+      } catch (error) {
+        if (messageEl) showMessage(messageEl, error.message, "error");
+        if (submitBtn) submitBtn.disabled = true;
+      }
+    }
+
+    if (openingSelect) {
+      openingSelect.addEventListener("change", () => {
+        const next = Number(openingSelect.value);
+        activeOpeningId = next;
+        const u = new URL(window.location.href);
+        if (next) {
+          u.searchParams.set("openingId", String(next));
+        } else {
+          u.searchParams.delete("openingId");
+        }
+        try {
+          window.history.replaceState(null, "", u.pathname + u.search);
+        } catch (_e) {
+          /* ignore */
+        }
+        loadOpening(next);
+      });
+    }
+
+    try {
+      const u = new URL(window.location.href);
+      if (activeOpeningId) {
+        u.searchParams.set("openingId", String(activeOpeningId));
+        try {
+          window.history.replaceState(null, "", u.pathname + u.search);
+        } catch (_e) {
+          /* ignore */
+        }
+      }
+      await loadOpening(activeOpeningId);
+    } catch (error) {
+      if (messageEl) showMessage(messageEl, error.message, "error");
+      if (submitBtn) submitBtn.disabled = true;
+    }
+
     const user = getCurrentUser();
-    if (!user && messageEl) {
+    if (user) {
+      const nameInput = form.querySelector("input[name='applicantName']");
+      const emailInput = form.querySelector("input[name='applicantEmail']");
+      const phoneInput = form.querySelector("input[name='applicantPhone']");
+      if (nameInput && user.name) nameInput.value = user.name;
+      if (emailInput && user.email) emailInput.value = user.email;
+      if (phoneInput && user.phone) phoneInput.value = user.phone;
+    } else if (messageEl) {
       showMessage(
         messageEl,
         "로그인한 회원만 신청할 수 있습니다. 로그인 후 다시 시도해 주세요.",
@@ -1236,15 +1187,52 @@
         window.location.href = getLoginHref();
         return;
       }
-      if (!form.agreeTerms.checked || !form.agreeRefund.checked) {
+      const oid = Number(hiddenOpeningId && hiddenOpeningId.value);
+      if (!oid) {
+        if (messageEl) showMessage(messageEl, "과정을 선택해 주세요.", "error");
+        return;
+      }
+
+      const name = (form.querySelector("input[name='applicantName']") || {}).value?.trim() || "";
+      const birthDate = (form.querySelector("input[name='applicantBirth']") || {}).value?.trim() || "";
+      const phone = (form.querySelector("input[name='applicantPhone']") || {}).value?.trim() || "";
+      const email = (form.querySelector("input[name='applicantEmail']") || {}).value?.trim() || "";
+
+      if (!name || !birthDate || !phone || !email) {
+        if (messageEl) showMessage(messageEl, "신청자 정보를 모두 입력해 주세요.", "error");
+        return;
+      }
+      const digits = phone.replace(/\D/g, "");
+      if (digits.length < 10 || digits.length > 11 || !digits.startsWith("0")) {
+        if (messageEl) showMessage(messageEl, "올바른 연락처(휴대전화)를 입력해 주세요.", "error");
+        return;
+      }
+
+      const agreeRefund = form.querySelector("input[name='agreeRefund']");
+      const agreePrivacy = form.querySelector("input[name='agreePrivacy']");
+      if (!agreeRefund?.checked || !agreePrivacy?.checked) {
         if (messageEl) showMessage(messageEl, "필수 동의 항목에 체크해 주세요.", "error");
         return;
       }
+
+      const applicationMeta = {
+        applicant: {
+          name,
+          birthDate,
+          phone: digits,
+          email,
+        },
+        agreements: {
+          refund: true,
+          privacy: true,
+        },
+      };
+
       try {
         if (submitBtn) submitBtn.disabled = true;
         const created = await request("/enrollments", {
           method: "POST",
-          body: JSON.stringify({ openingId }),
+          body: JSON.stringify({ openingId: oid, applicationMeta }),
         });
         localStorage.setItem("passmaster_last_enrollment_id", String(created.id));
         window.location.href = `../payment/index.html?enrollmentId=${encodeURIComponent(String(created.id))}`;

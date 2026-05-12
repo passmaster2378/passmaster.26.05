@@ -509,6 +509,7 @@ async function initSchema() {
   await run(`ALTER TABLE public.enrollments ADD COLUMN IF NOT EXISTS opening_id BIGINT`);
   await run(`ALTER TABLE public.enrollments ADD COLUMN IF NOT EXISTS application_status TEXT`);
   await run(`ALTER TABLE public.enrollments ADD COLUMN IF NOT EXISTS learning_status TEXT`);
+  await run(`ALTER TABLE public.enrollments ADD COLUMN IF NOT EXISTS application_meta JSONB NOT NULL DEFAULT '{}'::jsonb`);
 
   await run(`
     CREATE TABLE IF NOT EXISTS public.payments (
@@ -1860,10 +1861,53 @@ app.get("/api/course-openings/:id", async (req, res) => {
   return res.json(row);
 });
 
+function sanitizeEnrollmentApplicationMeta(raw) {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return {};
+  }
+  const applicantRaw = raw.applicant && typeof raw.applicant === "object" ? raw.applicant : {};
+  const name = String(applicantRaw.name || "")
+    .trim()
+    .slice(0, 120);
+  const birthDate = String(applicantRaw.birthDate || "")
+    .trim()
+    .slice(0, 32);
+  const phoneDigits = String(applicantRaw.phone || "")
+    .replace(/\D/g, "")
+    .slice(0, 20);
+  const email = String(applicantRaw.email || "")
+    .trim()
+    .toLowerCase()
+    .slice(0, 320);
+  const agreements = raw.agreements && typeof raw.agreements === "object" ? raw.agreements : {};
+  const out = {
+    applicant: {
+      name,
+      birthDate,
+      phone: phoneDigits,
+      email,
+    },
+    agreements: {
+      refund: Boolean(agreements.refund),
+      privacy: Boolean(agreements.privacy),
+    },
+    submittedAt: new Date().toISOString(),
+  };
+  return out;
+}
+
 app.post("/api/enrollments", requireAuth, async (req, res) => {
   const openingId = Number(req.body.openingId);
   if (!Number.isInteger(openingId) || openingId <= 0) {
     return sendError(res, 400, "openingId가 필요합니다.");
+  }
+  const applicationMeta = sanitizeEnrollmentApplicationMeta(req.body.applicationMeta);
+  const { name, birthDate, phone, email } = applicationMeta.applicant || {};
+  if (!name || !birthDate || !phone || !email) {
+    return sendError(res, 400, "신청자 성명, 생년월일, 연락처, 이메일을 모두 입력해 주세요.");
+  }
+  if (!applicationMeta.agreements?.refund || !applicationMeta.agreements?.privacy) {
+    return sendError(res, 400, "필수 동의 항목에 모두 동의해 주세요.");
   }
   const opening = await get("SELECT * FROM public.course_openings WHERE id = ?", [openingId]);
   if (!opening) return sendError(res, 404, "모집 정보를 찾을 수 없습니다.");
@@ -1879,10 +1923,10 @@ app.post("/api/enrollments", requireAuth, async (req, res) => {
   }
   const result = await run(
     `INSERT INTO public.enrollments
-      (user_id, course_id, opening_id, payment_status, approval_status, application_status, learning_status, progress_percent)
-     VALUES (?, ?, ?, 'pending', 'pending', 'submitted', 'not_started', 0)
+      (user_id, course_id, opening_id, payment_status, approval_status, application_status, learning_status, progress_percent, application_meta)
+     VALUES (?, ?, ?, 'pending', 'pending', 'submitted', 'not_started', 0, ?::jsonb)
      RETURNING id`,
-    [req.auth.sub, opening.course_id, openingId]
+    [req.auth.sub, opening.course_id, openingId, JSON.stringify(applicationMeta)]
   );
   const enrollmentId = result.rows[0].id;
   const course = await get("SELECT price FROM public.courses WHERE id = ?", [opening.course_id]);

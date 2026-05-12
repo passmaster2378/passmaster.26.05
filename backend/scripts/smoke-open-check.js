@@ -41,7 +41,12 @@ async function main() {
 
   await api("/auth/register", {
     method: "POST",
-    body: JSON.stringify({ name: testName, email: testEmail, password: testPassword }),
+    body: JSON.stringify({
+      name: testName,
+      email: testEmail,
+      password: testPassword,
+      phone: "01012345678",
+    }),
   });
 
   const studentSession = await login(testEmail, testPassword);
@@ -56,7 +61,18 @@ async function main() {
   const enrollment = await api("/enrollments", {
     method: "POST",
     headers: studentAuth,
-    body: JSON.stringify({ openingId: Number(opening.id) }),
+    body: JSON.stringify({
+      openingId: Number(opening.id),
+      applicationMeta: {
+        applicant: {
+          name: testName,
+          birthDate: "1990-01-01",
+          phone: "01012345678",
+          email: testEmail,
+        },
+        agreements: { refund: true, privacy: true },
+      },
+    }),
   });
   const enrollmentId = Number(enrollment.id);
 

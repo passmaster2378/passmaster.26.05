@@ -2028,7 +2028,7 @@ function updateNavigationByAuth(session) {
   const myInfoHref = originalRegisterHref.replace("register.html", "mypage/index.html");
   loginLink.textContent = "HOME";
   loginLink.setAttribute("href", homeHref);
-  registerLink.textContent = "내정보관리";
+  registerLink.textContent = "마이페이지";
   registerLink.setAttribute("href", myInfoHref);
   if (enrollLink) enrollLink.textContent = "수강신청";
   if (myCoursesLink) myCoursesLink.textContent = "내강의";
