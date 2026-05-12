@@ -2018,7 +2018,7 @@ app.patch("/api/admin/enrollments/:id", requireAuth, requireAdmin, async (req, r
   }
   params.push(id);
   await run(`UPDATE public.enrollments SET ${fields.join(", ")} WHERE id = ?`, params);
-  await syncEnrollmentPaymentState(id);
+  // Admin PATCH는 수동 처리용이므로 결제 집계(sync)로 덮어쓰지 않는다. 결제 이벤트 경로에서만 동기화한다.
   const updated = await get(
     `SELECT e.*, u.name AS user_name, u.email AS user_email, c.title AS course_title
      FROM public.enrollments e

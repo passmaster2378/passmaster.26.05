@@ -288,6 +288,16 @@
     return map[value] || (status || "-");
   }
 
+  function toLearningStatusLabel(status) {
+    const value = String(status || "").trim().toLowerCase();
+    const map = {
+      not_started: "학습전",
+      in_progress: "학습중",
+      completed: "학습완료",
+    };
+    return map[value] || (status || "-");
+  }
+
   async function warmupApi() {
     if (apiWarmupPromise) return apiWarmupPromise;
     apiWarmupPromise = fetchWithTimeout(`${API_BASE}/health`, { method: "GET" }, AUTH_TIMEOUT_MS)
@@ -1417,45 +1427,69 @@
     const root = document.querySelector("[data-api='admin-enrollment-detail']");
     if (!root) return;
     const params = new URLSearchParams(window.location.search);
-    const id = Number(params.get("id")) || 1;
+    const id = Number(params.get("id"));
+    const errEl = root.querySelector("[data-api='admin-enrollment-error']");
+
+    function applyEnrollmentToDom(e) {
+      const idSpan = root.querySelector("[data-field='id']");
+      if (idSpan) idSpan.textContent = String(e.id);
+      const userSpan = root.querySelector("[data-field='user']");
+      if (userSpan) userSpan.textContent = `${e.user_name} (${e.user_email})`;
+      const courseSpan = root.querySelector("[data-field='course']");
+      if (courseSpan) courseSpan.textContent = e.course_title || "-";
+      const paymentSpan = root.querySelector("[data-field='payment']");
+      if (paymentSpan) paymentSpan.textContent = toPaymentStatusLabel(e.payment_status);
+      const approvalSpan = root.querySelector("[data-field='approval']");
+      if (approvalSpan) approvalSpan.textContent = toApprovalStatusLabel(e.approval_status);
+      const learningSpan = root.querySelector("[data-field='learning']");
+      if (learningSpan) learningSpan.textContent = toLearningStatusLabel(e.learning_status);
+    }
+
+    if (!Number.isInteger(id) || id <= 0) {
+      if (errEl) showMessage(errEl, "목록에서 ‘관리’를 눌러 들어오거나 URL에 유효한 ?id=(신청 번호)를 넣어 주세요.", "error");
+      return;
+    }
+
     try {
       const e = await request(`/admin/enrollments/${id}`);
-      root.querySelector("[data-field='id']").textContent = String(e.id);
-      root.querySelector("[data-field='user']").textContent = `${e.user_name} (${e.user_email})`;
-      root.querySelector("[data-field='course']").textContent = e.course_title || "-";
-      root.querySelector("[data-field='payment']").textContent = toPaymentStatusLabel(e.payment_status);
-      root.querySelector("[data-field='approval']").textContent = toApprovalStatusLabel(e.approval_status);
+      applyEnrollmentToDom(e);
     } catch (error) {
-      const msg = root.querySelector("[data-api='admin-enrollment-error']");
-      if (msg) showMessage(msg, error.message, "error");
+      if (errEl) showMessage(errEl, error.message, "error");
     }
 
     const form = document.querySelector("[data-api='admin-enrollment-patch']");
-    if (form) {
-      form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const payment_status = form.payment_status.value || undefined;
-        const approval_status = form.approval_status.value || undefined;
-        const learning_status = form.learning_status.value || undefined;
-        const body = {};
-        if (payment_status) body.payment_status = payment_status;
-        if (approval_status) body.approval_status = approval_status;
-        if (learning_status) body.learning_status = learning_status;
-        try {
-          const updated = await request(`/admin/enrollments/${id}`, {
-            method: "PATCH",
-            body: JSON.stringify(body),
-          });
-          root.querySelector("[data-field='payment']").textContent = toPaymentStatusLabel(updated.payment_status);
-          root.querySelector("[data-field='approval']").textContent = toApprovalStatusLabel(updated.approval_status);
-          const msg = form.querySelector("[data-api='admin-enrollment-form-msg']");
-          showMessage(msg, "저장되었습니다.", "success");
-        } catch (error) {
-          const msg = form.querySelector("[data-api='admin-enrollment-form-msg']");
-          showMessage(msg, error.message, "error");
-        }
-      });
-    }
+    if (!form || form.dataset.bound) return;
+    form.dataset.bound = "1";
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const payment_status = form.payment_status.value || undefined;
+      const approval_status = form.approval_status.value || undefined;
+      const learning_status = form.learning_status.value || undefined;
+      const body = {};
+      if (payment_status) body.payment_status = payment_status;
+      if (approval_status) body.approval_status = approval_status;
+      if (learning_status) body.learning_status = learning_status;
+      if (!Object.keys(body).length) {
+        const msg = form.querySelector("[data-api='admin-enrollment-form-msg']");
+        showMessage(msg, "변경할 항목을 하나 이상 선택해 주세요.", "error");
+        return;
+      }
+      try {
+        const updated = await request(`/admin/enrollments/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify(body),
+        });
+        applyEnrollmentToDom(updated);
+        form.payment_status.value = "";
+        form.approval_status.value = "";
+        form.learning_status.value = "";
+        const msg = form.querySelector("[data-api='admin-enrollment-form-msg']");
+        showMessage(msg, "저장되었습니다.", "success");
+      } catch (error) {
+        const msg = form.querySelector("[data-api='admin-enrollment-form-msg']");
+        showMessage(msg, error.message, "error");
+      }
+    });
   }
 
   async function mountAdminPaymentsList() {
