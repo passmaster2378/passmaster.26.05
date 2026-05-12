@@ -1955,20 +1955,12 @@ function updateNavigationByAuth(session) {
     document.querySelector("nav.pm-nav");
   if (!nav) return;
 
-  const loginLink = nav.querySelector("a[href*='login.html']");
-  const registerLink = nav.querySelector("a[href*='register.html']");
-  if (!loginLink || !registerLink) return;
-
-  loginLink.hidden = false;
-  registerLink.hidden = false;
-  loginLink.style.display = "";
-  registerLink.style.display = "";
-
   const logoLink =
     document.querySelector(".pm-header .pm-logo") || document.querySelector(".pm-logo");
+  const registerLinkCandidate = nav.querySelector("a[href*='register.html']");
   const navLinks = Array.from(nav.querySelectorAll("a"));
   const adminLinks = navLinks.filter((link) => {
-    if (link === registerLink) return false;
+    if (registerLinkCandidate && link === registerLinkCandidate) return false;
     const href = String(link.getAttribute("href") || "")
       .replace(/\\/g, "/")
       .toLowerCase();
@@ -1980,6 +1972,27 @@ function updateNavigationByAuth(session) {
       href.includes("admin/index.html")
     );
   });
+
+  const showStandaloneAdminLinks = isStrictAdminSession(session);
+  adminLinks.forEach((link) => {
+    if (showStandaloneAdminLinks) {
+      link.style.display = "";
+      link.hidden = false;
+    } else {
+      link.style.display = "none";
+      link.hidden = true;
+    }
+  });
+
+  const loginLink = nav.querySelector("a[href*='login.html']");
+  const registerLink = registerLinkCandidate;
+  if (!loginLink || !registerLink) return;
+
+  loginLink.hidden = false;
+  registerLink.hidden = false;
+  loginLink.style.display = "";
+  registerLink.style.display = "";
+
   const pagesLink = nav.querySelector("a[href*='pages.html']");
   const enrollLink = nav.querySelector("a[href*='enroll/index.html']");
   const myCoursesLink = nav.querySelector("a[href*='my-courses/index.html']");
@@ -1987,16 +2000,9 @@ function updateNavigationByAuth(session) {
   if (!session || !session.user) {
     loginLink.textContent = "로그인";
     registerLink.textContent = "회원가입";
-    adminLinks.forEach((link) => {
-      link.style.display = "none";
-    });
     if (pagesLink) pagesLink.style.display = "none";
     return;
   }
-
-  adminLinks.forEach((link) => {
-    link.style.display = "none";
-  });
 
   if (isStrictAdminSession(session)) {
     const originalRegisterHref = registerLink.getAttribute("href") || "./register.html";
