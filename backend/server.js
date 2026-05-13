@@ -783,6 +783,72 @@ async function getActiveQuestionSetSummary(courseId) {
   return setRow || null;
 }
 
+/**
+ * 프론트 메인 과정 카드·수강신청 `?cert=` 슬러그와 동일한 `courses.code`(assets/auth-client.js CERT_SLUG_LABEL_MAP와 정렬).
+ * 서버 부팅 시 upsert 후 신청 가능 opening이 없으면 상시 모집 opening을 추가한다.
+ */
+const CANONICAL_PASSMASTER_COURSES = [
+  { code: "forklift", title: "지게차기능사 필기·실기 문제풀이", category: "기능사·장비" },
+  { code: "excavator", title: "굴착기기능사 필기·실기 문제풀이", category: "기능사·장비" },
+  { code: "electric", title: "전기기능사 필기·실기 문제풀이", category: "전기" },
+  { code: "welding", title: "용접기능사 필기·실기 문제풀이", category: "용접" },
+  { code: "hazmat", title: "위험물산업기사 필기·실기 문제풀이", category: "위험물" },
+  { code: "carrepair", title: "자동차정비기능사 필기·실기 문제풀이", category: "정비" },
+  { code: "beautician", title: "일반미용사 필기·실기 문제풀이", category: "미용" },
+  { code: "makeup", title: "메이크업 미용사 필기·실기 문제풀이", category: "미용" },
+  { code: "skin", title: "피부미용사 필기·실기 문제풀이", category: "미용" },
+  { code: "nail", title: "네일미용사 필기·실기 문제풀이", category: "미용" },
+  { code: "elevator", title: "승강기능사 필기·실기 문제풀이", category: "설비" },
+  { code: "construction", title: "건설기능사 필기·실기 문제풀이", category: "건설" },
+  { code: "cookkr", title: "한식조리기능사 필기·실기 문제풀이", category: "외식업" },
+  { code: "cookwest", title: "양식조리기능사 필기·실기 문제풀이", category: "외식업" },
+  { code: "cookcn", title: "중식조리기능사 필기·실기 문제풀이", category: "외식업" },
+  { code: "cookjp", title: "일식조리기능사 필기·실기 문제풀이", category: "외식업" },
+];
+
+const LEGACY_DEMO_TECH_COURSE_CODES = ["IS", "EE", "IT"];
+
+async function upsertCanonicalCoursesAndOpenings() {
+  const defaultPrice = 9900;
+  for (const row of CANONICAL_PASSMASTER_COURSES) {
+    await run(
+      `INSERT INTO public.courses (code, title, category, price, status)
+       VALUES (?, ?, ?, ?, 'open')
+       ON CONFLICT (code) DO UPDATE SET
+         title = EXCLUDED.title,
+         category = EXCLUDED.category,
+         price = EXCLUDED.price,
+         status = 'open'`,
+      [row.code, row.title, row.category, row.price ?? defaultPrice]
+    );
+    const course = await get(`SELECT id FROM public.courses WHERE code = ?`, [row.code]);
+    if (!course) continue;
+    const openOpening = await get(
+      `SELECT id FROM public.course_openings WHERE course_id = ? AND application_status IN ('open', 'closing') ORDER BY id ASC LIMIT 1`,
+      [course.id]
+    );
+    if (!openOpening) {
+      await run(
+        `INSERT INTO public.course_openings (course_id, start_date, end_date, application_status) VALUES (?, '2000-01-01', '2099-12-31', 'open')`,
+        [course.id]
+      );
+    }
+  }
+
+  await run(
+    `
+    UPDATE public.course_openings o
+    SET application_status = 'closed'
+    FROM public.courses c
+    WHERE o.course_id = c.id AND c.code = ANY (?::text[])
+  `,
+    [LEGACY_DEMO_TECH_COURSE_CODES]
+  );
+  await run(`UPDATE public.courses SET status = 'closed' WHERE code = ANY (?::text[])`, [
+    LEGACY_DEMO_TECH_COURSE_CODES,
+  ]);
+}
+
 async function seedData() {
   const userCount = await get("SELECT COUNT(*)::int AS count FROM public.users");
   if (userCount.count === 0) {
@@ -798,30 +864,8 @@ async function seedData() {
     );
   }
 
-  const courseCount = await get("SELECT COUNT(*)::int AS count FROM public.courses");
-  if (courseCount.count === 0) {
-    await run(
-      `INSERT INTO public.courses (code, title, category, price, status) VALUES
-      ('IS', '산업안전기사 필기 완성반', '안전관리', 9900, 'open'),
-      ('EE', '전기기사 필기 완성반', '전기이론', 9900, 'open'),
-      ('IT', '정보처리기사 필기 완성반', '소프트웨어', 9900, 'open')`
-    );
-  }
+  await upsertCanonicalCoursesAndOpenings();
   await run(`UPDATE public.courses SET price = 9900`);
-
-  const openingCount = await get("SELECT COUNT(*)::int AS count FROM public.course_openings");
-  if (openingCount.count === 0) {
-    const isCourse = await get("SELECT id FROM public.courses WHERE code = ?", ["IS"]);
-    const eeCourse = await get("SELECT id FROM public.courses WHERE code = ?", ["EE"]);
-    const itCourse = await get("SELECT id FROM public.courses WHERE code = ?", ["IT"]);
-    await run(
-      `INSERT INTO public.course_openings (course_id, start_date, end_date, application_status) VALUES
-      (?, '2026-06-01', '2026-08-31', 'open'),
-      (?, '2026-06-15', '2026-09-15', 'open'),
-      (?, '2026-07-01', '2026-09-30', 'open')`,
-      [isCourse.id, eeCourse.id, itCourse.id]
-    );
-  }
 
   await run(
     `UPDATE public.enrollments e
@@ -838,6 +882,7 @@ async function seedData() {
      FROM (
        SELECT DISTINCT ON (course_id) id, course_id
        FROM public.course_openings
+       WHERE application_status IN ('open', 'closing')
        ORDER BY course_id, id ASC
      ) o
      WHERE e.opening_id IS NULL AND e.course_id = o.course_id`
@@ -847,26 +892,39 @@ async function seedData() {
   if (enrollmentCount.count === 0) {
     const student1 = await get("SELECT id FROM public.users WHERE email = ?", ["student1@passmaster.kr"]);
     const student2 = await get("SELECT id FROM public.users WHERE email = ?", ["student2@passmaster.kr"]);
-    const isCourse = await get("SELECT id FROM public.courses WHERE code = ?", ["IS"]);
-    const eeCourse = await get("SELECT id FROM public.courses WHERE code = ?", ["EE"]);
-    const itCourse = await get("SELECT id FROM public.courses WHERE code = ?", ["IT"]);
-    if (student1 && student2 && isCourse && eeCourse && itCourse) {
-      const o1 = await get("SELECT id FROM public.course_openings WHERE course_id = ? ORDER BY id ASC LIMIT 1", [
-        isCourse.id,
-      ]);
-      const o2 = await get("SELECT id FROM public.course_openings WHERE course_id = ? ORDER BY id ASC LIMIT 1", [
-        eeCourse.id,
-      ]);
-      const o3 = await get("SELECT id FROM public.course_openings WHERE course_id = ? ORDER BY id ASC LIMIT 1", [
-        itCourse.id,
-      ]);
+    const cForklift = await get("SELECT id FROM public.courses WHERE code = ?", ["forklift"]);
+    const cExcavator = await get("SELECT id FROM public.courses WHERE code = ?", ["excavator"]);
+    const cElectric = await get("SELECT id FROM public.courses WHERE code = ?", ["electric"]);
+    if (student1 && student2 && cForklift && cExcavator && cElectric) {
+      const o1 = await get(
+        "SELECT id FROM public.course_openings WHERE course_id = ? AND application_status IN ('open', 'closing') ORDER BY id ASC LIMIT 1",
+        [cForklift.id],
+      );
+      const o2 = await get(
+        "SELECT id FROM public.course_openings WHERE course_id = ? AND application_status IN ('open', 'closing') ORDER BY id ASC LIMIT 1",
+        [cExcavator.id],
+      );
+      const o3 = await get(
+        "SELECT id FROM public.course_openings WHERE course_id = ? AND application_status IN ('open', 'closing') ORDER BY id ASC LIMIT 1",
+        [cElectric.id],
+      );
       if (o1 && o2 && o3) {
         await run(
           `INSERT INTO public.enrollments (user_id, course_id, opening_id, payment_status, approval_status, application_status, learning_status, progress_percent) VALUES
           (?, ?, ?, 'paid', 'approved', 'submitted', 'in_progress', 64),
           (?, ?, ?, 'paid', 'pending', 'submitted', 'not_started', 10),
           (?, ?, ?, 'paid', 'approved', 'submitted', 'in_progress', 82)`,
-          [student1.id, isCourse.id, o1.id, student1.id, eeCourse.id, o2.id, student2.id, itCourse.id, o3.id]
+          [
+            student1.id,
+            cForklift.id,
+            o1.id,
+            student1.id,
+            cExcavator.id,
+            o2.id,
+            student2.id,
+            cElectric.id,
+            o3.id,
+          ],
         );
       }
     }
