@@ -23,22 +23,34 @@
       <main class="pm-main">
         <p class="pm-pill">User Flow</p>
         <h1>알림 설정</h1>
-        <p class="pm-summary">메일/문자/앱 알림 수신 여부와 중요 알림 우선순위를 설정합니다.</p>
+        <p class="pm-summary">수강·결제·공지 알림 채널을 선택합니다. (일부 기능은 준비 중입니다.)</p>
         <div class="pm-cta-row">
-          <a class="pm-btn pm-btn-ghost" href="../inquiries/index.html">이전 단계</a>
-          <a class="pm-btn pm-btn-primary" href="../withdrawal/index.html">다음 단계</a>
+          <a class="pm-btn pm-btn-ghost" href="../inquiries/index.html">문의 내역</a>
+          <a class="pm-btn pm-btn-primary" href="../withdrawal/index.html">회원 탈퇴 안내</a>
         </div>
+
+        <section class="pm-card">
+          <h2>알림 채널</h2>
+          <p class="pm-detail">아래 설정은 UI 예시입니다. 실제 문자·앱 푸시 연동은 서비스 오픈 단계에서 순차 적용됩니다.</p>
+          <div style="display: grid; gap: 14px; margin-top: 14px; max-width: 480px">
+            <label style="display: flex; gap: 10px; align-items: center; opacity: 0.55">
+              <input type="checkbox" disabled checked />
+              <span>이메일 수강 안내 (필수)</span>
+            </label>
+            <label style="display: flex; gap: 10px; align-items: center; opacity: 0.55">
+              <input type="checkbox" disabled />
+              <span>카카오 알림톡 · 문자 (준비 중)</span>
+            </label>
+            <label style="display: flex; gap: 10px; align-items: center; opacity: 0.55">
+              <input type="checkbox" disabled />
+              <span>마케팅·이벤트 소식 (준비 중)</span>
+            </label>
+          </div>
+        </section>
 
         <section class="pm-card">
           <h2>현재 경로</h2>
           <p class="pm-route">/mypage/notifications</p>
-        </section>
-
-        <section class="pm-card">
-          <h2>연결 페이지</h2>
-          <ul class="pm-link-list">
-          <li><a href="../../support/faq/index.html">/support/faq</a></li>
-          </ul>
         </section>
       </main>
 

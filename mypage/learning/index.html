@@ -23,23 +23,24 @@
       <main class="pm-main">
         <p class="pm-pill">User Flow</p>
         <h1>학습 현황</h1>
-        <p class="pm-summary">과정별 진도율, 수강 완료율, 다음 학습 할 일을 안내합니다.</p>
+        <p class="pm-summary">수강 신청별 진행률을 막대 그래프로 확인합니다.</p>
         <div class="pm-cta-row">
-          <a class="pm-btn pm-btn-ghost" href="../payments/index.html">이전 단계</a>
-          <a class="pm-btn pm-btn-primary" href="../inquiries/index.html">다음 단계</a>
+          <a class="pm-btn pm-btn-ghost" href="../payments/index.html">결제 내역</a>
+          <a class="pm-btn pm-btn-primary" href="../../my-courses/index.html">내 강의실</a>
         </div>
+
+        <section class="pm-card" data-api="learning-dashboard-root">
+          <h2>과정별 진도</h2>
+          <p class="auth-message info" data-api="learning-dashboard-message">불러오는 중…</p>
+          <div data-api="learning-bars"></div>
+          <p class="pm-detail" style="margin-top: 14px">
+            상세 학습 화면은 <strong>내 강의실</strong>에서 이어가기 할 수 있습니다.
+          </p>
+        </section>
 
         <section class="pm-card">
           <h2>현재 경로</h2>
           <p class="pm-route">/mypage/learning</p>
-        </section>
-
-        <section class="pm-card">
-          <h2>연결 페이지</h2>
-          <ul class="pm-link-list">
-          <li><a href="../../my-courses/index.html">/my-courses</a></li>
-          <li><a href="../../my-courses/enrollment-001/index.html">/my-courses/[enrollmentId]</a></li>
-          </ul>
         </section>
       </main>
 
@@ -49,5 +50,6 @@
         <a href="../../pages.html">사이트맵</a>
       </footer>
     </div>
+    <script defer src="../../assets/auth-client.js?v=20260210-learning"></script>
   </body>
 </html>

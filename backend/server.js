@@ -575,6 +575,8 @@ async function initSchema() {
     )
   `);
 
+  await run(`ALTER TABLE public.inquiries ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES public.users(id) ON DELETE SET NULL`);
+
   await run(`
     CREATE TABLE IF NOT EXISTS public.inquiry_messages (
       id BIGSERIAL PRIMARY KEY,
@@ -966,6 +968,7 @@ app.get("/api/docs", async (req, res) => {
       { method: "GET", path: "/course-openings/:id" },
       { method: "POST", path: "/enrollments", auth: true },
       { method: "GET", path: "/me/enrollments", auth: true },
+      { method: "GET", path: "/me/inquiries", auth: true },
       { method: "GET", path: "/me/enrollments/:id", auth: true },
       { method: "PATCH", path: "/me/enrollments/:id/deposit", auth: true, notes: "계좌이체 입금요청" },
       { method: "GET", path: "/me/payments", auth: true },
@@ -1233,6 +1236,18 @@ app.get("/api/inquiries", async (req, res) => {
   });
 });
 
+app.get("/api/me/inquiries", requireAuth, async (req, res) => {
+  const rows = await all(
+    `SELECT id, user_name, type, title, content, status, assignee_name, created_at
+     FROM public.inquiries
+     WHERE user_id = ?
+     ORDER BY id DESC
+     LIMIT 200`,
+    [req.auth.sub]
+  );
+  res.json(rows);
+});
+
 app.get("/api/inquiries/:id", async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
@@ -1255,8 +1270,8 @@ app.post("/api/inquiries", requireAuth, async (req, res) => {
     return sendError(res, 400, "필수 입력값이 누락되었습니다.");
   }
   const result = await run(
-    "INSERT INTO public.inquiries (user_name, type, title, content, status) VALUES (?, ?, ?, ?, 'received') RETURNING id",
-    [userName, type, title, content]
+    "INSERT INTO public.inquiries (user_name, type, title, content, status, user_id) VALUES (?, ?, ?, ?, 'received', ?) RETURNING id",
+    [userName, type, title, content, req.auth.sub]
   );
   const created = await get("SELECT * FROM public.inquiries WHERE id = ?", [result.rows[0].id]);
   return res.status(201).json(created);

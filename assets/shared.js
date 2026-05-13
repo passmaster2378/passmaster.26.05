@@ -1892,10 +1892,6 @@ function getAuthSession() {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || !parsed.user) return null;
-    if (parsed.expiresAt && new Date(parsed.expiresAt).getTime() < Date.now()) {
-      localStorage.removeItem("passmaster_auth");
-      return null;
-    }
     return parsed;
   } catch (_error) {
     return null;

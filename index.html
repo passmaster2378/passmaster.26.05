@@ -1546,10 +1546,6 @@
       function getLandingSession() {
         const s = getStoredSession();
         if (!s || !s.user || !s.token) return null;
-        if (s.expiresAt && new Date(s.expiresAt).getTime() < Date.now()) {
-          localStorage.removeItem("passmaster_auth");
-          return null;
-        }
         return s;
       }
 

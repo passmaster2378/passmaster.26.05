@@ -23,7 +23,9 @@
       <main class="pm-main">
         <p class="pm-pill">User Flow · 4/4 결제 안내</p>
         <h1>결제 안내</h1>
-        <p class="pm-summary">계좌이체 정보를 확인한 뒤 입금 요청을 제출합니다.</p>
+        <p class="pm-summary">
+          안내된 <strong>납부 금액(정액)</strong>으로 입금한 뒤, 입금자명과 함께 입금 요청을 제출합니다. 요청 금액 입력란은 사용하지 않습니다.
+        </p>
         <div class="pm-cta-row">
           <a class="pm-btn pm-btn-ghost" data-api="payment-back-apply" href="../index.html">이전 단계</a>
         </div>
@@ -38,10 +40,6 @@
             <li><strong>미납 금액:</strong> <span data-field="outstanding">-</span></li>
           </ul>
           <form class="pm-form" data-api="payment-transfer-form">
-            <label>
-              이번 입금요청 금액
-              <input type="number" name="amount" min="1" step="100" placeholder="예: 9900" />
-            </label>
             <label>
               입금자명
               <input type="text" name="depositorName" placeholder="예: 홍길동" required />

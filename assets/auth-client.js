@@ -50,6 +50,35 @@
     normalizePassmasterApiBase(window.PASSMASTER_API_BASE) ||
     API_BASE;
 
+  /** 메인 랜딩 자격증 카드 slug ↔ 표시명 (모집 필터·cert 딥링크와 동일) */
+  const CERT_SLUG_LABEL_MAP = {
+    forklift: "지게차기능사",
+    excavator: "굴착기기능사",
+    electric: "전기기능사",
+    welding: "용접기능사",
+    hazmat: "위험물산업기사",
+    carrepair: "자동차정비기능사",
+    beautician: "일반미용사",
+    makeup: "메이크업 미용사",
+    skin: "피부미용사",
+    nail: "네일미용사",
+    elevator: "승강기능사",
+    construction: "건설기능사",
+    cookkr: "한식조리기능사",
+    cookwest: "양식조리기능사",
+    cookcn: "중식조리기능사",
+    cookjp: "일식조리기능사",
+  };
+
+  function openingMatchesCertSlug(o, slug) {
+    const key = String(slug || "").trim().toLowerCase();
+    if (!key) return true;
+    const code = String(o.course_code || "").trim().toLowerCase();
+    const title = String(o.course_title || "").trim();
+    const label = CERT_SLUG_LABEL_MAP[key] || key;
+    return code === key || title.includes(label);
+  }
+
   let apiWarmupPromise = null;
 
   function getStoredSession() {
@@ -61,11 +90,10 @@
     }
   }
 
-  /** 로그아웃·만료 반영 후 1:1 문의 등 고객센터 회원 기능 사용 가능 여부 */
+  /** 로그인 세션(토큰) 보유 여부 — 클라이언트 만료 시각으로 세션을 지우지 않습니다. */
   function hasSupportMemberSession() {
     const session = getStoredSession();
-    const user = getCurrentUser();
-    return Boolean(session && session.token && user);
+    return Boolean(session && session.token && session.user);
   }
 
   /** `[data-support-guest-only]` / `[data-support-member-only]` 표시 동기화 */
@@ -130,7 +158,7 @@
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       if (response.status === 401) {
-        localStorage.removeItem("passmaster_auth");
+        /* 세션은 유지합니다. 필요 시 사용자가 로그아웃하거나 재로그인합니다. */
       }
       throw new Error(data.message || "요청 처리 중 오류가 발생했습니다.");
     }
@@ -218,7 +246,7 @@
           localStorage.setItem("passmaster_auth", JSON.stringify(session));
           window.history.replaceState(null, "", clean);
           const next =
-            session.user.role === "admin" ? "./admin/index.html" : "./my-courses/index.html";
+            session.user.role === "admin" ? "./admin/index.html" : "./mypage/index.html";
           window.location.replace(next);
           return true;
         }
@@ -249,10 +277,6 @@
   function getCurrentUser() {
     const session = getStoredSession();
     if (!session || !session.user) return null;
-    if (session.expiresAt && new Date(session.expiresAt).getTime() < Date.now()) {
-      localStorage.removeItem("passmaster_auth");
-      return null;
-    }
     return session.user;
   }
 
@@ -494,11 +518,7 @@
         method: "PATCH",
         body: JSON.stringify({ currentPassword, newPassword }),
       }, { timeoutMs: AUTH_TIMEOUT_MS, retryNetworkError: true });
-      showMessage(messageNode, "변경 완료! 보안을 위해 다시 로그인해 주세요.", "success");
-      localStorage.removeItem("passmaster_auth");
-      setTimeout(() => {
-        window.location.href = getLoginHref();
-      }, 900);
+      showMessage(messageNode, "비밀번호가 변경되었습니다. 로그인 상태는 유지됩니다.", "success");
     } catch (error) {
       showMessage(messageNode, error.message, "error");
     } finally {
@@ -532,9 +552,10 @@
     const tableBody = document.querySelector("[data-inquiry-list-body]");
     if (!tableBody) return;
 
+    syncSupportGuestMemberSections();
+
     const summaryNode = document.querySelector("[data-inquiry-list-summary]");
     if (!hasSupportMemberSession()) {
-      syncSupportGuestMemberSections();
       tableBody.innerHTML =
         "<tr><td colspan=\"5\">1:1 문의 목록은 로그인한 회원만 이용할 수 있습니다. 로그인 또는 회원가입 후 다시 접속해 주세요.</td></tr>";
       if (summaryNode) summaryNode.textContent = "로그인 필요";
@@ -542,28 +563,19 @@
     }
 
     try {
-      const params = new URLSearchParams(window.location.search);
-      const page = params.get("page") || "1";
-      const status = params.get("status") || "";
-      const type = params.get("type") || "";
-      const q = params.get("q") || "";
-      const query = new URLSearchParams({ page, pageSize: "10" });
-      if (status) query.set("status", status);
-      if (type) query.set("type", type);
-      if (q) query.set("q", q);
-
-      const payload = await request(`/inquiries?${query.toString()}`);
-      const inquiries = Array.isArray(payload.items) ? payload.items : [];
-      const meta = payload.meta || { total: inquiries.length, page: 1, totalPages: 1 };
+      const inquiries = await request("/me/inquiries");
+      const list = Array.isArray(inquiries) ? inquiries : [];
       tableBody.innerHTML = "";
 
-      if (!Array.isArray(inquiries) || inquiries.length === 0) {
+      if (!list.length) {
         tableBody.innerHTML = "<tr><td colspan='5'>등록된 문의가 없습니다.</td></tr>";
         if (summaryNode) summaryNode.textContent = "총 0건";
+        const pageNode = document.querySelector("[data-inquiry-pagination]");
+        if (pageNode) pageNode.innerHTML = "";
         return;
       }
 
-      inquiries.forEach((item) => {
+      list.forEach((item) => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>INQ-${item.id}</td>
@@ -576,23 +588,11 @@
       });
 
       if (summaryNode) {
-        summaryNode.textContent = `총 ${meta.total}건 · ${meta.page}/${meta.totalPages} 페이지`;
+        summaryNode.textContent = `내 문의 ${list.length}건`;
       }
 
       const pageNode = document.querySelector("[data-inquiry-pagination]");
-      if (pageNode) {
-        const prevPage = Math.max(1, Number(meta.page) - 1);
-        const nextPage = Math.min(Number(meta.totalPages), Number(meta.page) + 1);
-        const base = new URLSearchParams(params);
-        const prevParams = new URLSearchParams(base);
-        prevParams.set("page", String(prevPage));
-        const nextParams = new URLSearchParams(base);
-        nextParams.set("page", String(nextPage));
-        pageNode.innerHTML = `
-          <a class="pm-btn pm-btn-ghost" href="?${prevParams.toString()}">이전</a>
-          <a class="pm-btn pm-btn-ghost" href="?${nextParams.toString()}">다음</a>
-        `;
-      }
+      if (pageNode) pageNode.innerHTML = "";
     } catch (error) {
       tableBody.innerHTML = `<tr><td colspan='5'>문의 목록을 불러오지 못했습니다: ${error.message}</td></tr>`;
       if (summaryNode) summaryNode.textContent = "조회 실패";
@@ -603,8 +603,9 @@
     const detailRoot = document.querySelector("[data-inquiry-detail]");
     if (!detailRoot) return;
 
+    syncSupportGuestMemberSections();
+
     if (!hasSupportMemberSession()) {
-      syncSupportGuestMemberSections();
       const errorNode = detailRoot.querySelector("[data-inquiry-error]");
       const tableWrap = detailRoot.querySelector(".pm-table-wrap");
       if (errorNode) {
@@ -621,6 +622,11 @@
 
     try {
       const item = await request(`/inquiries/${id}`);
+      const session = getStoredSession();
+      const myId = session && session.user ? Number(session.user.id) : 0;
+      if (item.user_id != null && Number(item.user_id) !== myId) {
+        throw new Error("본인이 작성한 문의만 확인할 수 있습니다.");
+      }
       const fields = {
         id: `INQ-${item.id}`,
         type: item.type || "-",
@@ -829,6 +835,11 @@
     ].filter((t) => t.tbody);
     if (!targets.length) return;
 
+    const filterBar = document.querySelector("[data-api='enroll-cert-filter-bar']");
+    const certSlug = String(new URLSearchParams(window.location.search).get("cert") || "")
+      .trim()
+      .toLowerCase();
+
     const renderRows = (tbody, rows) => {
       tbody.innerHTML = "";
       const mode = tbody.getAttribute("data-api") || "";
@@ -854,14 +865,62 @@
       });
     };
 
+    function renderCertFilterBar() {
+      if (!filterBar) return;
+      const chips = [{ slug: "", label: "전체" }].concat(
+        Object.entries(CERT_SLUG_LABEL_MAP).map(([slug, label]) => ({ slug, label }))
+      );
+      filterBar.innerHTML = `<p class="pm-detail" style="margin:0 0 10px">메인과 동일한 자격 과정으로 모집을 선택할 수 있습니다.</p><div class="pm-cert-chip-row" role="group" aria-label="자격 과정 필터">${chips
+        .map(({ slug, label }) => {
+          const active = slug ? certSlug === slug : !certSlug;
+          const href = slug
+            ? `./index.html?cert=${encodeURIComponent(slug)}#enroll-openings`
+            : `./index.html#enroll-openings`;
+          const cls = active ? "pm-cert-chip pm-cert-chip-active" : "pm-cert-chip";
+          return `<a class="${cls}" href="${href}">${label}</a>`;
+        })
+        .join("")}</div>`;
+    }
+
     try {
       const rows = await request("/course-openings");
-      targets.forEach(({ tbody }) => renderRows(tbody, rows));
+      const allRows = Array.isArray(rows) ? rows : [];
+      const rowsForPublicFiltered =
+        filterBar && certSlug ? allRows.filter((o) => openingMatchesCertSlug(o, certSlug)) : allRows;
 
-      targets.forEach(({ status }) => {
-        if (status && Array.isArray(rows) && rows.length) {
-          showMessage(status, `모집 ${rows.length}건을 불러왔습니다. 상세에서 신청 단계로 이동합니다.`, "success");
-        } else if (status) {
+      renderCertFilterBar();
+
+      targets.forEach(({ tbody }) => {
+        const isEnrollPublic = tbody.getAttribute("data-api") === "enroll-public-openings-body";
+        const list = isEnrollPublic && filterBar ? rowsForPublicFiltered : allRows;
+        renderRows(tbody, list);
+      });
+
+      targets.forEach(({ tbody, status }) => {
+        if (!status) return;
+        const isEnrollPublic = tbody.getAttribute("data-api") === "enroll-public-openings-body";
+        const list = isEnrollPublic && filterBar ? rowsForPublicFiltered : allRows;
+        if (isEnrollPublic && filterBar) {
+          if (certSlug && list.length === 0 && allRows.length > 0) {
+            showMessage(
+              status,
+              `선택한 과정(${CERT_SLUG_LABEL_MAP[certSlug] || certSlug})에 해당하는 모집이 없습니다. 다른 과정을 선택하거나 전체를 확인해 주세요.`,
+              "info"
+            );
+          } else if (list.length) {
+            showMessage(
+              status,
+              certSlug
+                ? `${CERT_SLUG_LABEL_MAP[certSlug] || certSlug} 관련 모집 ${list.length}건입니다. 상세에서 신청 단계로 이동합니다.`
+                : `모집 ${list.length}건을 불러왔습니다. 상세에서 신청 단계로 이동합니다.`,
+              "success"
+            );
+          } else {
+            showMessage(status, "현재 신청 가능한 공개 모집이 없습니다.", "info");
+          }
+        } else if (allRows.length) {
+          showMessage(status, `모집 ${allRows.length}건을 불러왔습니다. 상세에서 신청 단계로 이동합니다.`, "success");
+        } else {
           showMessage(status, "현재 신청 가능한 공개 모집이 없습니다.", "info");
         }
       });
@@ -881,24 +940,6 @@
     const certParam = String(new URLSearchParams(window.location.search).get("cert") || "")
       .trim()
       .toLowerCase();
-    const certLabelMap = {
-      forklift: "지게차기능사",
-      excavator: "굴착기기능사",
-      electric: "전기기능사",
-      welding: "용접기능사",
-      hazmat: "위험물산업기사",
-      carrepair: "자동차정비기능사",
-      beautician: "일반미용사",
-      makeup: "메이크업 미용사",
-      skin: "피부미용사",
-      nail: "네일미용사",
-      elevator: "승강기능사",
-      construction: "건설기능사",
-      cookkr: "한식조리기능사",
-      cookwest: "양식조리기능사",
-      cookcn: "중식조리기능사",
-      cookjp: "일식조리기능사",
-    };
 
     function escapeHtml(raw) {
       return String(raw ?? "")
@@ -910,10 +951,7 @@
 
     function openingMatchesCert(o) {
       if (!certParam) return false;
-      const code = String(o.course_code || "").trim().toLowerCase();
-      const title = String(o.course_title || "").trim();
-      const label = certLabelMap[certParam] || certParam;
-      return code === certParam || title.includes(label);
+      return openingMatchesCertSlug(o, certParam);
     }
 
     function hideCertCtaPanel() {
@@ -962,7 +1000,7 @@
         const openingsSnapshot = await request("/course-openings");
         const list = Array.isArray(openingsSnapshot) ? openingsSnapshot : [];
         const matchingOpenings = list.filter(openingMatchesCert);
-        const label = certLabelMap[certParam] || certParam;
+        const label = CERT_SLUG_LABEL_MAP[certParam] || certParam;
         if (matchingOpenings.length) {
           ctaPanel.style.display = "";
           ctaPanel.innerHTML = `
@@ -1346,10 +1384,6 @@
       if (root.querySelector("[data-field='outstanding']")) {
         root.querySelector("[data-field='outstanding']").textContent = `${outstanding.toLocaleString("ko-KR")}원`;
       }
-      if (form && form.amount && outstanding > 0) {
-        form.amount.value = String(outstanding);
-        form.amount.max = String(outstanding);
-      }
     } catch (error) {
       showMessage(root.querySelector("[data-api='payment-message']"), error.message, "error");
       return;
@@ -1365,22 +1399,14 @@
             form && form.transferNote && typeof form.transferNote.value === "string"
               ? form.transferNote.value.trim()
               : "";
-          const amount =
-            form && form.amount && typeof form.amount.value === "string" && form.amount.value.trim()
-              ? Number(form.amount.value)
-              : undefined;
           if (!depositorName) {
             alert("입금자명을 입력해 주세요.");
-            return;
-          }
-          if (amount !== undefined && (!Number.isFinite(amount) || amount <= 0)) {
-            alert("입금요청 금액은 1원 이상 입력해 주세요.");
             return;
           }
           btn.disabled = true;
           await request(`/me/enrollments/${enrollmentId}/deposit`, {
             method: "PATCH",
-            body: JSON.stringify({ depositorName, transferNote, amount }),
+            body: JSON.stringify({ depositorName, transferNote }),
           });
           window.location.href = "../complete/index.html";
         } catch (error) {
@@ -2278,6 +2304,112 @@
     }
   }
 
+  function bindPasswordRevealToggles() {
+    document.querySelectorAll("[data-password-toggle]").forEach((btn) => {
+      const row = btn.closest(".pm-password-row");
+      const input = row && row.querySelector("[data-password-field]");
+      if (!input || btn.dataset.pwToggleBound === "1") return;
+      btn.dataset.pwToggleBound = "1";
+      btn.addEventListener("click", () => {
+        const showing = input.type === "text";
+        input.type = showing ? "password" : "text";
+        btn.textContent = showing ? "표시" : "숨김";
+        btn.setAttribute("aria-pressed", showing ? "false" : "true");
+      });
+    });
+  }
+
+  async function mountProfileSummary() {
+    const root = document.querySelector("[data-api='profile-summary-root']");
+    if (!root) return;
+    const msg = root.querySelector("[data-api='profile-summary-message']");
+    try {
+      const me = await request("/auth/me");
+      const nameEl = root.querySelector("[data-field='name']");
+      const emailEl = root.querySelector("[data-field='email']");
+      const phoneEl = root.querySelector("[data-field='phone']");
+      const joinedEl = root.querySelector("[data-field='joined']");
+      if (nameEl) nameEl.textContent = me.name || "-";
+      if (emailEl) emailEl.textContent = me.email || "-";
+      if (phoneEl) phoneEl.textContent = me.phone || "-";
+      if (joinedEl)
+        joinedEl.textContent = me.created_at ? formatDateTime(me.created_at) : "-";
+      if (msg) showMessage(msg, "프로필 정보를 불러왔습니다.", "success");
+    } catch (error) {
+      if (msg) showMessage(msg, error.message, "error");
+    }
+  }
+
+  async function mountLearningDashboard() {
+    const root = document.querySelector("[data-api='learning-dashboard-root']");
+    if (!root) return;
+    const bars = root.querySelector("[data-api='learning-bars']");
+    const msg = root.querySelector("[data-api='learning-dashboard-message']");
+    try {
+      const rows = await request("/me/enrollments");
+      const list = Array.isArray(rows) ? rows : [];
+      if (!bars) return;
+      bars.innerHTML = "";
+      if (!list.length) {
+        bars.innerHTML =
+          '<p class="pm-detail">수강 중인 과정이 없습니다. <a href="../../enroll/index.html">수강 신청</a>에서 과정을 신청하면 여기에 진도 그래프가 표시됩니다.</p>';
+        if (msg) showMessage(msg, "표시할 학습 데이터가 없습니다.", "info");
+        return;
+      }
+      list.forEach((e) => {
+        const pct = Math.min(100, Math.max(0, Number(e.progress_percent ?? 0)));
+        const rowEl = document.createElement("div");
+        rowEl.className = "pm-learning-course-row";
+        rowEl.innerHTML = `
+          <div class="pm-learning-course-head">
+            <strong>${e.course_title || "과정"}</strong>
+            <span>${toLearningStatusLabel(e.learning_status)} · ${pct}%</span>
+          </div>
+          <div class="pm-learning-bar-track"><div class="pm-learning-bar-fill" style="width:${pct}%"></div></div>
+          <div class="pm-learning-meta">결제 ${toPaymentStatusLabel(e.payment_status)} · 승인 ${toApprovalStatusLabel(
+          e.approval_status
+        )}</div>`;
+        bars.appendChild(rowEl);
+      });
+      if (msg) showMessage(msg, `학습 현황 ${list.length}건을 불러왔습니다.`, "success");
+    } catch (error) {
+      if (bars) bars.innerHTML = "";
+      if (msg) showMessage(msg, error.message, "error");
+    }
+  }
+
+  async function mountMypageInquiriesSection() {
+    const tbody = document.querySelector("[data-api='mypage-inquiries-body']");
+    const msg = document.querySelector("[data-api='mypage-inquiries-message']");
+    if (!tbody) return;
+    try {
+      const rows = await request("/me/inquiries");
+      const list = Array.isArray(rows) ? rows : [];
+      tbody.innerHTML = "";
+      if (!list.length) {
+        tbody.innerHTML =
+          "<tr><td colspan='5'>등록한 문의가 없습니다. 아래 버튼으로 새 문의를 작성할 수 있습니다.</td></tr>";
+        if (msg) showMessage(msg, "문의 내역이 없습니다.", "info");
+        return;
+      }
+      list.slice(0, 20).forEach((item) => {
+        const tr = document.createElement("tr");
+        const detailHref = `../../support/inquiry/detail-001.html?id=${encodeURIComponent(String(item.id))}`;
+        tr.innerHTML = `
+          <td>INQ-${item.id}</td>
+          <td>${item.type || "-"}</td>
+          <td><a href="${detailHref}">${item.title || "-"}</a></td>
+          <td>${normalizeStatus(item.status)}</td>
+          <td>${formatDateTime(item.created_at)}</td>`;
+        tbody.appendChild(tr);
+      });
+      if (msg) showMessage(msg, `최근 문의 ${Math.min(list.length, 20)}건을 표시합니다.`, "success");
+    } catch (error) {
+      tbody.innerHTML = `<tr><td colspan='5'>${error.message}</td></tr>`;
+      if (msg) showMessage(msg, error.message, "error");
+    }
+  }
+
   async function mountAuthForms() {
     warmupApi().catch(() => null);
     await mountOAuthButtons();
@@ -2289,6 +2421,7 @@
 
     refreshPassmasterSiteNavigation();
     syncSupportGuestMemberSections();
+    bindPasswordRevealToggles();
 
     const params = new URLSearchParams(window.location.search);
     if (params.get("registered") === "1") {
@@ -2386,6 +2519,10 @@
     mountAdminEnrollmentDetail();
     mountAdminPaymentsList();
     mountAdminPaymentDetail();
+
+    mountProfileSummary();
+    mountLearningDashboard();
+    mountMypageInquiriesSection();
   }
 
   window.addEventListener("DOMContentLoaded", mountAuthForms);
