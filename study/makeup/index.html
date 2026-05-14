@@ -672,13 +672,45 @@
         color: #0f49c2;
         font-weight: 700;
       }
+      .trial-callout {
+        border: 1px solid #f8bbd0;
+        background: linear-gradient(135deg, #fff5f8, #fff);
+        border-radius: 14px;
+        padding: 12px 14px;
+        margin-bottom: 14px;
+        font-size: 13px;
+        line-height: 1.55;
+        color: #4a3b45;
+      }
+      .trial-callout strong {
+        color: #ad1457;
+      }
+      .trial-callout .trial-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .trial-mode-strip {
+        font-size: 12px;
+        color: #7b1fa2;
+        background: #f3e5f5;
+        border-radius: 10px;
+        padding: 8px 10px;
+        margin: 0 0 8px;
+        line-height: 1.45;
+      }
     </style>
   </head>
   <body>
+    <p class="pm-route" hidden>/study/makeup</p>
     <div class="pm-shell">
       <header class="pm-header">
         <a class="pm-logo" href="../../index.html">PASSmaster</a>
         <nav class="pm-nav" aria-label="공통 이동">
+          <a href="../../login.html">로그인</a>
+          <a href="../../register.html">회원가입</a>
+          <a href="../../enroll/index.html?cert=makeup#enroll-openings">수강신청</a>
           <a href="../../cert/info.html?slug=makeup">자격 안내</a>
           <a href="../../index.html#cert-courses">자격증 목록</a>
         </nav>
@@ -751,6 +783,7 @@
 
         <!-- 기출 모의 (해설 없음 / 자동 진행) -->
         <div id="view-mock" hidden>
+          <p id="trial-mode-strip-mock" class="trial-mode-strip" hidden></p>
           <p id="m-round-label" class="mq-round-label"></p>
           <div class="mq-top">
             <div class="mq-top-left">

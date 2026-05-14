@@ -2115,7 +2115,10 @@ function applyStudentView() {
 }
 
 function enforceProtectedRoute(session) {
-  const requiresUser = pageRoute.startsWith("/mypage") || pageRoute.startsWith("/my-courses");
+  const requiresUser =
+    pageRoute.startsWith("/mypage") ||
+    pageRoute.startsWith("/my-courses") ||
+    pageRoute.startsWith("/study");
   const requiresAdmin = pageRoute.startsWith("/admin");
 
   if (!requiresUser && !requiresAdmin) return true;

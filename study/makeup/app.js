@@ -5,6 +5,8 @@
   const MOCK_TOTAL = 60;
   const MOCK_ROUNDS = 6;
   const CERT_SLUG = "makeup";
+  /** 수강·결제·승인 전 무료 체험으로 풀 수 있는 문항 수(과목명·문항 순서 기준 앞쪽 구간). */
+  const FREE_TRIAL_QUESTION_LIMIT = 100;
   const DEFAULT_REMOTE_API_BASE = "https://passmaster-26-05.onrender.com/api";
   const isLocalHost =
     window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
@@ -90,10 +92,35 @@
     finalText: document.getElementById("final-text"),
     finalBar: document.getElementById("final-bar"),
     finalActions: document.getElementById("final-actions"),
+    trialModeStrip: document.getElementById("trial-mode-strip"),
+    trialModeStripMock: document.getElementById("trial-mode-strip-mock"),
   };
 
   /** @type {any[]} */
   let bank = [];
+  /** 전체 문제은행(정적 JSON 병합). 수강 확정 사용자만 bank와 동일 길이. */
+  let bankFull = [];
+  /** 결제 완료 + 승인된 메이크업 과정 수강이 있는 경우 전체 이용 */
+  let hasFullMakeupAccess = false;
+
+  function enrollmentGrantsFullMakeupAccess(entry) {
+    if (!entry || typeof entry !== "object") return false;
+    const code = String(entry.course_code || "").toLowerCase();
+    const title = String(entry.course_title || "");
+    const isMakeup = code === "makeup" || code.includes("makeup") || title.includes("메이크업");
+    if (!isMakeup) return false;
+    return entry.payment_status === "paid" && entry.approval_status === "approved";
+  }
+
+  function redirectToStudyLogin() {
+    const returnTo = `${window.location.pathname}${window.location.search}`;
+    try {
+      sessionStorage.setItem("passmaster_return_to", returnTo);
+    } catch (_e) {
+      // ignore
+    }
+    window.location.href = `../../login.html?returnTo=${encodeURIComponent(returnTo)}`;
+  }
 
   let studyRound = 1;
   let studyQueue = [];
@@ -140,6 +167,8 @@
     if (E.resultMock) E.resultMock.hidden = screen !== "resultMock";
     if (E.dashboard) E.dashboard.hidden = screen !== "dashboard";
     if (E.final) E.final.hidden = screen !== "final";
+    if (E.trialModeStrip) E.trialModeStrip.hidden = screen !== "quiz" || hasFullMakeupAccess;
+    if (E.trialModeStripMock) E.trialModeStripMock.hidden = screen !== "mock" || hasFullMakeupAccess;
   }
 
   function getStoredSession() {
@@ -303,6 +332,9 @@
   function renderStudyQuestion() {
     const q = studyQueue[studyIndex];
     if (!q) return;
+    if (E.trialModeStrip && !hasFullMakeupAccess) {
+      E.trialModeStrip.textContent = `무료 체험 모드 · 앞쪽 ${FREE_TRIAL_QUESTION_LIMIT}문항만 제공(전체 문제은행 약 ${bankFull.length}문항). 결제 승인 완료 시 전체 이용.`;
+    }
     const meta = currentStudyMeta();
     if (E.qRoundLabel) E.qRoundLabel.textContent = meta.label;
     const cacheKey = `${studyRound}:${q.uniqueId}:${studyIndex}`;
@@ -514,6 +546,9 @@
   function renderMockQuestion() {
     const w = mockWrapped[mockIndex];
     if (!w) return;
+    if (E.trialModeStripMock && !hasFullMakeupAccess) {
+      E.trialModeStripMock.textContent = `무료 체험 모드 · 앞쪽 ${FREE_TRIAL_QUESTION_LIMIT}문항만 포함(전체 약 ${bankFull.length}문항). 모의 고사 역시 해당 범위에서만 출제됩니다.`;
+    }
     const q = w.base;
     pushShuffleAudit({
       mode: "mock",
@@ -764,7 +799,11 @@
     });
     const cats = Object.keys(byCat).sort((a, b) => byCat[b] - byCat[a]);
     const maxW = Math.max(1, ...Object.values(byCat), 1);
+    const trialDashBanner = !hasFullMakeupAccess
+      ? `<div class="trial-callout" role="status"><strong>무료 체험 집계</strong>는 앞쪽 ${FREE_TRIAL_QUESTION_LIMIT}문항 영역까지입니다. (전체 은행 약 ${bankFull.length}문항) <a href="../../enroll/index.html?cert=makeup#enroll-openings" style="font-weight:800;color:#ad1457">수강신청 후 전체 이용</a></div>`
+      : "";
     E.dashCharts.innerHTML = `
+${trialDashBanner}
       <div class="dash-block">
         <h3>기출 ${MOCK_ROUNDS}회 누적 · 과목별 오답 수</h3>
         <div class="mq-bars">
@@ -843,6 +882,7 @@
   function showFinal() {
     clearStudyTimer();
     persistStudentArtifacts();
+    const enrollHref = "../../enroll/index.html?cert=makeup#enroll-openings";
     const passedRounds = mockHistory.filter((h) => h.passed).length;
     const rate = mockHistory.length ? Math.round((passedRounds / mockHistory.length) * 100) : 0;
     const avgScore100 = mockHistory.length
@@ -868,7 +908,11 @@
         <span class="mq-bar-num">${rate}%</span>
       </div>`;
     if (E.finalActions) {
+      const enrollCta = !hasFullMakeupAccess
+        ? `<a class="mq-bigbtn mq-bigbtn-link" href="${enrollHref}">전체 문제은행(약 ${bankFull.length}문항) · 수강신청</a>`
+        : "";
       E.finalActions.innerHTML = `
+        ${enrollCta}
         <a class="mq-bigbtn mq-bigbtn-link" href="./wrong-note.html">오답노트 보기</a>
         <a class="mq-bigbtn mq-bigbtn-link" href="./review-share.html">후기작성/리뷰 공유</a>
       `;
@@ -882,7 +926,19 @@
       throw new Error("허브 UI 요소를 찾지 못했습니다. 페이지를 새로고침해 주세요.");
     }
     if (E.loadErr) E.loadErr.hidden = true;
+    const enrollHrefHub = "../../enroll/index.html?cert=makeup#enroll-openings";
+    const trialHubBanner = !hasFullMakeupAccess
+      ? `<div class="trial-callout" role="status">
+          <strong>무료 체험 · 로그인 회원 전용</strong>
+          <p>지금은 과정 순서상 <strong>${Math.min(FREE_TRIAL_QUESTION_LIMIT, bankFull.length)}문항</strong>만 풀어볼 수 있습니다. (문제은행 전체 약 <strong>${bankFull.length}</strong>문항)</p>
+          <p>실제 필기 학습에는 약 천 문제 전후 규모의 은행이 제공되며, <strong>수강 결제 및 승인이 완료</strong>되면 이 페이지에서 전체 문항·학습 루프를 바로 이용할 수 있습니다.</p>
+          <div class="trial-actions">
+            <a class="mq-bigbtn mq-bigbtn-link" href="${enrollHrefHub}">전체 이용 · 수강신청</a>
+          </div>
+        </div>`
+      : "";
     E.hubActions.innerHTML = `
+      ${trialHubBanner}
       <div class="flow-wrap" aria-label="문제 풀이 진행 그래프">
         <section class="flow-hero">
           <h2 class="flow-hero-title">학습 진행 로드맵</h2>
@@ -1138,9 +1194,37 @@
   function init() {
     setScreen("loading");
     if (E.loadErr) E.loadErr.hidden = true;
+    if (!getStoredSession()?.token) {
+      return;
+    }
     window.MakeupQuestionEngine.loadMakeupBank()
       .then(async (data) => {
-        bank = data;
+        bankFull = data;
+        let enrollments = [];
+        try {
+          enrollments = await requestApi("/me/enrollments");
+        } catch (e) {
+          const msg = String((e && e.message) || "");
+          if (
+            msg.includes("토큰") ||
+            msg.includes("인증") ||
+            msg.includes("만료") ||
+            msg.includes("로그인")
+          ) {
+            redirectToStudyLogin();
+            return;
+          }
+          enrollments = [];
+        }
+        const list = Array.isArray(enrollments) ? enrollments : [];
+        hasFullMakeupAccess = Boolean(adminMode) || list.some(enrollmentGrantsFullMakeupAccess);
+        const ordered = window.MakeupQuestionEngine.buildSequentialByCategory([...bankFull]);
+        const trialSubset = ordered.slice(
+          0,
+          Math.min(FREE_TRIAL_QUESTION_LIMIT, ordered.length),
+        );
+        bank = hasFullMakeupAccess ? bankFull : trialSubset;
+
         await hydrateStudyArtifactRemote();
         setScreen("hub");
         renderHub();
