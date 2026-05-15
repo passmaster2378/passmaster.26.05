@@ -1003,7 +1003,7 @@ const routeActions = {
     ["고객센터", "./support/index.html"],
   ],
   "/enroll": [
-    ["모집 상세 (예시)", "./opening/index.html?openingId=1"],
+    ["수강 신청서 (예시)", "./apply/index.html?openingId=1"],
     ["FAQ", "../support/faq/index.html"],
   ],
   "/enroll/[openingId]": [

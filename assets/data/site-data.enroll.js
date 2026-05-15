@@ -22,7 +22,7 @@ window.PASSMASTER_SITE_DATA_CHUNKS.push({
   },
   routeActions: {
     "/enroll": [
-      ["모집 상세로 이동", "./opening/index.html?openingId=1"],
+      ["신청서 작성으로 이동", "./apply/index.html?openingId=1"],
       ["신청 전 FAQ 확인", "../support/faq/index.html"],
     ],
   },

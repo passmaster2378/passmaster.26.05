@@ -311,6 +311,16 @@
     return map[value] || (status || "-");
   }
 
+  function toApplicationStatusLabel(status) {
+    const value = String(status || "").trim().toLowerCase();
+    const map = {
+      draft: "작성중",
+      submitted: "제출완료",
+      withdrawn: "철회",
+    };
+    return map[value] || (status || "-");
+  }
+
   function toLearningStatusLabel(status) {
     const value = String(status || "").trim().toLowerCase();
     const map = {
@@ -810,8 +820,8 @@
     return Number(o.id);
   }
 
-  function openingDetailHref(openingId) {
-    return `./opening/index.html?openingId=${openingId}`;
+  function enrollApplyHref(openingId) {
+    return `./apply/index.html?openingId=${openingId}`;
   }
 
   function parseOpeningIdFromUrl() {
@@ -864,7 +874,7 @@
       ordered.forEach((o) => {
         const tr = document.createElement("tr");
         const linkKey = courseOpeningClientLinkKey(o);
-        const href = openingDetailHref(linkKey);
+        const href = enrollApplyHref(linkKey);
         const titleCell = enrollPublic ? formatEnrollPublicCourseTitle(o.course_title) : o.course_title || "-";
         const periodCell = enrollPublic
           ? "2개월 (입금 확인 후 학습 기간 안내)"
@@ -940,15 +950,15 @@
             showMessage(
               status,
               certSlug
-                ? `${CERT_SLUG_LABEL_MAP[certSlug] || certSlug} 관련 모집 ${list.length}건입니다. 상세에서 신청 단계로 이동합니다.`
-                : `모집 ${list.length}건을 불러왔습니다. 상세에서 신청 단계로 이동합니다.`,
+                ? `${CERT_SLUG_LABEL_MAP[certSlug] || certSlug} 관련 모집 ${list.length}건입니다. 버튼을 누르면 신청서 작성으로 이동합니다.`
+                : `모집 ${list.length}건을 불러왔습니다. 버튼을 누르면 신청서 작성으로 이동합니다.`,
               "success"
             );
           } else {
             showMessage(status, "현재 신청 가능한 공개 모집이 없습니다.", "info");
           }
         } else if (allRows.length) {
-          showMessage(status, `모집 ${allRows.length}건을 불러왔습니다. 상세에서 신청 단계로 이동합니다.`, "success");
+          showMessage(status, `모집 ${allRows.length}건을 불러왔습니다. 버튼을 누르면 신청서 작성으로 이동합니다.`, "success");
         } else {
           showMessage(status, "현재 신청 가능한 공개 모집이 없습니다.", "info");
         }
@@ -999,7 +1009,6 @@
           const linkKey = courseOpeningClientLinkKey(o);
           const oid = encodeURIComponent(String(linkKey));
           const applyHref = `./apply/index.html?openingId=${oid}`;
-          const openHref = `./opening/index.html?openingId=${oid}`;
           const price = Number(o.price || 0).toLocaleString("ko-KR");
           return `
           <li class="pm-card" style="margin: 0; list-style: none; padding: 14px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between">
@@ -1008,8 +1017,7 @@
               <div style="font-size:13px;color:#667085;margin-top:4px">2개월 · ${price}원</div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <a class="pm-btn pm-btn-ghost" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${openHref}">모집 상세</a>
-              <a class="pm-btn pm-btn-primary" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${applyHref}">수강신청 진행</a>
+              <a class="pm-btn pm-btn-primary" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${applyHref}">신청서 작성</a>
             </div>
           </li>`;
         })
@@ -1107,10 +1115,42 @@
     const openingSelect = form.querySelector("[data-api='enroll-apply-opening-select']");
     const hiddenOpeningId = form.querySelector("input[name='openingId']");
     const back = document.querySelector("[data-api='enroll-apply-back']");
+    const rememberCheckbox = form.querySelector("[data-api='enroll-remember-opening']");
+    const REMEMBER_OPENING_KEY = "passmaster_prefs_remember_opening";
+    const LAST_OPENING_LINK_KEY = "passmaster_prefs_last_opening_link_id";
+
+    function readRememberOpeningPref() {
+      try {
+        return localStorage.getItem(REMEMBER_OPENING_KEY) === "1";
+      } catch (_e) {
+        return false;
+      }
+    }
+
+    function setRememberOpeningPref(on) {
+      try {
+        if (on) localStorage.setItem(REMEMBER_OPENING_KEY, "1");
+        else {
+          localStorage.removeItem(REMEMBER_OPENING_KEY);
+          localStorage.removeItem(LAST_OPENING_LINK_KEY);
+        }
+      } catch (_e) {
+        /* ignore */
+      }
+    }
+
+    function savePreferredOpeningLinkId(linkId) {
+      if (!readRememberOpeningPref() || !linkId) return;
+      try {
+        localStorage.setItem(LAST_OPENING_LINK_KEY, String(linkId));
+      } catch (_e) {
+        /* ignore */
+      }
+    }
 
     function syncBackLink(openingId) {
       if (!back) return;
-      back.href = openingId ? `../opening/index.html?openingId=${openingId}` : "../index.html";
+      back.href = "../index.html";
     }
 
     function applyOpeningToDisplay(o) {
@@ -1166,6 +1206,19 @@
       activeOpeningId = matched ? courseOpeningClientLinkKey(matched) : 0;
     }
 
+    if (!activeOpeningId && readRememberOpeningPref()) {
+      let saved = 0;
+      try {
+        saved = Number(localStorage.getItem(LAST_OPENING_LINK_KEY) || 0);
+      } catch (_e) {
+        saved = 0;
+      }
+      if (Number.isFinite(saved) && saved > 0) {
+        const remembered = openingsCache.find((o) => courseOpeningClientLinkKey(o) === saved);
+        if (remembered) activeOpeningId = saved;
+      }
+    }
+
     if (activeOpeningId && activeOpeningId !== initialOpeningIdFromUrl && window.history.replaceState) {
       try {
         const u = new URL(window.location.href);
@@ -1204,6 +1257,7 @@
         const o = await request(`/course-openings/${openingId}`);
         applyOpeningToDisplay(o);
         sessionStorage.setItem("passmaster_last_apply_opening_id", String(openingId));
+        savePreferredOpeningLinkId(courseOpeningClientLinkKey(o));
         if (messageEl) {
           showMessage(messageEl, "모집 정보를 불러왔습니다. 인적 사항과 동의를 확인한 뒤 신청해 주세요.", "success");
         }
@@ -1230,6 +1284,18 @@
           /* ignore */
         }
         loadOpening(next);
+      });
+    }
+
+    if (rememberCheckbox) {
+      rememberCheckbox.checked = readRememberOpeningPref();
+      rememberCheckbox.addEventListener("change", () => {
+        const on = rememberCheckbox.checked;
+        setRememberOpeningPref(on);
+        if (on) {
+          const cur = Number(hiddenOpeningId && hiddenOpeningId.value);
+          if (cur) savePreferredOpeningLinkId(cur);
+        }
       });
     }
 
@@ -1423,13 +1489,6 @@
       root.querySelector("[data-field='course']").textContent = e.course_title || "-";
       root.querySelector("[data-field='amount']").textContent = `${Number(e.price || 0).toLocaleString("ko-KR")}원`;
       root.querySelector("[data-field='enrollmentId']").textContent = String(e.id);
-      const outstanding =
-        e.payment_summary && Number.isFinite(Number(e.payment_summary.outstandingAmount))
-          ? Number(e.payment_summary.outstandingAmount)
-          : Number(e.price || 0);
-      if (root.querySelector("[data-field='outstanding']")) {
-        root.querySelector("[data-field='outstanding']").textContent = `${outstanding.toLocaleString("ko-KR")}원`;
-      }
     } catch (error) {
       showMessage(root.querySelector("[data-api='payment-message']"), error.message, "error");
       return;
@@ -1469,16 +1528,25 @@
     if (!root) return;
     const enrollmentId = Number(localStorage.getItem("passmaster_last_enrollment_id"));
     if (!enrollmentId) {
-      root.textContent = "완료된 신청 정보를 찾을 수 없습니다.";
+      root.innerHTML =
+        '<li class="enroll-complete-line"><strong>안내</strong><span>완료된 신청 정보를 찾을 수 없습니다.</span></li>';
       return;
     }
+    root.innerHTML =
+      '<li class="enroll-complete-line"><strong>안내</strong><span>불러오는 중…</span></li>';
     try {
       const e = await request(`/me/enrollments/${enrollmentId}`);
-      root.innerHTML = `신청번호 <strong>${e.id}</strong> · ${e.course_title} · 결제상태 ${toPaymentStatusLabel(
-        e.payment_status
-      )} · 승인 ${toApprovalStatusLabel(e.approval_status)}`;
+      const courseTitle = formatEnrollPublicCourseTitle(e.course_title);
+      root.innerHTML = `
+        <li class="enroll-complete-line"><strong>신청 번호</strong><span>${e.id}</span></li>
+        <li class="enroll-complete-line"><strong>신청 과정</strong><span>${courseTitle}</span></li>
+        <li class="enroll-complete-line"><strong>결제 상태</strong><span>${toPaymentStatusLabel(e.payment_status)}</span></li>
+        <li class="enroll-complete-line"><strong>승인 상태</strong><span>${toApprovalStatusLabel(e.approval_status)}</span></li>
+        <li class="enroll-complete-line"><strong>학습 상태</strong><span>${toLearningStatusLabel(e.learning_status)}</span></li>
+        <li class="enroll-complete-line"><strong>진행률</strong><span>${e.progress_percent ?? 0}%</span></li>
+        <li class="enroll-complete-line"><strong>신청 처리</strong><span>${toApplicationStatusLabel(e.application_status)}</span></li>`;
     } catch (error) {
-      root.textContent = error.message;
+      root.innerHTML = `<li class="enroll-complete-line">${error.message}</li>`;
     }
   }
 
@@ -2394,15 +2462,19 @@
     try {
       const rows = await request("/me/enrollments");
       const list = Array.isArray(rows) ? rows : [];
+      const appliedOnly = list.filter((e) => {
+        const oid = e.opening_id;
+        return oid != null && Number(oid) > 0;
+      });
       if (!bars) return;
       bars.innerHTML = "";
-      if (!list.length) {
+      if (!appliedOnly.length) {
         bars.innerHTML =
           '<p class="pm-detail">수강 중인 과정이 없습니다. <a href="../../enroll/index.html">수강 신청</a>에서 과정을 신청하면 여기에 진도 그래프가 표시됩니다.</p>';
-        if (msg) showMessage(msg, "표시할 학습 데이터가 없습니다.", "info");
+        if (msg) showMessage(msg, "신청한 수강 정보가 없어 표시할 학습 데이터가 없습니다.", "info");
         return;
       }
-      list.forEach((e) => {
+      appliedOnly.forEach((e) => {
         const pct = Math.min(100, Math.max(0, Number(e.progress_percent ?? 0)));
         const rowEl = document.createElement("div");
         rowEl.className = "pm-learning-course-row";
@@ -2417,7 +2489,7 @@
         )}</div>`;
         bars.appendChild(rowEl);
       });
-      if (msg) showMessage(msg, `학습 현황 ${list.length}건을 불러왔습니다.`, "success");
+      if (msg) showMessage(msg, `신청 과정 학습 현황 ${appliedOnly.length}건을 불러왔습니다.`, "success");
     } catch (error) {
       if (bars) bars.innerHTML = "";
       if (msg) showMessage(msg, error.message, "error");
