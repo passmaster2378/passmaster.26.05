@@ -56,7 +56,6 @@
     excavator: "굴착기기능사",
     electric: "전기기능사",
     welding: "용접기능사",
-    hazmat: "위험물산업기사",
     carrepair: "자동차정비기능사",
     beautician: "일반미용사",
     makeup: "메이크업 미용사",

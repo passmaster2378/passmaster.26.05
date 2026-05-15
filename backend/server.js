@@ -792,7 +792,6 @@ const CANONICAL_PASSMASTER_COURSES = [
   { code: "excavator", title: "굴착기기능사 국가자격증 필기 문제 풀이", category: "기능사·장비" },
   { code: "electric", title: "전기기능사 국가자격증 필기 문제 풀이", category: "전기" },
   { code: "welding", title: "용접기능사 국가자격증 필기 문제 풀이", category: "용접" },
-  { code: "hazmat", title: "위험물산업기사 국가자격증 필기 문제 풀이", category: "위험물" },
   { code: "carrepair", title: "자동차정비기능사 국가자격증 필기 문제 풀이", category: "정비" },
   { code: "beautician", title: "일반미용사 국가자격증 필기 문제 풀이", category: "미용" },
   { code: "makeup", title: "메이크업 미용사 국가자격증 필기 문제 풀이", category: "미용" },
@@ -810,7 +809,7 @@ const LEGACY_DEMO_TECH_COURSE_CODES = ["IS", "EE", "IT"];
 async function upsertCanonicalCoursesAndOpenings() {
   const defaultPrice = 9900;
   /** 제거된 canonical 과정: 목록에서 빠진 코드는 계속 오픈 상태로 남지 않도록 닫는다 */
-  const REMOVED_CANONICAL_CODES = ["construction"];
+  const REMOVED_CANONICAL_CODES = ["construction", "hazmat"];
 
   for (const row of CANONICAL_PASSMASTER_COURSES) {
     await run(
