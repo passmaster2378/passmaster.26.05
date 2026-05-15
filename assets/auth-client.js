@@ -820,6 +820,18 @@
     return Number(o.id);
   }
 
+  /** GET /course-openings/:id 와 동일: 활성 모집에서 display_seq 우선, 없으면 내부 id */
+  function resolveOpeningRequestToLinkKey(openings, requestedId) {
+    if (!requestedId || !Number.isFinite(Number(requestedId)) || Number(requestedId) <= 0) return 0;
+    const n = Number(requestedId);
+    const list = Array.isArray(openings) ? openings : [];
+    const byDisplay = list.find((o) => Number(o.display_seq) === n);
+    if (byDisplay) return courseOpeningClientLinkKey(byDisplay);
+    const byInternal = list.find((o) => Number(o.id) === n);
+    if (byInternal) return courseOpeningClientLinkKey(byInternal);
+    return 0;
+  }
+
   function enrollApplyHref(openingId) {
     return `./apply/index.html?openingId=${openingId}`;
   }
@@ -1199,14 +1211,16 @@
       return;
     }
 
-    if (activeOpeningId) {
-      const matched = openingsCache.find(
-        (o) => Number(o.display_seq) === activeOpeningId || Number(o.id) === activeOpeningId
-      );
-      activeOpeningId = matched ? courseOpeningClientLinkKey(matched) : 0;
-    }
-
-    if (!activeOpeningId && readRememberOpeningPref()) {
+    if (initialOpeningIdFromUrl > 0) {
+      activeOpeningId = resolveOpeningRequestToLinkKey(openingsCache, initialOpeningIdFromUrl);
+      if (!activeOpeningId && messageEl) {
+        showMessage(
+          messageEl,
+          "요청한 모집을 현재 목록에서 찾을 수 없습니다. 수강 신청 목록에서 다시 선택해 주세요.",
+          "error"
+        );
+      }
+    } else if (readRememberOpeningPref()) {
       let saved = 0;
       try {
         saved = Number(localStorage.getItem(LAST_OPENING_LINK_KEY) || 0);
