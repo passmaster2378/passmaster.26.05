@@ -624,6 +624,7 @@
         errorNode.className = "auth-message error";
       }
       if (tableWrap) tableWrap.hidden = true;
+      refreshPassmasterSiteNavigation();
       return;
     }
 
@@ -664,6 +665,7 @@
         errorNode.className = "auth-message error";
       }
     }
+    refreshPassmasterSiteNavigation();
   }
 
   async function handleAdminInquiryStatusSubmit(event) {
