@@ -1993,15 +1993,10 @@ function updateNavigationByAuth(session) {
     linkLooksLikePrivilegedAdmin(link, loginLink, registerLink)
   );
 
-  const showStandaloneAdminLinks = isStrictAdminSession(session);
+  /** 정적 '관리자' 앵커(admin 페이지 헤더 등)와 JS가 바꾸는 회원가입→관리자 슬롯이 중복되지 않도록, 별도 관리자 링크는 항상 숨깁니다. */
   adminLinks.forEach((link) => {
-    if (showStandaloneAdminLinks) {
-      link.style.display = "";
-      link.hidden = false;
-    } else {
-      link.style.display = "none";
-      link.hidden = true;
-    }
+    link.style.display = "none";
+    link.hidden = true;
   });
 
   const pagesLink = nav.querySelector("a[href*='pages.html']");
