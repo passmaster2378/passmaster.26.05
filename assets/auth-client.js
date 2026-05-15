@@ -798,6 +798,18 @@
     }
   }
 
+  function compareCourseOpeningListOrder(a, b) {
+    const ds = Number(a.display_seq ?? 0) - Number(b.display_seq ?? 0);
+    if (ds !== 0) return ds;
+    return Number(a.id) - Number(b.id);
+  }
+
+  /** 서버가 내려주는 display_seq(공개 모집 노출 번호) 또는 구 링크 호환용 내부 id */
+  function courseOpeningClientLinkKey(o) {
+    if (o.display_seq != null && Number(o.display_seq) > 0) return Number(o.display_seq);
+    return Number(o.id);
+  }
+
   function openingDetailHref(openingId) {
     return `./opening/index.html?openingId=${openingId}`;
   }
@@ -843,23 +855,41 @@
       tbody.innerHTML = "";
       const mode = tbody.getAttribute("data-api") || "";
       const enrollPublic = mode === "enroll-public-openings-body";
-      if (!Array.isArray(rows) || !rows.length) {
-        tbody.innerHTML = "<tr><td colspan='6'>모집 중인 과정이 없습니다.</td></tr>";
+      const emptyColSpan = enrollPublic ? "5" : "6";
+      const ordered = [...(Array.isArray(rows) ? rows : [])].sort(compareCourseOpeningListOrder);
+      if (!ordered.length) {
+        tbody.innerHTML = `<tr><td colspan='${emptyColSpan}'>모집 중인 과정이 없습니다.</td></tr>`;
         return;
       }
-      rows.forEach((o) => {
+      ordered.forEach((o) => {
         const tr = document.createElement("tr");
-        const href = openingDetailHref(o.id);
+        const linkKey = courseOpeningClientLinkKey(o);
+        const href = openingDetailHref(linkKey);
         const titleCell = enrollPublic ? formatEnrollPublicCourseTitle(o.course_title) : o.course_title || "-";
-        const periodCell = enrollPublic ? "2개월" : `${o.start_date || "-"} ~ ${o.end_date || "-"}`;
-        tr.innerHTML = `
-          <td>${o.id}</td>
-          <td>${titleCell}</td>
-          <td>${periodCell}</td>
-          <td>${o.application_status || "-"}</td>
-          <td>${Number(o.price || 0).toLocaleString("ko-KR")}원</td>
-          <td><a class="pm-btn pm-btn-primary" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${href}">상세·신청 안내</a></td>
-        `;
+        const periodCell = enrollPublic
+          ? "2개월 (입금 확인 후 학습 기간 안내)"
+          : `${o.start_date || "-"} ~ ${o.end_date || "-"}`;
+        const priceCell = `${Number(o.price || 0).toLocaleString("ko-KR")}원`;
+
+        if (enrollPublic) {
+          const displayNo = o.display_seq != null ? o.display_seq : "-";
+          tr.innerHTML = `
+            <td>${displayNo}</td>
+            <td>${titleCell}</td>
+            <td>${periodCell}</td>
+            <td>${priceCell}</td>
+            <td><a class="pm-btn pm-btn-primary" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${href}">상세·신청 안내</a></td>
+          `;
+        } else {
+          tr.innerHTML = `
+            <td>${o.id}</td>
+            <td>${titleCell}</td>
+            <td>${periodCell}</td>
+            <td>${o.application_status || "-"}</td>
+            <td>${priceCell}</td>
+            <td><a class="pm-btn pm-btn-primary" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${href}">상세·신청 안내</a></td>
+          `;
+        }
         tbody.appendChild(tr);
       });
     };
@@ -869,7 +899,7 @@
       const chips = [{ slug: "", label: "전체" }].concat(
         Object.entries(CERT_SLUG_LABEL_MAP).map(([slug, label]) => ({ slug, label }))
       );
-      filterBar.innerHTML = `<p class="pm-detail" style="margin:0 0 10px">메인과 동일한 자격 과정으로 모집을 선택할 수 있습니다.</p><div class="pm-cert-chip-row" role="group" aria-label="자격 과정 필터">${chips
+      filterBar.innerHTML = `<div class="pm-cert-chip-row" role="group" aria-label="자격 과정 필터">${chips
         .map(({ slug, label }) => {
           const active = slug ? certSlug === slug : !certSlug;
           const href = slug
@@ -925,7 +955,9 @@
       });
     } catch (error) {
       targets.forEach(({ tbody }) => {
-        tbody.innerHTML = `<tr><td colspan='6'>목록을 불러오지 못했습니다: ${error.message}</td></tr>`;
+        const enrollPublic = tbody.getAttribute("data-api") === "enroll-public-openings-body";
+        const cs = enrollPublic ? "5" : "6";
+        tbody.innerHTML = `<tr><td colspan='${cs}'>목록을 불러오지 못했습니다: ${error.message}</td></tr>`;
       });
       targets.forEach(({ status }) => {
         if (status) showMessage(status, error.message, "error");
@@ -964,7 +996,8 @@
       const items = matchingOpenings
         .map((o) => {
           const title = escapeHtml(formatEnrollPublicCourseTitle(o.course_title || "과정"));
-          const oid = encodeURIComponent(String(o.id));
+          const linkKey = courseOpeningClientLinkKey(o);
+          const oid = encodeURIComponent(String(linkKey));
           const applyHref = `./apply/index.html?openingId=${oid}`;
           const openHref = `./opening/index.html?openingId=${oid}`;
           const price = Number(o.price || 0).toLocaleString("ko-KR");
@@ -1048,7 +1081,6 @@
       const o = await request(`/course-openings/${openingId}`);
       root.querySelector("[data-field='title']").textContent = formatEnrollPublicCourseTitle(o.course_title);
       root.querySelector("[data-field='period']").textContent = "2개월 (입금 확인 후 학습 기간 안내)";
-      root.querySelector("[data-field='status']").textContent = o.application_status || "-";
       root.querySelector("[data-field='price']").textContent = `${Number(o.price || 0).toLocaleString("ko-KR")}원`;
       root.querySelector("[data-field='category']").textContent = o.category || "-";
     } catch (error) {
@@ -1094,7 +1126,8 @@
     }
 
     let openingsCache = [];
-    let activeOpeningId = parseOpeningIdFromUrl();
+    const initialOpeningIdFromUrl = parseOpeningIdFromUrl();
+    let activeOpeningId = initialOpeningIdFromUrl;
 
     try {
       openingsCache = await request("/course-openings");
@@ -1111,10 +1144,11 @@
       placeholder.value = "";
       placeholder.textContent = "과정을 선택하세요";
       openingSelect.appendChild(placeholder);
-      openingsCache.forEach((o) => {
+      [...openingsCache].sort(compareCourseOpeningListOrder).forEach((o) => {
         const opt = document.createElement("option");
-        opt.value = String(o.id);
-        opt.textContent = `${formatEnrollPublicCourseTitle(o.course_title)} (모집 ${o.id})`;
+        const linkKey = courseOpeningClientLinkKey(o);
+        opt.value = String(linkKey);
+        opt.textContent = `${formatEnrollPublicCourseTitle(o.course_title)} · 모집 ${o.display_seq ?? linkKey}번`;
         openingSelect.appendChild(opt);
       });
     }
@@ -1125,8 +1159,21 @@
       return;
     }
 
-    if (activeOpeningId && !openingsCache.some((o) => Number(o.id) === activeOpeningId)) {
-      activeOpeningId = 0;
+    if (activeOpeningId) {
+      const matched = openingsCache.find(
+        (o) => Number(o.display_seq) === activeOpeningId || Number(o.id) === activeOpeningId
+      );
+      activeOpeningId = matched ? courseOpeningClientLinkKey(matched) : 0;
+    }
+
+    if (activeOpeningId && activeOpeningId !== initialOpeningIdFromUrl && window.history.replaceState) {
+      try {
+        const u = new URL(window.location.href);
+        u.searchParams.set("openingId", String(activeOpeningId));
+        window.history.replaceState(null, "", u.pathname + u.search + u.hash);
+      } catch (_e) {
+        /* ignore */
+      }
     }
 
     if (hiddenOpeningId) {
@@ -2409,6 +2456,14 @@
     }
   }
 
+  function mountPasswordWizardMeta() {
+    document.querySelectorAll("[data-pw-flow-email]").forEach((el) => {
+      const session = getStoredSession();
+      const email = session && session.user && session.user.email ? String(session.user.email).trim() : "";
+      el.textContent = email || "—";
+    });
+  }
+
   async function mountAuthForms() {
     warmupApi().catch(() => null);
     await mountOAuthButtons();
@@ -2421,6 +2476,7 @@
     refreshPassmasterSiteNavigation();
     syncSupportGuestMemberSections();
     bindPasswordRevealToggles();
+    mountPasswordWizardMeta();
 
     const params = new URLSearchParams(window.location.search);
     if (params.get("registered") === "1") {

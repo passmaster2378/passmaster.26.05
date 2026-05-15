@@ -10,6 +10,79 @@
         display: grid;
         gap: 0;
       }
+      .cert-info-gallery {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin: 0 0 20px;
+      }
+      @media (max-width: 760px) {
+        .cert-info-gallery {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      .cert-info-gallery figure {
+        margin: 0;
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid #e8ecf3;
+        background: #f6f8fc;
+      }
+      .cert-info-gallery img {
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        object-fit: cover;
+        display: block;
+      }
+      .cert-info-gallery figcaption {
+        padding: 8px 10px 10px;
+        font-size: 13px;
+        line-height: 1.35;
+        color: #394960;
+      }
+      .cert-exam-spec {
+        margin: 0 0 18px;
+        padding: 0;
+        border: 1px solid #dfe7f5;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #fbfcff;
+      }
+      .cert-exam-spec > div + div > h3 {
+        border-radius: 0;
+        border-top: 1px solid #dfe7f5;
+      }
+        padding: 10px 14px;
+        font-size: 14px;
+        font-weight: 800;
+        color: #1c2f4a;
+        background: linear-gradient(180deg, #eef3fc 0%, #e7eef9 100%);
+        border-bottom: 1px solid #dfe7f5;
+      }
+      .cert-exam-spec ul {
+        margin: 0;
+        padding: 12px 16px 12px 32px;
+        font-size: 14px;
+        line-height: 1.55;
+        color: #2c405c;
+      }
+      .cert-exam-spec-passing {
+        margin: 12px 16px 16px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: #fff;
+        border: 1px solid #dfe7f5;
+        font-size: 14px;
+        line-height: 1.55;
+        font-weight: 700;
+        color: #173b6f;
+      }
+      .cert-exam-spec-foot {
+        padding: 0 16px 14px;
+        font-size: 13px;
+        line-height: 1.55;
+        color: #5a718f;
+      }
       .pm-official-note {
         margin: 0 0 16px;
         padding: 12px 14px;
@@ -43,6 +116,8 @@
         <h1 id="cert-title">자격증</h1>
         <p class="pm-summary" id="cert-intro"></p>
 
+        <div id="cert-gallery" class="cert-info-gallery" hidden aria-label="관련 참고 이미지"></div>
+
         <p class="pm-official-note" id="cert-official" hidden></p>
         <div id="cert-sections"></div>
 
@@ -67,7 +142,351 @@
     <script defer src="../assets/shared.js"></script>
     <script>
       /** @typedef {{ title: string, paras: string[] }} InfoSection */
+      /** @typedef {{ written: string[], practical: string[], passing: string, footnote?: string }} ExamSpec */
       /** @typedef {{ intro: string, official?: string, sections: InfoSection[] }} CertInfo */
+
+      /** Unsplash 원본 이미지만 사용. 메인 페이지 등에서 접근 검증된 id 위주입니다. */
+      function certPhoto(id, caption) {
+        return {
+          src: `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=960&q=80`,
+          caption,
+        };
+      }
+
+      /** @type {Record<string, Array<{ src: string, caption: string }>>} */
+      const CERT_GALLERY = {
+        forklift: [
+          certPhoto("1553413077-190dd305871c", "지게차·창고 하역"),
+          certPhoto("1541888946425-d81bb19240f5", "건설·중장비 현장 참고"),
+          certPhoto("1504917595217-d4dc5ebe6122", "작업 현장 안전 브리핑"),
+          certPhoto("1504328345606-18bbc8c9d7d1", "용접·제조 라인 현장 참고"),
+          certPhoto("1621905252507-b35492cc74b4", "전기 패널 및 설비"),
+          certPhoto("1581092918056-0c4c3acd3789", "산업 현장 검사 참고 이미지"),
+        ],
+        excavator: [
+          certPhoto("1541888946425-d81bb19240f5", "건설 현장 중장비 투입"),
+          certPhoto("1553413077-190dd305871c", "하역·장비 라인 참고"),
+          certPhoto("1504917595217-d4dc5ebe6122", "현장 협업·안전"),
+          certPhoto("1621905252507-b35492cc74b4", "설비·전기 교육 연계 참고"),
+          certPhoto("1504328345606-18bbc8c9d7d1", "금속·제조 접합 현장 참고"),
+          certPhoto("1461749280684-dccba630e2f6", "학습·점검 루틴 참고"),
+        ],
+        electric: [
+          certPhoto("1621905252507-b35492cc74b4", "전기 패널·배선"),
+          certPhoto("1558618666-fcd25c85cd64", "측정·시험 도구 활용"),
+          certPhoto("1581092918056-0c4c3acd3789", "현장 검사 참고 장면"),
+          certPhoto("1503387762-592deb58ef4e", "기계실·설비 공간 참고"),
+          certPhoto("1541888946425-d81bb19240f5", "설비 교육 교차 참고(건설 현장 맥락)"),
+          certPhoto("1461749280684-dccba630e2f6", "이론·실습 교육 흐름 참고"),
+        ],
+        welding: [
+          certPhoto("1504328345606-18bbc8c9d7d1", "용접·스패터 환경 참고"),
+          certPhoto("1621905252507-b35492cc74b4", "현장 안전 교육(전기 장비 교차 참고)"),
+          certPhoto("1581092918056-0c4c3acd3789", "작업 검사 순서 참고"),
+          certPhoto("1541888946425-d81bb19240f5", "건설·제조 라인 현장 참고"),
+          certPhoto("1504917595217-d4dc5ebe6122", "현장 협업·안전"),
+          certPhoto("1553413077-190dd305871c", "장비 라인 참고 이미지"),
+        ],
+        carrepair: [
+          certPhoto("1549317661-bd32c8ce0db2", "정비 차량 라인 참고 이미지"),
+          certPhoto("1625047509248-ec889cbff17f", "휠·하체 접근 교육 참고"),
+          certPhoto("1492144534655-ae79c964c9d7", "스포츠카 정비 브랜드 참고 장면"),
+          certPhoto("1454165804606-c3d57bc86b40", "팀 협업·작업 순서 참고"),
+          certPhoto("1504917595217-d4dc5ebe6122", "현장 안전 브리핑 참고"),
+          certPhoto("1461749280684-dccba630e2f6", "기술 진단 교육 흐름 참고"),
+        ],
+        beautician: [
+          certPhoto("1522337360788-8b13dee7a37e", "헤어·미용 교육"),
+          certPhoto("1516975080664-ed2fc6a32937", "브러시·팔레트 정리 및 위생"),
+          certPhoto("1570172619644-dfd03ed5d881", "관리 프로그램·상담"),
+          certPhoto("1604654894610-df63bc536371", "네일·핸드 케어 연계 참고"),
+          certPhoto("1552664730-d307ca884978", "학습 과정 브랜치 참고"),
+          certPhoto("1504674900247-0877df9cc836", "식·조리 과정 디테일 참고"),
+        ],
+        makeup: [
+          certPhoto("1516975080664-ed2fc6a32937", "메이크업 작업 장면 참고"),
+          certPhoto("1522337360788-8b13dee7a37e", "미용 전반 교육 배경 참고"),
+          certPhoto("1570172619644-dfd03ed5d881", "피부·관리 과정 교차 참고"),
+          certPhoto("1604654894610-df63bc536371", "네일·핸드 연계 과정 참고"),
+          certPhoto("1552664730-d307ca884978", "학습 목표 과정 브랜치 참고"),
+          certPhoto("1504674900247-0877df9cc836", "식·메이크업 실습 과정 디테일 참고"),
+        ],
+        skin: [
+          certPhoto("1570172619644-dfd03ed5d881", "피부관리 프로그램·상담"),
+          certPhoto("1516975080664-ed2fc6a32937", "뷰티 실습 디테일 참고"),
+          certPhoto("1522337360788-8b13dee7a37e", "미용 전반 과정 교차 참고"),
+          certPhoto("1604654894610-df63bc536371", "핸드·네일 과정 교차 참고"),
+          certPhoto("1552664730-d307ca884978", "학습 과정 브랜치 참고"),
+          certPhoto("1454165804606-c3d57bc86b40", "팀 상담·학습 흐름 참고"),
+        ],
+        nail: [
+          certPhoto("1604654894610-df63bc536371", "네일 아트 디테일"),
+          certPhoto("1516975080664-ed2fc6a32937", "뷰티 실무 참고 장면"),
+          certPhoto("1522337360788-8b13dee7a37e", "미용 전반 과정 교차 참고"),
+          certPhoto("1570172619644-dfd03ed5d881", "피부·케어 연계 참고"),
+          certPhoto("1552664730-d307ca884978", "학습 목표 과정 참고"),
+          certPhoto("1504674900247-0877df9cc836", "디테일 실습 과정 참고"),
+        ],
+        elevator: [
+          certPhoto("1560518883-ce09059eeffa", "고층 건물·승강 환경"),
+          certPhoto("1503387762-592deb58ef4e", "기계실·설비 공간 참고"),
+          certPhoto("1621905252507-b35492cc74b4", "전기 패널·제어 교육 연계 참고"),
+          certPhoto("1558618666-fcd25c85cd64", "측정·안전 순서 교육 참고"),
+          certPhoto("1581092918056-0c4c3acd3789", "현장 검사 참고 장면"),
+          certPhoto("1461749280684-dccba630e2f6", "기술 이론·실무 브라우징 참고"),
+        ],
+        cookkr: [
+          certPhoto("1498654896293-37aacf113fd9", "한식 진열·수업 장면 참고"),
+          certPhoto("1556910103-1c02745aae4d", "실습 주방 브리핑 과정 참고"),
+          certPhoto("1504674900247-0877df9cc836", "요리 과정 디테일 참고"),
+          certPhoto("1414235077428-338989a2e8c0", "레스토랑 과정 교차 참고 장면"),
+          certPhoto("1553621042-f6e147245754", "밥·면 코스 교차 참고 장면"),
+          certPhoto("1621996346565-e3dbc646d9a9", "복·국 조리 과정 교차 참고 장면"),
+        ],
+        cookwest: [
+          certPhoto("1414235077428-338989a2e8c0", "양식 테이블 세팅"),
+          certPhoto("1498654896293-37aacf113fd9", "양·한 과정 교차 참고 장면"),
+          certPhoto("1556910103-1c02745aae4d", "실습 주방 브리핑 과정 교차 참고"),
+          certPhoto("1504674900247-0877df9cc836", "요리 디테일·위생 과정 참고"),
+          certPhoto("1553621042-f6e147245754", "밥·국 코스 교차 과정 교육 참고"),
+          certPhoto("1621996346565-e3dbc646d9a9", "복·면 조리 단계 과정 교차 참고"),
+        ],
+        cookcn: [
+          certPhoto("1553621042-f6e147245754", "밥·면 실습 과정 참고 장면"),
+          certPhoto("1498654896293-37aacf113fd9", "한·중 과정 교차 참고 교육 장면"),
+          certPhoto("1414235077428-338989a2e8c0", "서양 과정 교차 참고 교육 장면"),
+          certPhoto("1556910103-1c02745aae4d", "실습 주방 브리핑 교육 과정 교차 참고"),
+          certPhoto("1504674900247-0877df9cc836", "플레이팅·위생 과정 참고 교육 장면"),
+          certPhoto("1621996346565-e3dbc646d9a9", "국·면 조리 단계 과정 교차 참고 교육 장면"),
+        ],
+        cookjp: [
+          certPhoto("1553621042-f6e147245754", "밥·회 실습 과정 참고 장면"),
+          certPhoto("1498654896293-37aacf113fd9", "한중일 과정 교차 참고 교육 장면"),
+          certPhoto("1414235077428-338989a2e8c0", "서양 과정 교차 참고 교육 장면"),
+          certPhoto("1556910103-1c02745aae4d", "실습 주방 브리핑 교육 과정 교차 참고 장면"),
+          certPhoto("1504674900247-0877df9cc836", "요리 과정 디테일 위생 참고 교육 장면"),
+          certPhoto("1621996346565-e3dbc646d9a9", "국·면 조리 단계 과정 교차 참고 장면"),
+        ],
+      };
+
+      /** @type {Record<string, ExamSpec>} */
+      const CERT_EXAM_SPEC = {
+        forklift: {
+          written: ["지게차 주행(이론)", "화물 적재(이론)", "운반 작업 지식(이론)", "하역 안전 및 작업(이론)", "안전관리·직업건강(이론)"],
+          practical: ["실기 과제형(전진·후진·도로 또는 코스 주행)", "실기 과제형(포크 활용 적재·하역·운반)", "시험장 및 장비 종류별 세부 과제명은 공고·출제규격에서 확인"],
+          passing:
+            "필기 참고: 과목 조합·항목당 문항 수는 공고 참조. 많은 안내에서 과목 기준 60점 이상·전체 60점 이상 등이 소개됩니다. 실기 참고: 과제 만점 100점 중 60점 안내가 자주 인용됩니다(장비·평가항목은 공고 참조).",
+          footnote:
+            "지게차·굴착기 등 기능사 과목 명칭·과락 규칙은 시행 연도별로 변경될 수 있습니다. 과목 이름은 Q-Net 출제기준·종목별 상세 페이지를 최종 기준으로 하세요.",
+        },
+        excavator: {
+          written: [
+            "안전 및 법규(이론)",
+            "구조 원리 및 장비점검(이론)",
+            "운전 및 작업방법(업무직무 관련 과목 종합 검정 또는 영역 과목 명칭은 공고·출제기준 기준)",
+            "종목 과목 이름·분할 개편 가능—Q-Net 종목 페이지를 우선 참고",
+          ],
+          practical: [
+            "실기 과제형(직선·곡선·직각 주행 또는 코스 주행 등 포함 가능)",
+            "실기 과제형(굴찍·복귀·평탄화·좌석 이동 등 작업 과제 포함 가능)",
+            "시험용 장비 규격·작업 과제 순서는 공정 공고 과제 선택표에서 확인",
+          ],
+          passing:
+            "필기는 보통 100점 만점 기준 60점 이상형 종합 과목 패턴 등이 많이 거론되나 회차별 과락 규칙이 있음. 실기 역시 종목·장비에 따라 시행 기관 공고 선을 따름.",
+          footnote: "굴착기 운전 종목 과목 이름은 지게차와 유사한 체계로 안내되는 편입니다. 과목 이름은 Q-Net 종목별 상세·출제기준을 근거로 확인하세요.",
+        },
+        electric: {
+          written: ["전기자기학", "전력공학", "전기기기", "회로이론 및 제어공학", "전기설비"],
+          practical: [
+            "과제형(전기설비 또는 구성품 시공)", "측정·시험(접촉·절연 저항 및 전압 확인 등 과제 포함 가능)",
+            "배선·설비 종류·평가 항목은 공고 과제 명칭에 따름",
+          ],
+          passing: "필기: 과목별·종합 검정에서는 보통 100점 만점 기준 60점 이상형 합격이 자주 명시되고, 과목별 과락 규칙이 있으면 함께 안내됨. 실기: 100점 만점 중 합격 점선은 공고·업데이트 기준에 따라 달라짐.",
+          footnote: "전기기능 실기 과제 패턴은 시행 기관 공고의 과제 선택표를 반드시 대조해야 합니다.",
+        },
+        welding: {
+          written: ["용접일반", "기계제도", "안전관리"],
+          practical: [
+            "과제형(평판·판재 등 대상 피복아크 또는 종목 과제별 비드 성형 과제 포함 가능)",
+            "용접 자세·시선·품질(비드 높이·폭)·안전 장구 착용 평가",
+            "종목 과제 명칭·재료 규격·포지션은 매 시행 공고 과제 선택표 기준을 따름",
+          ],
+          passing:
+            "필기 참고패턴으로 과목별 40점 이상 또는 평균 60점 이상 규칙이 소개되는 경우도 있으며, 실제에는 공고 명시 규칙이 우선됩니다.",
+          footnote:
+            "현행 종목 이름이 다른 경우(예: 피복아크용접 관련 기능사)가 있으며, 출제 과목 명칭·합격 규칙은 Q-Net을 매 시행 확인하세요.",
+        },
+        carrepair: {
+          written: ["자동차기관", "자동차섀시", "자동차전기·전자", "자동차정비"],
+          practical: [
+            "과제형(엔진·전기 등 구성별 시스템 점검·진단·탈거·교체 등 공고 과제 패턴 포함 가능)",
+            "진단 장비 활용 순서 및 안전(배출·방화·격리)",
+            "시험장별 과제 세부 및 반입 공구·부품은 공고에서 확인",
+          ],
+          passing:
+            "필기: 일반적으로 100점 만점 기준 60점 이상 합격을 안내하는 자료가 많음(과락 규칙은 공고). 실기 역시 과제 만점 및 합격 선은 회차별 상이함.",
+          footnote: "자동차정비 기능사 과제 과목 패턴 개편이 있었을 수 있으므로, 공식 공개문제·과제 선택표를 함께 확인하세요.",
+        },
+        beautician: {
+          written: ["미용이론", "공중보건학", "소독학", "피부학", "공중위생법규"],
+          practical: ["과제형(커트·파마·열펌 또는 세팅 등 공정 조합 과제 포함 가능)", "헤어·두피·위생·정돈 상태 평가", "평가 항목·시간 및 준비물은 시행 회차별 공개문제 형태 참고"],
+          passing:
+            "필기: 일반적으로 100점 만점 기준 60점 이상 합격(36문항 이상 맞히는 패턴 안내 참고 가능). 실기: 100점 만점 기준 60점 이상 등이 교재 안내에 자주 포함됩니다.",
+          footnote:
+            "미용사 과목 이름·평가 항목 분할은 개편 가능성이 있으므로, Q-Net 출제 기준·공개문제가 최종 기준입니다.",
+        },
+        makeup: {
+          written: ["미용이론", "미용색채 및 화장품학", "피부학", "공중보건학", "공중위생법규"],
+          practical: [
+            "과제형(공고에서 제시하는 메이크업 연출·단계별 공정)",
+            "위생·도구 정리·시간 배분·마감 품질 평가",
+            "과제 종류 및 모델/시트 요구 공지는 회차별로 상이함",
+          ],
+          passing:
+            "필기·실기 합격 점선은 공고 명시 규칙이 우선이며, 교재에서는 필기 및 실기 100점 만점 기준 각 60점 이상 패턴이 자주 인용되기도 함.",
+          footnote: "미용(메이크업) 종목 과목 명칭·실기 과제는 개편이 있었을 수 있으니 Q-Net을 확인하세요.",
+        },
+        skin: {
+          written: [
+            "미용피부학",
+            "화장품학",
+            "미용 피부 관리 종합 이론(세부 과목 명칭은 공고·출제기준 참조)",
+            "공중위생법규",
+            "공중보건학",
+          ],
+          practical: [
+            "피부 관리 과제형(클렌징→관리·기기·마무리 등 단계 조합 과제 포함 가능)",
+            "기기 안전·품질·위생 및 시술 전후 정리 상태 평가",
+            "시험장 비품·복장·금지 품목은 공고에서 확인",
+          ],
+          passing:
+            "필기·실기 합격 기준은 공고가 우선이며, 일반 안내로는 100점 만점 기준 60점 이상 등이 자주 인용됩니다.",
+          footnote: "피부미용 과목 이름은 개편·재편 가능성이 있으므로, 출제기준 자료실을 활용하는 것을 권장합니다.",
+        },
+        nail: {
+          written: [
+            "네일미용 이론(실기 기반 전문 개론 포함)",
+            "미용재료학",
+            "공중보건학",
+            "공중위생법규",
+            "손·발톱 및 도구 위생·안전(세부 명칭은 공고 기준)",
+          ],
+          practical: [
+            "과제형(손·발톱 케어·아트·정리까지 공정 조합 과제 포함 가능)",
+            "좌우 균형·라인·위생·작업 시간 준수 평가",
+            "실기 준비물·복장·금지 품목은 공정 공고에서 확인",
+          ],
+          passing:
+            "필기·실기 모두 공고가 우선이며, 일반적으로 각 60점 안내가 자주 검토되나 회차별로 상이함.",
+          footnote: "네일미용 출제 과목 명칭·실기 과제는 개편 이력이 있을 수 있습니다. 종목 페이지를 검토해 주세요.",
+        },
+        elevator: {
+          written: ["승강기개론", "안전관리", "승강기보수", "기계·전기 기초이론"],
+          practical: [
+            "실기 과제형(설비 검사·조정 또는 조립·연결 과제 패턴 포함 가능)",
+            "전기 회로 또는 기계 장치 점검·측정 과제 포함 가능",
+            "시험 과제 패턴 및 배점표는 회차별 공고에서 확인",
+          ],
+          passing:
+            "필기 참고패턴으로 100점 만점 기준 60점 이상 합격이 자주 거론됩니다. 실기 합격 점선은 공고 명시 규칙이 우선됩니다.",
+          footnote:
+            "승강기 기능사 과제 구성 및 필기 과목 분할 변경 여부가 있었을 수 있습니다. 해당 종목 페이지를 활용하여 적시에 확인해야 합니다.",
+        },
+        cookkr: {
+          written: ["한식 재료 및 메뉴개발(출제기준 명칭 기준)", "음식조리 및 위생안전관리(출제기준 명칭 기준)"],
+          practical: [
+            "실기 과제형(연도별·회차별 지정 요리 과제 포함)",
+            "시간 안에 완성·위생·칼 사용·양념·화력 조절·제출 상태 평가",
+            "지정 과제 명칭·재료량·금지품은 과제 선택표 또는 공개문제를 따름",
+          ],
+          passing:
+            "일반 교재 패턴에서는 필기 100점 만점 기준 약 60점 이상, 실기 100점 만점 기준 약 60점 이상 등이 많이 검토되나 과락·부분 항목 반영은 공정 공고 명시 규칙이 우선됩니다.",
+          footnote: "한식 과목 패턴 및 실기 과제는 과제 선택표 업데이트가 잦습니다. 과제 선택표 버전별로 교차 확인하세요.",
+        },
+        cookwest: {
+          written: [
+            "양식 재료 및 메뉴개발(출제기준 명칭 기준)",
+            "양식조리 및 위생안전관리(출제기준 명칭 기준)",
+            "세부 과목 명칭은 시행 연도에 따라 다를 수 있음—Q-Net 출제기준 확인",
+          ],
+          practical: [
+            "실기 과제형(전채·스프·메인·소스·샐러드·샌드위치·파스타 등 공고 과제 품목 포함 가능)",
+            "시간 규격·양념·소스 균형 및 위생 상태 평가",
+            "시험 품목 목록 변경 이력이 있으므로 최신 과제 선택표를 확인해야 함",
+          ],
+          passing:
+            "양식 과목 교재 패턴에서는 필기 60점 안내 및 실기 60점 패턴 검토 가능하나 과제별 과락은 공정 공고를 따르세요.",
+          footnote: "한식 및 양식 등 조리 과목 명칭·개편 사항은 공정 공개문제 또는 출제기준으로 확인해야 합니다.",
+        },
+        cookcn: {
+          written: [
+            "중식 재료 및 메뉴개발(출제기준 명칭 기준)",
+            "중식조리 및 위생안전관리(출제기준 명칭 기준)",
+            "세부 과목 명칭은 공고 또는 출제기준 기준",
+          ],
+          practical: [
+            "실기 과제형(화력 활용 및 지정 요리 과제 패턴 포함)",
+            "시간 규격·향·양념 균형·위생 상태 평가",
+            "과거 제외 과제 포함 등 변경 이력이 있었으므로 최신 과제 선택표 활용 필요",
+          ],
+          passing:
+            "필기·실기는 공정 공고의 합격 기준이 우선이며 교재 패턴에서는 60점 패턴 검토 참고 가능.",
+          footnote:
+            "조리 계열 종목 간 유사 과목이 있으나 과목 명칭·출제 패턴에 차이가 있습니다. 중식 종목 전용 출제기준을 교차해야 합니다.",
+        },
+        cookjp: {
+          written: [
+            "일식 재료 및 메뉴개발(출제기준 명칭 기준)",
+            "일식조리 및 위생안전관리(출제기준 명칭 기준)",
+            "세부 명칭은 공고 또는 출제기준 기준",
+          ],
+          practical: [
+            "실기 과제형(생선 처리·조리 또는 밥·국 종류 과제 패턴 포함)",
+            "칼질·화력 안전 및 양식·제출 상태 평가",
+            "과거 제외 과제 존재—최신 공개 과제 목록 활용 필요",
+          ],
+          passing: "합격 라인 및 과락 내용은 회차별 공고가 우선이며 교재에서는 60점 패턴 검토 참고 가능.",
+          footnote: "일식 종목 과제 및 명칭은 개편 가능성이 있습니다. 과제 선택표를 교차 활용하세요.",
+        },
+      };
+
+      function appendExamSpecBlock(sectionEl, exam) {
+        const box = document.createElement("div");
+        box.className = "cert-exam-spec";
+
+        const mkPart = (title, lines) => {
+          const seg = document.createElement("div");
+          const h3 = document.createElement("h3");
+          h3.textContent = title;
+          seg.appendChild(h3);
+          const ul = document.createElement("ul");
+          for (const line of lines) {
+            if (!String(line).trim()) continue;
+            const li = document.createElement("li");
+            li.textContent = line;
+            ul.appendChild(li);
+          }
+          seg.appendChild(ul);
+          return seg;
+        };
+
+        box.appendChild(mkPart("필기시험 과목", exam.written));
+        box.appendChild(mkPart("실기시험 과목 · 과제", exam.practical));
+        const passing = document.createElement("div");
+        passing.className = "cert-exam-spec-passing";
+        passing.textContent = `합격 기준 안내 · ${exam.passing}`;
+        box.appendChild(passing);
+        if (exam.footnote) {
+          const ft = document.createElement("p");
+          ft.className = "cert-exam-spec-foot";
+          ft.textContent = exam.footnote;
+          box.appendChild(ft);
+        }
+
+        const anchor = sectionEl.querySelector("h2");
+        if (anchor?.nextSibling) sectionEl.insertBefore(box, anchor.nextSibling);
+        else sectionEl.appendChild(box);
+      }
 
       /** @type {Record<string, CertInfo>} */
       const CERT_GENERAL = {
@@ -512,6 +931,8 @@
         titleEl.textContent = "자격증을 찾을 수 없습니다";
         introEl.textContent = "URL의 slug 값을 확인해 주세요. 예: info.html?slug=forklift";
         officialEl.hidden = true;
+        const g = document.getElementById("cert-gallery");
+        if (g) g.hidden = true;
         const fallback = document.createElement("section");
         fallback.className = "pm-card";
         const p = document.createElement("p");
@@ -550,12 +971,36 @@
           officialEl.hidden = true;
         }
 
+        const galleryEl = document.getElementById("cert-gallery");
+        const examSpec = CERT_EXAM_SPEC[slug];
+        if (galleryEl) {
+          const imgs = CERT_GALLERY[slug];
+          if (imgs && imgs.length === 6) {
+            galleryEl.hidden = false;
+            galleryEl.innerHTML = "";
+            for (const item of imgs) {
+              const figure = document.createElement("figure");
+              const img = document.createElement("img");
+              img.loading = "lazy";
+              img.src = item.src;
+              img.alt = item.caption;
+              img.decoding = "async";
+              const cap = document.createElement("figcaption");
+              cap.textContent = item.caption;
+              figure.appendChild(img);
+              figure.appendChild(cap);
+              galleryEl.appendChild(figure);
+            }
+          } else galleryEl.hidden = true;
+        }
+
         for (const sec of data.sections) {
           const card = document.createElement("section");
           card.className = "pm-card";
           const h2 = document.createElement("h2");
           h2.textContent = sec.title;
           card.appendChild(h2);
+          if (examSpec && sec.title === "시험·응시 안내") appendExamSpecBlock(card, examSpec);
           for (const line of sec.paras) {
             const p = document.createElement("p");
             p.className = "pm-detail";

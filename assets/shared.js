@@ -55,19 +55,19 @@ const routeContent = {
     ],
   },
   "/forgot-password": {
-    headline: "비밀번호 재설정 요청",
+    headline: "비밀번호 찾기 안내",
     overview:
-      "계정 보호를 위해 본인확인 후 1회성 재설정 링크를 발급합니다.",
+      "로그인한 회원에게 소셜·이메일 계정 안내를 제공하고, 재설정 단계로 안전하게 연결합니다.",
     highlights: [
-      "등록된 이메일로만 재설정 링크가 전송됩니다.",
-      "최근 로그인 이력과 함께 보안 안내를 제공합니다.",
-      "요청 이력은 이상 접속 탐지에 활용됩니다.",
+      "로그인 상태에서만 안내 페이지를 표시합니다.",
+      "재설정은 현재 비밀번호 확인 후 새 비밀번호를 저장합니다.",
+      "소셜 로그인 전용 계정에는 비밀번호가 없을 수 있습니다.",
     ],
-    checklist: ["가입 이메일 입력", "보안 캡차 통과", "메일 수신 확인", "요청 이력 점검"],
+    checklist: ["로그인 상태 확인", "안내 확인", "재설정 페이지에서 저장", "필요 시 고객센터 문의"],
     stats: [
-      ["링크 유효 시간", "20분"],
-      ["동시 유효 링크", "1개"],
-      ["재요청 간격", "2분"],
+      ["접근 조건", "회원 로그인"],
+      ["API", "PATCH /auth/password"],
+      ["재설정 화면", "/reset-password"],
     ],
   },
   "/reset-password": {
@@ -75,9 +75,9 @@ const routeContent = {
     overview:
       "강력한 비밀번호 정책에 맞게 새 비밀번호를 설정하고 보안 알림을 전송합니다.",
     highlights: [
-      "기존 비밀번호와 동일한 값은 사용할 수 없습니다.",
-      "변경 완료 후 모든 기기에서 재로그인 절차가 적용됩니다.",
-      "비밀번호 변경 내역은 보안 로그에 저장됩니다.",
+      "현재 비밀번호 검증 후 서버에서 새 비밀번호를 저장합니다.",
+      "기존 값과 같은 새 비밀번호는 사용할 수 없습니다.",
+      "변경 후에도 브라우저 로그인 세션은 유지되는 것이 일반적입니다.",
     ],
     checklist: ["8자 이상 입력", "영문/숫자/특수문자 포함", "재입력 일치 확인", "저장 후 재로그인"],
     stats: [
@@ -979,12 +979,12 @@ const routeActions = {
     ["대시보드 보기", "./my-courses/index.html"],
   ],
   "/forgot-password": [
-    ["재설정 페이지", "./reset-password.html"],
-    ["로그인으로", "./login.html"],
+    ["비밀번호 재설정", "./reset-password.html"],
+    ["마이페이지", "./mypage/index.html"],
   ],
   "/reset-password": [
-    ["로그인으로", "./login.html"],
-    ["고객센터 문의", "./support/index.html"],
+    ["안내 페이지", "./forgot-password.html"],
+    ["마이페이지", "./mypage/index.html"],
   ],
   "/terms": [
     ["통합 법적 고지", "./legal.html#terms"],
@@ -1555,12 +1555,11 @@ function loadLiveApiData(route) {
       const list = Array.isArray(openings) ? openings : [];
       return {
         title: "실DB 모집(오프닝) 목록",
-        columns: ["모집ID", "과정명", "기간", "신청상태", "가격"],
+        columns: ["노출번호", "과정명", "기간", "가격"],
         rows: list.slice(0, 8).map((o) => [
-          String(o.id),
+          String(o.display_seq ?? o.id ?? "-"),
           o.course_title || "-",
           `${o.start_date || "-"} ~ ${o.end_date || "-"}`,
-          o.application_status || "-",
           `${Number(o.price || 0).toLocaleString("ko-KR")}원`,
         ]),
         note: list.length
@@ -2145,6 +2144,8 @@ function prettifyLinkLabel(href) {
     ["/enroll/index.html", "수강신청 하기"],
     ["/my-courses/index.html", "내 강의실로 이동"],
     ["/index.html", "메인으로 이동"],
+    ["/forgot-password.html", "비밀번호 찾기"],
+    ["/reset-password.html", "비밀번호 재설정"],
   ];
   for (const [suffix, label] of exactMap) {
     if (lower.endsWith(suffix)) return label;
@@ -2205,7 +2206,9 @@ function enforceProtectedRoute(session) {
   const requiresUser =
     pageRoute.startsWith("/mypage") ||
     pageRoute.startsWith("/my-courses") ||
-    pageRoute.startsWith("/study");
+    pageRoute.startsWith("/study") ||
+    pageRoute === "/forgot-password" ||
+    pageRoute === "/reset-password";
   const requiresAdmin = pageRoute.startsWith("/admin");
 
   if (!requiresUser && !requiresAdmin) return true;

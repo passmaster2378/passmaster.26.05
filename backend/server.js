@@ -493,6 +493,12 @@ async function initSchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);
+  await run(`ALTER TABLE public.course_openings ADD COLUMN IF NOT EXISTS display_seq INTEGER`);
+  await run(`
+    CREATE UNIQUE INDEX IF NOT EXISTS course_openings_display_seq_uidx
+    ON public.course_openings (display_seq)
+    WHERE display_seq IS NOT NULL
+  `);
 
   await run(`
     CREATE TABLE IF NOT EXISTS public.enrollments (
@@ -856,6 +862,52 @@ async function upsertCanonicalCoursesAndOpenings() {
   await run(`UPDATE public.courses SET status = 'closed' WHERE code = ANY (?::text[])`, [
     LEGACY_DEMO_TECH_COURSE_CODES,
   ]);
+
+  await syncActiveOpeningDisplaySequences();
+}
+
+/** 모집 중(open/closing)만 1…n 순번 재부여 · 비모집은 display_seq 비움. 삭제 후에도 목록 순번 연속 유지에 사용합니다. */
+async function syncActiveOpeningDisplaySequences() {
+  await run(
+    `UPDATE public.course_openings SET display_seq = NULL WHERE application_status NOT IN ('open', 'closing')`
+  );
+  await run(`
+    WITH ordered AS (
+      SELECT id, ROW_NUMBER() OVER (ORDER BY id ASC)::integer AS rn
+      FROM public.course_openings
+      WHERE application_status IN ('open', 'closing')
+    )
+    UPDATE public.course_openings o
+    SET display_seq = ordered.rn
+    FROM ordered
+    WHERE o.id = ordered.id
+  `);
+}
+
+/** 프론트 openingId(URL·폼)·구 PK 겸용: 먼저 display_seq 매칭, 없으면 내부 id로 활성 모집 조회 */
+async function getActiveCourseOpeningJoinedByClientOpeningKey(rawKey, includeCourseStatusInSelect) {
+  const n = Number(rawKey);
+  if (!Number.isInteger(n) || n <= 0) return null;
+  const sel = `
+     SELECT o.id, o.course_id, o.display_seq, o.start_date, o.end_date, o.application_status,
+            c.code AS course_code, c.title AS course_title, c.category, c.price${
+              includeCourseStatusInSelect ? `, c.status AS course_status` : ""
+            }
+     FROM public.course_openings o
+     JOIN public.courses c ON c.id = o.course_id`;
+  let row = await get(
+    `${sel}
+     WHERE o.application_status IN ('open', 'closing') AND o.display_seq = ?`,
+    [n]
+  );
+  if (!row)
+    row = await get(`${sel} WHERE o.application_status IN ('open', 'closing') AND o.id = ?`, [n]);
+  return row;
+}
+
+async function resolveActiveOpeningDatabaseIdFromClientId(rawKey) {
+  const row = await getActiveCourseOpeningJoinedByClientOpeningKey(rawKey, false);
+  return row ? row.id : null;
 }
 
 async function seedData() {
@@ -874,6 +926,7 @@ async function seedData() {
   }
 
   await upsertCanonicalCoursesAndOpenings();
+  await syncActiveOpeningDisplaySequences();
   await run(`UPDATE public.courses SET price = 9900`);
 
   await run(
@@ -1915,30 +1968,21 @@ app.post(
 );
 
 app.get("/api/course-openings", async (req, res) => {
+  await syncActiveOpeningDisplaySequences();
   const rows = await all(
-    `SELECT o.id, o.course_id, o.start_date, o.end_date, o.application_status,
+    `SELECT o.id, o.display_seq, o.course_id, o.start_date, o.end_date, o.application_status,
             c.code AS course_code, c.title AS course_title, c.category, c.price
      FROM public.course_openings o
      JOIN public.courses c ON c.id = o.course_id
      WHERE o.application_status IN ('open', 'closing')
-     ORDER BY o.id ASC`
+     ORDER BY o.display_seq ASC NULLS LAST, o.id ASC`
   );
   res.json(rows);
 });
 
 app.get("/api/course-openings/:id", async (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id <= 0) {
-    return sendError(res, 400, "유효한 모집 ID가 필요합니다.");
-  }
-  const row = await get(
-    `SELECT o.id, o.course_id, o.start_date, o.end_date, o.application_status,
-            c.code AS course_code, c.title AS course_title, c.category, c.price, c.status AS course_status
-     FROM public.course_openings o
-     JOIN public.courses c ON c.id = o.course_id
-     WHERE o.id = ?`,
-    [id]
-  );
+  await syncActiveOpeningDisplaySequences();
+  const row = await getActiveCourseOpeningJoinedByClientOpeningKey(req.params.id, true);
   if (!row) return sendError(res, 404, "모집 정보를 찾을 수 없습니다.");
   return res.json(row);
 });
@@ -1979,8 +2023,9 @@ function sanitizeEnrollmentApplicationMeta(raw) {
 }
 
 app.post("/api/enrollments", requireAuth, async (req, res) => {
-  const openingId = Number(req.body.openingId);
-  if (!Number.isInteger(openingId) || openingId <= 0) {
+  const resolvedJoin = await getActiveCourseOpeningJoinedByClientOpeningKey(req.body.openingId, false);
+  const openingId = resolvedJoin ? resolvedJoin.id : 0;
+  if (!openingId || !resolvedJoin.course_id) {
     return sendError(res, 400, "openingId가 필요합니다.");
   }
   const applicationMeta = sanitizeEnrollmentApplicationMeta(req.body.applicationMeta);
@@ -1990,11 +2035,6 @@ app.post("/api/enrollments", requireAuth, async (req, res) => {
   }
   if (!applicationMeta.agreements?.refund || !applicationMeta.agreements?.privacy) {
     return sendError(res, 400, "필수 동의 항목에 모두 동의해 주세요.");
-  }
-  const opening = await get("SELECT * FROM public.course_openings WHERE id = ?", [openingId]);
-  if (!opening) return sendError(res, 404, "모집 정보를 찾을 수 없습니다.");
-  if (!["open", "closing"].includes(opening.application_status)) {
-    return sendError(res, 400, "현재 신청할 수 없는 모집입니다.");
   }
   const dup = await get(
     "SELECT id FROM public.enrollments WHERE user_id = ? AND opening_id = ?",
@@ -2008,10 +2048,10 @@ app.post("/api/enrollments", requireAuth, async (req, res) => {
       (user_id, course_id, opening_id, payment_status, approval_status, application_status, learning_status, progress_percent, application_meta)
      VALUES (?, ?, ?, 'pending', 'pending', 'submitted', 'not_started', 0, ?::jsonb)
      RETURNING id`,
-    [req.auth.sub, opening.course_id, openingId, JSON.stringify(applicationMeta)]
+    [req.auth.sub, resolvedJoin.course_id, openingId, JSON.stringify(applicationMeta)]
   );
   const enrollmentId = result.rows[0].id;
-  const course = await get("SELECT price FROM public.courses WHERE id = ?", [opening.course_id]);
+  const course = await get("SELECT price FROM public.courses WHERE id = ?", [resolvedJoin.course_id]);
   await run(
     `INSERT INTO public.payments (enrollment_id, amount, method, status) VALUES (?, ?, 'bank_transfer', 'pending')`,
     [enrollmentId, course.price]

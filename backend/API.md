@@ -105,11 +105,13 @@ Response: `courses[]`
 
 ### GET `/course-openings`
 
-Response: `openings[]`
+- 응시 전 활성(open/closing) 모집에 대해 **`display_seq`를 매 시행 목록 호출 때마다 1…n으로 재번호** 매깁니다(비활성 모집은 `display_seq`를 비웁니다).
+- 각 항목에는 DB PK `id`와 공개 순번 **`display_seq`** 가 함께 내려옵니다.
+- 목록 순서는 `display_seq` 기준입니다.
 
 ### GET `/course-openings/:id`
 
-Response: `opening`
+- `:id`는 **`display_seq`(권장, 화면의 모집ID)** 또는, 하위 호환용으로 활성 모집의 **내부 `id`** 입니다.
 
 ## Enrollments
 
@@ -120,6 +122,8 @@ Request:
 ```json
 { "openingId": 1 }
 ```
+
+`openingId`는 목록/API의 **`display_seq`** 또는 활성 구간 한정 **내부 `id`** 로 해석됩니다.
 
 Response: (201) `enrollment`  
 중복 신청 시 (409) + `{ enrollmentId }`가 함께 내려옵니다.
