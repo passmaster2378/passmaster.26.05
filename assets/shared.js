@@ -55,25 +55,25 @@ const routeContent = {
     ],
   },
   "/forgot-password": {
-    headline: "비밀번호 찾기 안내",
+    headline: "비밀번호·계정 안내",
     overview:
-      "로그인한 회원에게 소셜·이메일 계정 안내를 제공하고, 재설정 단계로 안전하게 연결합니다.",
+      "로그인한 회원에게 소셜·이메일 계정 안내를 제공하고, 비밀번호 변경 화면과 동일한 절차로 안전하게 연결합니다.",
     highlights: [
       "로그인 상태에서만 안내 페이지를 표시합니다.",
-      "재설정은 현재 비밀번호 확인 후 새 비밀번호를 저장합니다.",
+      "비밀번호 변경은 현재 비밀번호 확인 후 새 비밀번호를 저장합니다.",
       "소셜 로그인 전용 계정에는 비밀번호가 없을 수 있습니다.",
     ],
-    checklist: ["로그인 상태 확인", "안내 확인", "재설정 페이지에서 저장", "필요 시 고객센터 문의"],
+    checklist: ["로그인 상태 확인", "안내 확인", "비밀번호 변경에서 저장", "필요 시 고객센터 문의"],
     stats: [
       ["접근 조건", "회원 로그인"],
       ["API", "PATCH /auth/password"],
-      ["재설정 화면", "/reset-password"],
+      ["변경 화면", "/mypage/password"],
     ],
   },
   "/reset-password": {
-    headline: "새 비밀번호 설정",
+    headline: "비밀번호 변경 (구 주소)",
     overview:
-      "강력한 비밀번호 정책에 맞게 새 비밀번호를 설정하고 보안 알림을 전송합니다.",
+      "/reset-password 주소는 마이페이지의 비밀번호 변경과 같은 화면으로 연결됩니다. 과거 문서·북마크 호환용입니다.",
     highlights: [
       "현재 비밀번호 검증 후 서버에서 새 비밀번호를 저장합니다.",
       "기존 값과 같은 새 비밀번호는 사용할 수 없습니다.",
@@ -979,12 +979,12 @@ const routeActions = {
     ["대시보드 보기", "./my-courses/index.html"],
   ],
   "/forgot-password": [
-    ["비밀번호 재설정", "./reset-password.html"],
+    ["비밀번호 변경", "./mypage/password/index.html"],
     ["마이페이지", "./mypage/index.html"],
   ],
   "/reset-password": [
-    ["안내 페이지", "./forgot-password.html"],
-    ["마이페이지", "./mypage/index.html"],
+    ["비밀번호 변경", "./mypage/password/index.html"],
+    ["안내", "./forgot-password.html"],
   ],
   "/terms": [
     ["통합 법적 고지", "./legal.html#terms"],
@@ -2139,8 +2139,9 @@ function prettifyLinkLabel(href) {
     ["/enroll/index.html", "수강신청 하기"],
     ["/my-courses/index.html", "내 강의실로 이동"],
     ["/index.html", "메인으로 이동"],
-    ["/forgot-password.html", "비밀번호 찾기"],
-    ["/reset-password.html", "비밀번호 재설정"],
+    ["/forgot-password.html", "비밀번호 안내 보기"],
+    ["/reset-password.html", "비밀번호 변경으로 이동"],
+    ["/mypage/password/index.html", "비밀번호 변경하기"],
   ];
   for (const [suffix, label] of exactMap) {
     if (lower.endsWith(suffix)) return label;
@@ -2202,8 +2203,7 @@ function enforceProtectedRoute(session) {
     pageRoute.startsWith("/mypage") ||
     pageRoute.startsWith("/my-courses") ||
     pageRoute.startsWith("/study") ||
-    pageRoute === "/forgot-password" ||
-    pageRoute === "/reset-password";
+    pageRoute === "/forgot-password";
   const requiresAdmin = pageRoute.startsWith("/admin");
 
   if (!requiresUser && !requiresAdmin) return true;
