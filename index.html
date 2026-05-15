@@ -433,6 +433,91 @@
         color: #4d6185;
       }
 
+      .purpose-showcase {
+        margin-bottom: 18px;
+        border-radius: 20px;
+        padding: 1px;
+        background: linear-gradient(135deg, rgba(35, 107, 255, 0.45), rgba(1, 179, 255, 0.35));
+        box-shadow: 0 18px 48px rgba(24, 60, 140, 0.18);
+      }
+
+      .purpose-showcase-inner {
+        border-radius: 19px;
+        background: linear-gradient(165deg, #ffffff 0%, #f3f8ff 42%, #e8f2ff 100%);
+        padding: 22px 22px 20px;
+        border: 1px solid rgba(207, 223, 255, 0.95);
+      }
+
+      .purpose-eyebrow {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #1a4bbd;
+        background: linear-gradient(135deg, #e8f1ff, #dbe8ff);
+        padding: 6px 12px;
+        border-radius: 999px;
+        margin-bottom: 10px;
+      }
+
+      .purpose-showcase h3 {
+        margin: 0 0 6px;
+        font-size: 24px;
+        letter-spacing: -0.03em;
+        color: #0f2b63;
+      }
+
+      .purpose-lead {
+        margin: 0 0 16px;
+        font-size: 15px;
+        color: #3d5280;
+        font-weight: 600;
+        line-height: 1.5;
+      }
+
+      .purpose-pillars {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .purpose-pillars li {
+        display: flex;
+        align-items: flex-start;
+        gap: 11px;
+        padding: 12px 13px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid #d5e4ff;
+        box-shadow: 0 8px 20px rgba(28, 72, 160, 0.07);
+        font-size: 14px;
+        font-weight: 700;
+        color: #1e3158;
+        line-height: 1.45;
+      }
+
+      .purpose-idx {
+        flex-shrink: 0;
+        width: 28px;
+        height: 28px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        font-size: 13px;
+        font-weight: 800;
+        color: #fff;
+        background: linear-gradient(145deg, #236bff, #4f8dff);
+        box-shadow: 0 4px 12px rgba(35, 107, 255, 0.35);
+      }
+
+      .vision-grid--dual {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
       .course-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -858,6 +943,14 @@
           grid-template-columns: 1fr;
         }
 
+        .vision-grid--dual {
+          grid-template-columns: 1fr;
+        }
+
+        .purpose-pillars {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
         .review-grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
@@ -913,6 +1006,10 @@
         .course-btn {
           width: 100%;
         }
+
+        .purpose-pillars {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
@@ -928,6 +1025,7 @@
           </a>
           <nav class="nav" aria-label="주요 메뉴">
             <a href="./enroll/index.html">수강신청</a>
+            <a href="#purpose">목적</a>
             <a href="#cert-courses">자격증</a>
             <a href="./login.html" data-landing-nav-guest-only>학습 시작</a>
             <a href="./my-courses/index.html" data-landing-nav-member-only hidden>내 강의</a>
@@ -995,20 +1093,45 @@
           <div class="section-head">
             <h2>PASSmaster의 목적과 목표 비전</h2>
           </div>
-          <div class="vision-grid">
-            <article class="vision-card">
-              <div class="vision-media">
-                <img
-                  src="https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=1200&q=80"
-                  alt="학습 전략 설계 이미지"
-                />
-              </div>
+
+          <div class="purpose-showcase" id="purpose">
+            <div class="purpose-showcase-inner">
+              <span class="purpose-eyebrow">국가자격 필기 학습 설계</span>
               <h3>목적</h3>
-              <p>
-                자격증 필기 준비 과정에서 학습자가 겪는 정보 과부하와 비효율을 줄이고,
-                가장 빠르게 합격에 도달할 수 있는 학습 환경을 제공합니다.
+              <p class="purpose-lead">
+                실제 시험 환경에 가깝게 문제를 풀고, 반복·오답·단계·모의·최종 점검까지 이어지는
+                학습 통제로 합격에 필요한 기억과 실전 감각을 동시에 키웁니다.
               </p>
-            </article>
+              <ul class="purpose-pillars" aria-label="PASSmaster 학습 설계 목적">
+                <li>
+                  <span class="purpose-idx" aria-hidden="true">1</span>
+                  <span>실제 시험과 유사한 문제풀이 경험</span>
+                </li>
+                <li>
+                  <span class="purpose-idx" aria-hidden="true">2</span>
+                  <span>반복 학습을 통한 정답 기억 강화</span>
+                </li>
+                <li>
+                  <span class="purpose-idx" aria-hidden="true">3</span>
+                  <span>오답 중심 복습</span>
+                </li>
+                <li>
+                  <span class="purpose-idx" aria-hidden="true">4</span>
+                  <span>단계별 학습 통제</span>
+                </li>
+                <li>
+                  <span class="purpose-idx" aria-hidden="true">5</span>
+                  <span>모의고사를 통한 실전 감각 훈련</span>
+                </li>
+                <li>
+                  <span class="purpose-idx" aria-hidden="true">6</span>
+                  <span>최종 시험 전 약점 정리</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="vision-grid vision-grid--dual">
             <article class="vision-card">
               <div class="vision-media">
                 <img
