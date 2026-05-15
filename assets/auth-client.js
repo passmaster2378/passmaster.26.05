@@ -91,7 +91,7 @@
   /** 로그인 세션(토큰) 보유 여부 — 클라이언트 만료 시각으로 세션을 지우지 않습니다. */
   function hasSupportMemberSession() {
     const session = getStoredSession();
-    return Boolean(session && session.token && session.user);
+    return Boolean(session && session.user);
   }
 
   /** `[data-support-guest-only]` / `[data-support-member-only]` 표시 동기화 */
@@ -103,6 +103,7 @@
     document.querySelectorAll("[data-support-guest-only]").forEach((el) => {
       el.hidden = member;
     });
+    refreshPassmasterSiteNavigation();
   }
 
   async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
