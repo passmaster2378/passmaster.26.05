@@ -45,13 +45,6 @@
         color: #b43a3a;
         border: 1px solid #f4d0d0;
       }
-      .oauth-api-hint {
-        margin: 10px 0 0;
-        font-size: 13px;
-        line-height: 1.45;
-        color: #5f6f92;
-        font-weight: 600;
-      }
     </style>
   </head>
   <body>
@@ -75,7 +68,7 @@
         <section class="pm-card">
           <h2>소셜로 가입</h2>
           <p class="pm-detail">
-            카카오 또는 구글로 가입하면 동일한 방식으로 로그인할 수 있습니다. (Render 등 API에 OAuth 키가 설정되어 있어야 합니다.)
+            카카오 또는 구글로 가입하면 동일한 방식으로 로그인할 수 있습니다.
           </p>
           <div class="pm-cta-row">
             <button
@@ -90,7 +83,6 @@
               구글로 가입
             </button>
           </div>
-          <p class="oauth-api-hint" data-oauth-server-hint hidden></p>
         </section>
 
         <section class="pm-card">
@@ -150,9 +142,7 @@
               </div>
             </div>
             <button class="pm-btn pm-btn-primary" type="submit" data-auth-submit>회원가입 완료</button>
-            <p class="auth-message info" data-auth-message>
-              가입 즉시 DB에 사용자 계정이 생성됩니다.
-            </p>
+            <p class="auth-message info" data-auth-message hidden></p>
           </form>
         </section>
 

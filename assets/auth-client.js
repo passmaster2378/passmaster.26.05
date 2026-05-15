@@ -199,6 +199,8 @@
       /* 콜드스타트·CORS 등으로 실패해도 버튼은 눌러 볼 수 있게 둠 */
     }
 
+    const isRegisterPage = /(^|\/)register\.html$/i.test(window.location.pathname);
+
     document.querySelectorAll("[data-oauth-provider]").forEach((btn) => {
       const provider = btn.getAttribute("data-oauth-provider");
       const ok =
@@ -206,8 +208,9 @@
       if (!ok) {
         btn.disabled = true;
         btn.setAttribute("aria-disabled", "true");
-        btn.title =
-          provider === "google"
+        btn.title = isRegisterPage
+          ? "현재 소셜 계정 가입은 사용할 수 없습니다. 이메일 회원가입을 이용해 주세요."
+          : provider === "google"
             ? "Render에 GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET을 설정한 뒤 사용할 수 있습니다."
             : "Render에 KAKAO_REST_API_KEY(및 필요 시 KAKAO_CLIENT_SECRET)를 설정한 뒤 사용할 수 있습니다.";
         btn.style.opacity = "0.5";
@@ -285,6 +288,7 @@
     if (!target) return;
     target.textContent = message;
     target.className = `auth-message ${type}`;
+    target.removeAttribute("hidden");
   }
 
   function toPaymentStatusLabel(status) {
