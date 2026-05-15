@@ -192,13 +192,6 @@
         color: #b43a3a;
         border: 1px solid #f4d0d0;
       }
-      .oauth-api-hint {
-        margin: 8px 0 0;
-        font-size: 12px;
-        line-height: 1.45;
-        color: #6a7c9e;
-        font-weight: 600;
-      }
       @media (max-width: 820px) {
         .auth-wrap {
           grid-template-columns: 1fr;
@@ -233,7 +226,6 @@
             </button>
             <button class="btn btn-google" type="button" data-oauth-provider="google">구글로 로그인</button>
           </div>
-          <p class="oauth-api-hint" data-oauth-server-hint hidden></p>
           <div class="divider">또는 이메일 로그인</div>
           <div class="field">
             <label for="email">이메일</label>
@@ -257,10 +249,7 @@
           <div class="actions">
             <button class="btn btn-primary" type="submit" data-auth-submit>이메일로 로그인</button>
           </div>
-          <p class="auth-message info" data-auth-message>
-            이메일 로그인은 항상 가능합니다. 소셜은 Render 환경 변수에 구글·카카오 키를 넣으면 활성화됩니다.
-            관리자 권한은 운영 정책상 지정된 단일 관리자 계정으로만 부여됩니다.
-          </p>
+          <p class="auth-message info" data-auth-message hidden></p>
         </form>
         <a class="sub-link" href="./register.html">계정이 없나요? 회원가입</a>
         <a class="sub-link" href="./forgot-password.html">비밀번호를 잊으셨나요?</a>

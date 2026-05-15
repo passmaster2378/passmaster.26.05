@@ -225,12 +225,6 @@
         window.location.href = `${OAUTH_API_BASE}/auth/oauth/${provider}/start?returnTo=${returnTo}`;
       });
     });
-
-    document.querySelectorAll("[data-oauth-server-hint]").forEach((el) => {
-      const host = OAUTH_API_BASE.replace(/\/api\/?$/, "");
-      el.textContent = `소셜 인증은 백엔드(${host})에서 처리됩니다. 구글·카카오 콘솔의 redirect URI도 이 서버 주소로 맞춰 주세요.`;
-      el.removeAttribute("hidden");
-    });
   }
 
   function consumeOAuthHashReturn() {
