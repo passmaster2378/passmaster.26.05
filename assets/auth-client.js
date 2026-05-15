@@ -63,7 +63,6 @@
     skin: "피부미용사",
     nail: "네일미용사",
     elevator: "승강기능사",
-    construction: "건설기능사",
     cookkr: "한식조리기능사",
     cookwest: "양식조리기능사",
     cookcn: "중식조리기능사",
@@ -166,6 +165,9 @@
   }
 
   function getLoginHref() {
+    const nav = document.querySelector(".pm-header nav.pm-nav") || document.querySelector("nav.pm-nav");
+    const fromNav = nav && nav.dataset && nav.dataset.pmOrigLoginHref;
+    if (fromNav) return fromNav;
     const navLogin = document.querySelector(".pm-nav a[href*='login.html']");
     return navLogin ? navLogin.getAttribute("href") : "./login.html";
   }
@@ -821,7 +823,7 @@
   function formatEnrollPublicCourseTitle(raw) {
     const t = String(raw || "").trim();
     if (!t) return "-";
-    if (/국가자격증\s*필기반/.test(t)) return t;
+    if (/국가자격증/.test(t)) return t;
     return `${t} 국가자격증 필기반`;
   }
 

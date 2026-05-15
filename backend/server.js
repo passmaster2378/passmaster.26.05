@@ -788,28 +788,30 @@ async function getActiveQuestionSetSummary(courseId) {
  * 서버 부팅 시 upsert 후 신청 가능 opening이 없으면 상시 모집 opening을 추가한다.
  */
 const CANONICAL_PASSMASTER_COURSES = [
-  { code: "forklift", title: "지게차기능사 필기·실기 문제풀이", category: "기능사·장비" },
-  { code: "excavator", title: "굴착기기능사 필기·실기 문제풀이", category: "기능사·장비" },
-  { code: "electric", title: "전기기능사 필기·실기 문제풀이", category: "전기" },
-  { code: "welding", title: "용접기능사 필기·실기 문제풀이", category: "용접" },
-  { code: "hazmat", title: "위험물산업기사 필기·실기 문제풀이", category: "위험물" },
-  { code: "carrepair", title: "자동차정비기능사 필기·실기 문제풀이", category: "정비" },
-  { code: "beautician", title: "일반미용사 필기·실기 문제풀이", category: "미용" },
-  { code: "makeup", title: "메이크업 미용사 필기·실기 문제풀이", category: "미용" },
-  { code: "skin", title: "피부미용사 필기·실기 문제풀이", category: "미용" },
-  { code: "nail", title: "네일미용사 필기·실기 문제풀이", category: "미용" },
-  { code: "elevator", title: "승강기능사 필기·실기 문제풀이", category: "설비" },
-  { code: "construction", title: "건설기능사 필기·실기 문제풀이", category: "건설" },
-  { code: "cookkr", title: "한식조리기능사 필기·실기 문제풀이", category: "외식업" },
-  { code: "cookwest", title: "양식조리기능사 필기·실기 문제풀이", category: "외식업" },
-  { code: "cookcn", title: "중식조리기능사 필기·실기 문제풀이", category: "외식업" },
-  { code: "cookjp", title: "일식조리기능사 필기·실기 문제풀이", category: "외식업" },
+  { code: "forklift", title: "지게차기능사 국가자격증 필기 문제 풀이", category: "기능사·장비" },
+  { code: "excavator", title: "굴착기기능사 국가자격증 필기 문제 풀이", category: "기능사·장비" },
+  { code: "electric", title: "전기기능사 국가자격증 필기 문제 풀이", category: "전기" },
+  { code: "welding", title: "용접기능사 국가자격증 필기 문제 풀이", category: "용접" },
+  { code: "hazmat", title: "위험물산업기사 국가자격증 필기 문제 풀이", category: "위험물" },
+  { code: "carrepair", title: "자동차정비기능사 국가자격증 필기 문제 풀이", category: "정비" },
+  { code: "beautician", title: "일반미용사 국가자격증 필기 문제 풀이", category: "미용" },
+  { code: "makeup", title: "메이크업 미용사 국가자격증 필기 문제 풀이", category: "미용" },
+  { code: "skin", title: "피부미용사 국가자격증 필기 문제 풀이", category: "미용" },
+  { code: "nail", title: "네일미용사 국가자격증 필기 문제 풀이", category: "미용" },
+  { code: "elevator", title: "승강기능사 국가자격증 필기 문제 풀이", category: "설비" },
+  { code: "cookkr", title: "한식조리기능사 국가자격증 필기 문제 풀이", category: "외식업" },
+  { code: "cookwest", title: "양식조리기능사 국가자격증 필기 문제 풀이", category: "외식업" },
+  { code: "cookcn", title: "중식조리기능사 국가자격증 필기 문제 풀이", category: "외식업" },
+  { code: "cookjp", title: "일식조리기능사 국가자격증 필기 문제 풀이", category: "외식업" },
 ];
 
 const LEGACY_DEMO_TECH_COURSE_CODES = ["IS", "EE", "IT"];
 
 async function upsertCanonicalCoursesAndOpenings() {
   const defaultPrice = 9900;
+  /** 제거된 canonical 과정: 목록에서 빠진 코드는 계속 오픈 상태로 남지 않도록 닫는다 */
+  const REMOVED_CANONICAL_CODES = ["construction"];
+
   for (const row of CANONICAL_PASSMASTER_COURSES) {
     await run(
       `INSERT INTO public.courses (code, title, category, price, status)
@@ -833,6 +835,14 @@ async function upsertCanonicalCoursesAndOpenings() {
         [course.id]
       );
     }
+  }
+
+  for (const code of REMOVED_CANONICAL_CODES) {
+    await run(
+      `UPDATE public.course_openings o SET application_status = 'closed' FROM public.courses c WHERE o.course_id = c.id AND c.code = ?`,
+      [code]
+    );
+    await run(`UPDATE public.courses SET status = 'closed' WHERE code = ?`, [code]);
   }
 
   await run(
@@ -983,8 +993,8 @@ async function seedData() {
   if (reviewCount.count === 0) {
     await run(
       `INSERT INTO public.reviews (course_code, author_name, score, content, status) VALUES
-      ('IS', '김OO', 5, '복습 루틴이 체계적이라 합격에 큰 도움이 됐습니다.', 'approved'),
-      ('EE', '박OO', 4, '오답 반복 기능이 좋았고 계산 문제 정리가 유익했습니다.', 'approved')`
+      ('forklift', '김OO', 5, '필기 객관식 유형별로 복습하기 좋았고 합격에 도움이 됐습니다.', 'approved'),
+      ('electric', '박OO', 4, '오답만 모아서 풀기가 편했고 필기 계산 문제 정리가 유익했습니다.', 'approved')`
     );
   }
 

@@ -1149,9 +1149,9 @@ const defaultDomainRecordSets = {
     title: "수강신청 처리 내역",
     columns: ["신청번호", "과정", "결제상태", "승인상태"],
     rows: [
-      ["ENR-2041", "산업안전기사", "결제완료", "승인완료"],
-      ["ENR-2042", "전기기사", "결제완료", "승인대기"],
-      ["ENR-2043", "정보처리기사", "입금확인중", "검수중"],
+      ["ENR-2041", "지게차기능사", "결제완료", "승인완료"],
+      ["ENR-2042", "전기기능사", "결제완료", "승인대기"],
+      ["ENR-2043", "메이크업 미용사", "입금확인중", "검수중"],
     ],
     note: "승인 대기 건은 영업일 기준 24시간 내 처리합니다.",
   },
@@ -1159,9 +1159,9 @@ const defaultDomainRecordSets = {
     title: "학습 운영 로그",
     columns: ["회원", "과정", "진도율", "최근학습"],
     rows: [
-      ["김OO", "전기기사", "72%", "오늘 10:20"],
-      ["박OO", "산업안전기사", "64%", "오늘 08:55"],
-      ["이OO", "정보처리기사", "81%", "어제 22:14"],
+      ["김OO", "전기기능사", "72%", "오늘 10:20"],
+      ["박OO", "용접기능사", "64%", "오늘 08:55"],
+      ["이OO", "한식조리기능사", "81%", "어제 22:14"],
     ],
     note: "7일 미접속 수강생은 자동 리마인드 대상에 포함됩니다.",
   },
@@ -1264,9 +1264,9 @@ function buildGeneratedRouteRecordSet(route, domain, content, currentData) {
       title: "수강승인 검토 큐",
       columns: ["신청번호", "과정", "제출상태", "처리상태"],
       rows: [
-        ["ENR-3101", "산업안전기사", "완료", "승인대기"],
-        ["ENR-3102", "전기기사", "보완요청", "검토중"],
-        ["ENR-3103", "정보처리기사", "완료", "승인완료"],
+        ["ENR-3101", "승강기기능사", "완료", "승인대기"],
+        ["ENR-3102", "네일미용사", "보완요청", "검토중"],
+        ["ENR-3103", "자동차정비기능사", "완료", "승인완료"],
       ],
       note: "승인 대기 건은 영업일 24시간 내 처리를 목표로 운영합니다.",
     };
@@ -1329,9 +1329,9 @@ function buildGeneratedRouteRecordSet(route, domain, content, currentData) {
       title: "개인 결제 이력",
       columns: ["결제일", "과정", "결제금액", "상태"],
       rows: [
-        ["2026-04-20", "전기기사 필기", "189,000원", "결제완료"],
-        ["2026-03-05", "산업안전기사 필기", "219,000원", "결제완료"],
-        ["2026-02-12", "정보처리기사 필기", "149,000원", "환불완료"],
+        ["2026-04-20", "전기기능사 필기", "189,000원", "결제완료"],
+        ["2026-03-05", "지게차기능사 필기", "219,000원", "결제완료"],
+        ["2026-02-12", "메이크업 미용사 필기", "149,000원", "환불완료"],
       ],
       note: "전자영수증은 결제내역 상세에서 다운로드할 수 있습니다.",
     };
@@ -1342,9 +1342,9 @@ function buildGeneratedRouteRecordSet(route, domain, content, currentData) {
       title: "내 신청 상태",
       columns: ["신청번호", "과정", "승인상태", "학습시작일"],
       rows: [
-        ["ENR-2991", "전기기사 필기", "승인완료", "2026-05-10"],
-        ["ENR-2992", "산업안전기사 필기", "승인대기", "승인 후 확정"],
-        ["ENR-2993", "정보처리기사 필기", "수강완료", "2026-03-02"],
+        ["ENR-2991", "전기기능사 필기", "승인완료", "2026-05-10"],
+        ["ENR-2992", "굴착기기능사 필기", "승인대기", "승인 후 확정"],
+        ["ENR-2993", "일반미용사 필기", "수강완료", "2026-03-02"],
       ],
       note: "승인 대기 건은 처리 즉시 문자/메일로 안내됩니다.",
     };
@@ -1903,6 +1903,8 @@ function getLoginHref() {
     document.querySelector(".pm-header nav.pm-nav") ||
     document.querySelector(".pm-header .pm-nav") ||
     document.querySelector("nav.pm-nav");
+  const fromNav = nav && nav.dataset && nav.dataset.pmOrigLoginHref;
+  if (fromNav) return fromNav;
   const loginLink = nav && nav.querySelector("a[href*='login.html']");
   return loginLink ? loginLink.getAttribute("href") : "./login.html";
 }
@@ -1944,6 +1946,20 @@ function isStrictAdminSession(session) {
   return user.role === "admin" && normalizeEmail(user.email) === getCanonicalAdminEmail();
 }
 
+function linkLooksLikePrivilegedAdmin(link, loginAnchor, registerAnchor) {
+  if (!link || link === loginAnchor || link === registerAnchor) return false;
+  const href = String(link.getAttribute("href") || "")
+    .replace(/\\/g, "/")
+    .toLowerCase();
+  const text = String(link.textContent || "").trim();
+  if (text === "관리자") return true;
+  return (
+    href.includes("/admin/") ||
+    href.endsWith("/admin") ||
+    href.includes("admin/index.html")
+  );
+}
+
 function updateNavigationByAuth(session) {
   const nav =
     document.querySelector(".pm-header nav.pm-nav") ||
@@ -1951,23 +1967,32 @@ function updateNavigationByAuth(session) {
     document.querySelector("nav.pm-nav");
   if (!nav) return;
 
+  const nonLogoutAnchors = Array.from(nav.querySelectorAll(":scope > a")).filter(
+    (a) => !a.hasAttribute("data-pm-logout")
+  );
+  let loginLink = nonLogoutAnchors.find((a) => /login\.html/i.test(a.getAttribute("href") || ""));
+  let registerLink = nonLogoutAnchors.find((a) =>
+    /register\.html/i.test(a.getAttribute("href") || "")
+  );
+  if (!loginLink || !registerLink) {
+    loginLink = nonLogoutAnchors[0];
+    registerLink = nonLogoutAnchors[1];
+  }
+  if (!loginLink || !registerLink) return;
+
+  const h0 = loginLink.getAttribute("href") || "";
+  const h1 = registerLink.getAttribute("href") || "";
+  if (/login\.html/i.test(h0)) nav.dataset.pmOrigLoginHref = h0;
+  if (/register\.html/i.test(h1)) nav.dataset.pmOrigRegisterHref = h1;
+
+  const restNavLinks = nonLogoutAnchors.filter((a) => a !== loginLink && a !== registerLink);
+
   const logoLink =
     document.querySelector(".pm-header .pm-logo") || document.querySelector(".pm-logo");
-  const registerLinkCandidate = nav.querySelector("a[href*='register.html']");
-  const navLinks = Array.from(nav.querySelectorAll("a"));
-  const adminLinks = navLinks.filter((link) => {
-    if (registerLinkCandidate && link === registerLinkCandidate) return false;
-    const href = String(link.getAttribute("href") || "")
-      .replace(/\\/g, "/")
-      .toLowerCase();
-    const text = String(link.textContent || "").trim();
-    return (
-      text === "관리자" ||
-      href.includes("/admin/") ||
-      href.endsWith("/admin") ||
-      href.includes("admin/index.html")
-    );
-  });
+  const navLinks = nonLogoutAnchors;
+  const adminLinks = navLinks.filter((link) =>
+    linkLooksLikePrivilegedAdmin(link, loginLink, registerLink)
+  );
 
   const showStandaloneAdminLinks = isStrictAdminSession(session);
   adminLinks.forEach((link) => {
@@ -1980,30 +2005,66 @@ function updateNavigationByAuth(session) {
     }
   });
 
-  const loginLink = nav.querySelector("a[href*='login.html']");
-  const registerLink = registerLinkCandidate;
-  if (!loginLink || !registerLink) return;
+  const pagesLink = nav.querySelector("a[href*='pages.html']");
+  const enrollLink = nav.querySelector("a[href*='enroll/index.html']");
+  const myCoursesLink = nav.querySelector("a[href*='my-courses/index.html']");
+
+  function removeStudentLogoutLink() {
+    const lo = nav.querySelector("a[data-pm-logout]");
+    if (lo) lo.remove();
+  }
+
+  function bindStudentLogoutLink() {
+    let lo = nav.querySelector("a[data-pm-logout]");
+    if (!lo) {
+      lo = document.createElement("a");
+      lo.setAttribute("href", "#");
+      lo.setAttribute("data-pm-logout", "1");
+      lo.textContent = "로그아웃";
+      nav.appendChild(lo);
+    }
+    lo.hidden = false;
+    lo.style.display = "";
+    if (lo.dataset.logoutBound !== "1") {
+      lo.addEventListener("click", (event) => {
+        event.preventDefault();
+        localStorage.removeItem("passmaster_auth");
+        try {
+          sessionStorage.removeItem("passmaster_return_to");
+        } catch (_error) {
+          // ignore
+        }
+        const fallback = nav.dataset.pmOrigLoginHref || "login.html";
+        window.location.href = fallback;
+      });
+      lo.dataset.logoutBound = "1";
+    }
+  }
 
   loginLink.hidden = false;
   registerLink.hidden = false;
   loginLink.style.display = "";
   registerLink.style.display = "";
 
-  const pagesLink = nav.querySelector("a[href*='pages.html']");
-  const enrollLink = nav.querySelector("a[href*='enroll/index.html']");
-  const myCoursesLink = nav.querySelector("a[href*='my-courses/index.html']");
-
   if (!session || !session.user) {
+    removeStudentLogoutLink();
+    if (nav.dataset.pmOrigLoginHref) loginLink.setAttribute("href", nav.dataset.pmOrigLoginHref);
+    if (nav.dataset.pmOrigRegisterHref) registerLink.setAttribute("href", nav.dataset.pmOrigRegisterHref);
     loginLink.textContent = "로그인";
     registerLink.textContent = "회원가입";
+    restNavLinks.forEach((link) => {
+      link.style.display = "none";
+      link.hidden = true;
+    });
     if (pagesLink) pagesLink.style.display = "none";
     return;
   }
 
   if (isStrictAdminSession(session)) {
-    const originalRegisterHref = registerLink.getAttribute("href") || "./register.html";
+    removeStudentLogoutLink();
+    const originalRegisterHref = nav.dataset.pmOrigRegisterHref || registerLink.getAttribute("href") || "./register.html";
     const adminHref = originalRegisterHref.replace("register.html", "admin/index.html");
-    const originalLoginHref = loginLink.getAttribute("href") || "./login.html";
+    const originalLoginHref = nav.dataset.pmOrigLoginHref || "./login.html";
     loginLink.textContent = "로그아웃";
     loginLink.setAttribute("href", "#");
     if (loginLink.dataset.logoutBound !== "1") {
@@ -2021,12 +2082,17 @@ function updateNavigationByAuth(session) {
     }
     registerLink.textContent = "관리자";
     registerLink.setAttribute("href", adminHref);
+    restNavLinks.forEach((link) => {
+      link.style.display = "";
+      link.hidden = false;
+    });
     if (pagesLink) pagesLink.style.display = "";
     return;
   }
 
   const homeHref = logoLink ? logoLink.getAttribute("href") || "./index.html" : "./index.html";
-  const originalRegisterHref = registerLink.getAttribute("href") || "./register.html";
+  const originalRegisterHref =
+    nav.dataset.pmOrigRegisterHref || registerLink.getAttribute("href") || "./register.html";
   const myInfoHref = originalRegisterHref.replace("register.html", "mypage/index.html");
   loginLink.textContent = "HOME";
   loginLink.setAttribute("href", homeHref);
@@ -2034,7 +2100,28 @@ function updateNavigationByAuth(session) {
   registerLink.setAttribute("href", myInfoHref);
   if (enrollLink) enrollLink.textContent = "수강신청";
   if (myCoursesLink) myCoursesLink.textContent = "내강의";
+
+  restNavLinks.forEach((link) => {
+    if (linkLooksLikePrivilegedAdmin(link, loginLink, registerLink)) {
+      link.style.display = "none";
+      link.hidden = true;
+      return;
+    }
+    const href = String(link.getAttribute("href") || "")
+      .replace(/\\/g, "/")
+      .toLowerCase();
+    const isPages = href.includes("pages.html");
+    if (isPages) {
+      link.style.display = "none";
+      link.hidden = true;
+    } else {
+      link.style.display = "";
+      link.hidden = false;
+    }
+  });
   if (pagesLink) pagesLink.style.display = "none";
+
+  bindStudentLogoutLink();
 }
 
 window.__PASSMASTER_REFRESH_NAV__ = function passmasterRefreshNavFromAuth() {

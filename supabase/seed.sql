@@ -8,7 +8,7 @@ insert into public.users (name, email, password, role) values
 on conflict (email) do nothing;
 
 insert into public.courses (code, title, category, price, status) values
-('IS', '산업안전기사 필기 완성반', '안전관리', 9900, 'open'),
-('EE', '전기기사 필기 완성반', '전기이론', 9900, 'open'),
-('IT', '정보처리기사 필기 완성반', '소프트웨어', 9900, 'open')
+('forklift', '지게차기능사 국가자격증 필기 문제 풀이', '기능사·장비', 9900, 'open'),
+('electric', '전기기능사 국가자격증 필기 문제 풀이', '전기', 9900, 'open'),
+('makeup', '메이크업 미용사 국가자격증 필기 문제 풀이', '미용', 9900, 'open')
 on conflict (code) do nothing;
