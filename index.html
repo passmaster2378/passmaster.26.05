@@ -1191,6 +1191,25 @@
           grid-template-columns: 1fr;
         }
       }
+
+      /* 모바일·좁은 화면: 랜딩 길이 축소(961px 이상 PC 레이아웃 유지) */
+      @media (max-width: 960px) {
+        section#journey {
+          display: none !important;
+        }
+        .landing .hero-panel {
+          display: none !important;
+        }
+        .landing .course-card .course-thumb {
+          display: none !important;
+        }
+        #reviews .review-grid .review-card:nth-child(n + 4) {
+          display: none !important;
+        }
+        #faq .faq .faq-item:nth-child(n + 6) {
+          display: none !important;
+        }
+      }
     </style>
   </head>
   <body>
