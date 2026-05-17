@@ -2673,6 +2673,289 @@
     }
   }
 
+  function pmLearningStageCatalog() {
+    return [
+      { n: 1, title: "무료체험", hint: "~100문항 · 회원 체험" },
+      { n: 2, title: "첫 학습", hint: "정답·해설 함께" },
+      { n: 3, title: "40초 반복", hint: "취약 표시" },
+      { n: 4, title: "실전 선택", hint: "30초 타이머" },
+      { n: 5, title: "취약 복습", hint: "3·4단계 연동" },
+      { n: 6, title: "모의고사 1회", hint: "60문항 실전형" },
+      { n: 7, title: "모의고사 2회", hint: "풀이 중 해설 미노출" },
+      { n: 8, title: "모의고사 3회", hint: "60점 합격선" },
+      { n: 9, title: "모의고사 4회", hint: "통계 입력" },
+      { n: 10, title: "모의고사 5회", hint: "페이스 안정화" },
+      { n: 11, title: "모의고사 6회", hint: "종합 근거" },
+      { n: 12, title: "최종 오답·통계", hint: "리포트·완료" },
+    ];
+  }
+
+  function inferLearningTwelveState(pctRaw, approvalStatus) {
+    const approved = String(approvalStatus || "").toLowerCase() === "approved";
+    const pct = Math.min(100, Math.max(0, Number(pctRaw) || 0));
+    if (!approved) {
+      return { approved: false, completedCount: 0, currentStage: null, pct, kind: "approval_pending" };
+    }
+    if (pct >= 100) {
+      return { approved: true, completedCount: 12, currentStage: null, pct, kind: "all_done" };
+    }
+    const completedCount = Math.min(11, Math.floor((pct / 100) * 12));
+    const currentStage = Math.min(12, completedCount + 1);
+    return { approved: true, completedCount, currentStage, pct, kind: "in_progress" };
+  }
+
+  function learningStageChipState(stageNo, st) {
+    if (!st.approved)
+      return { variant: "blocked", badge: "승인 전", line: "관리자 승인 후 이용 가능" };
+    if (st.kind === "all_done")
+      return { variant: "done", badge: "완료", line: stageNo === 12 ? "최종 점검 완료" : "" };
+    if (stageNo <= st.completedCount) return { variant: "done", badge: "완료", line: "" };
+    if (stageNo === st.currentStage) {
+      if (st.pct === 0) return { variant: "active", badge: "시작 가능", line: "" };
+      return { variant: "active", badge: "진행 중", line: "" };
+    }
+    return {
+      variant: "locked",
+      badge: "잠김",
+      line:
+        stageNo <= 1 ? "관리자 승인 필요" : `${st.completedCount ? String(st.completedCount) : "이전"}단계 완료 후 진행`,
+    };
+  }
+
+  function buildLearningDeckUrls(enrollmentId, stageNo) {
+    const id = encodeURIComponent(String(enrollmentId));
+    const sn = encodeURIComponent(String(stageNo));
+    return {
+      courseHome: toSitePath(`/my-courses/enrollment-001/index.html?id=${id}`),
+      stageStart: toSitePath(`/study/makeup/index.html?enrollmentId=${id}&stage=${sn}&view=start`),
+      play: toSitePath(`/study/makeup/index.html?enrollmentId=${id}&stage=${sn}&view=play`),
+      result: toSitePath(`/study/makeup/index.html?enrollmentId=${id}&stage=${sn}&view=result`),
+      finalReport: toSitePath(`/study/makeup/index.html?enrollmentId=${id}&view=final-report`),
+      completeView: toSitePath(`/study/makeup/index.html?enrollmentId=${id}&view=complete`),
+    };
+  }
+
+  function parseEnrollmentLearningMeta(e) {
+    const raw = e && e.learning_meta != null ? e.learning_meta : {};
+    const obj =
+      typeof raw === "string"
+        ? (() => {
+            try {
+              const p = JSON.parse(raw);
+              return typeof p === "object" && p && !Array.isArray(p) ? p : {};
+            } catch {
+              return {};
+            }
+          })()
+        : typeof raw === "object" && !Array.isArray(raw)
+          ? raw
+          : {};
+    const stages =
+      obj.stages && typeof obj.stages === "object" && !Array.isArray(obj.stages) ? obj.stages : {};
+    const summary =
+      obj.summary && typeof obj.summary === "object" && !Array.isArray(obj.summary)
+        ? obj.summary
+        : {};
+    return { stages, summary };
+  }
+
+  function formatEnrollmentStudyDate(raw) {
+    if (raw == null) return "";
+    const t = String(raw).trim();
+    if (!t) return "";
+    const d = new Date(t);
+    if (!Number.isNaN(d.valueOf()))
+      return d.toLocaleString("ko-KR", { dateStyle: "medium", timeStyle: "short" });
+    return t.slice(0, 42);
+  }
+
+  function findExplicitActiveStage(metaStages) {
+    const order = [];
+    if (metaStages && typeof metaStages === "object") {
+      for (let i = 1; i <= 12; i++) {
+        const key = String(i);
+        if (!Object.prototype.hasOwnProperty.call(metaStages, key)) continue;
+        const v = String(metaStages[key] || "").trim().toLowerCase();
+        if (v === "in_progress" || v === "available") order.push(i);
+      }
+    }
+    return order.length ? order[0] : null;
+  }
+
+  function presentationForStage(stageNo, st, metaStages) {
+    const explicit = metaStages[String(stageNo)];
+    if (explicit != null && String(explicit).trim()) {
+      const ex = String(explicit).trim().toLowerCase();
+      if (ex === "completed") return { variant: "done", badge: "완료", line: "" };
+      if (ex === "in_progress") return { variant: "active", badge: "진행 중", line: "" };
+      if (ex === "available") return { variant: "active", badge: "시작 가능", line: "" };
+      if (ex === "locked")
+        return {
+          variant: "locked",
+          badge: "잠김",
+          line: `${Math.max(0, stageNo - 1)}단계 완료 필요`,
+        };
+    }
+    return learningStageChipState(stageNo, st);
+  }
+
+  function renderEnrollmentLearningHub(e) {
+    const stages = pmLearningStageCatalog();
+    const { stages: metaStages, summary: metaSummary } = parseEnrollmentLearningMeta(e);
+    const st = inferLearningTwelveState(e.progress_percent, e.approval_status);
+    const pct = Math.min(100, Math.max(0, Number(e.progress_percent) || 0));
+    const totalDemo = 1300;
+    const approxSolved = Math.min(totalDemo, Math.round((pct / 100) * totalDemo));
+    const solvedFromApi = Number(metaSummary.solved_count);
+    const solved = Number.isFinite(solvedFromApi)
+      ? Math.min(totalDemo, Math.max(0, Math.floor(solvedFromApi)))
+      : approxSolved;
+
+    let currentLabel = "—";
+    if (!st.approved) currentLabel = "승인 대기 중 (본 학습 잠금)";
+    else if (st.kind === "all_done") currentLabel = "12단계 학습 플로우 완료";
+    else if (st.currentStage) {
+      const meta = stages.find((s) => s.n === st.currentStage);
+      currentLabel = meta ? `${st.currentStage}단계 · ${meta.title}` : `${st.currentStage}단계`;
+    }
+    const ovr = String(metaSummary.current_stage_label || "").trim().slice(0, 140);
+    if (st.approved && st.kind !== "all_done" && ovr) currentLabel = ovr;
+
+    let stageGridHtml = "";
+    stages.forEach((meta) => {
+      const chip = presentationForStage(meta.n, st, metaStages);
+      const u = buildLearningDeckUrls(e.id, meta.n);
+      const variantCls =
+        chip.variant === "done"
+          ? "pm-stage-chip--done"
+          : chip.variant === "active"
+            ? "pm-stage-chip--active"
+            : chip.variant === "locked"
+              ? "pm-stage-chip--locked"
+              : "pm-stage-chip--blocked";
+      let actionHtml = "";
+      if (!st.approved) {
+        actionHtml = "<span>승인 후 단계 시작</span>";
+      } else if (chip.variant === "done") {
+        actionHtml = `<a href="${u.result}">결과 보기</a>`;
+      } else if (chip.variant === "active") {
+        actionHtml = `<a href="${u.stageStart}">시작 안내</a><a href="${u.play}">이어 풀기</a>`;
+      } else {
+        actionHtml = `<span>${escapeHtmlLite(chip.line || "잠금")}</span>`;
+      }
+      stageGridHtml += `
+      <article class="pm-stage-chip ${variantCls}" aria-label="${meta.n}단계 카드">
+        <div class="pm-stage-chip-top">
+          <span class="pm-stage-chip-num">${meta.n}</span>
+          <span>${escapeHtmlLite(chip.badge)}</span>
+        </div>
+        <div>
+          <h4>${escapeHtmlLite(meta.title)}</h4>
+          <p>${escapeHtmlLite(meta.hint)}</p>
+        </div>
+        <div class="pm-stage-actions">${actionHtml}</div>
+      </article>`;
+    });
+
+    const uNav = buildLearningDeckUrls(e.id, 11);
+    const uid = encodeURIComponent(`hub-${e.id}`);
+    const pctRing = Math.min(100, Math.max(0, pct));
+
+    let focusStage = st.kind === "all_done" ? 12 : st.currentStage || 1;
+    const exFocus = findExplicitActiveStage(metaStages);
+    if (st.approved && st.kind !== "all_done" && exFocus != null) focusStage = exFocus;
+
+    let continueHref = uNav.courseHome;
+    if (st.approved) {
+      const uCurr = buildLearningDeckUrls(e.id, focusStage);
+      if (st.kind === "all_done") continueHref = uCurr.finalReport || uCurr.completeView;
+      else continueHref = uCurr.play;
+    }
+
+    const weakN =
+      metaSummary.weak_flagged != null ? Math.max(0, Math.floor(Number(metaSummary.weak_flagged))) : null;
+    const wrongN =
+      metaSummary.wrong_count != null ? Math.max(0, Math.floor(Number(metaSummary.wrong_count))) : null;
+    const mockAvg = metaSummary.mock_exam_avg != null ? Number(metaSummary.mock_exam_avg) : null;
+    const lastStudyLabel = metaSummary.last_study_at ? formatEnrollmentStudyDate(metaSummary.last_study_at) : "";
+    const hasSummaryDetail =
+      Boolean(lastStudyLabel) ||
+      Number.isFinite(solvedFromApi) ||
+      (weakN != null && Number.isFinite(weakN)) ||
+      (wrongN != null && Number.isFinite(wrongN)) ||
+      (mockAvg != null && Number.isFinite(mockAvg));
+
+    const summaryLead = !st.approved ? "승인 후 집계" : hasSummaryDetail ? "저장된 학습 집계" : "집계 대기 중";
+    const summaryBody = [
+      lastStudyLabel ? `최근 학습일: ${lastStudyLabel}` : null,
+      Number.isFinite(weakN) ? `취약 표시: ${weakN.toLocaleString("ko-KR")}문항` : null,
+      Number.isFinite(wrongN) ? `누적 오답: ${wrongN.toLocaleString("ko-KR")}문항` : null,
+      Number.isFinite(mockAvg) ? `모의 평균 점수: ${mockAvg.toLocaleString("ko-KR", { minimumFractionDigits: 1 })}점` : null,
+    ]
+      .filter(Boolean)
+      .slice(0, 5)
+      .join(" · ");
+
+    const summaryMutedFallback =
+      summaryBody ||
+      (st.approved
+        ? "학습 클라이언트에서 PATCH /me/enrollments/:id/learning-meta 로 요약 필드를 채우면 즉시 반영됩니다."
+        : "승인 완료 후 단계 카드 및 집계가 활성화됩니다.");
+
+    return `
+<section class="pm-learn-hub">
+  <div class="pm-learn-hub-top">
+    <div class="pm-learn-hub-title">
+      <strong>${escapeHtmlLite(e.course_title || "과정")}</strong>
+      <span class="pm-learning-meta">
+        신청 ID ${e.id} · 학습 상태 ${escapeHtmlLite(
+          toLearningStatusLabel(e.learning_status)
+        )} · 결제 ${escapeHtmlLite(toPaymentStatusLabel(e.payment_status))} · 승인 ${escapeHtmlLite(
+          toApprovalStatusLabel(e.approval_status)
+        )}
+      </span>
+      <a class="pm-learn-hub-link" href="${buildLearningDeckUrls(e.id, 1).courseHome}">
+        과정 학습 홈으로 (수강 상세 대시보드)
+      </a>
+    </div>
+    <div class="pm-learning-ring-wrap" aria-hidden="true">${learningProgressRingSvg(pctRing, uid)}</div>
+  </div>
+  <div class="pm-learn-summary-grid">
+    <div class="pm-learn-sum-card">
+      <span>전체 문제 수 (표준 설계값)</span>
+      <strong>${totalDemo.toLocaleString("ko-KR")}</strong>
+      <span class="pm-muted">실제 과정별 문항수는 과정 정보를 따릅니다.</span>
+    </div>
+    <div class="pm-learn-sum-card">
+      <span>현재 단계</span>
+      <strong>${escapeHtmlLite(currentLabel)}</strong>
+    </div>
+    <div class="pm-learn-sum-card">
+      <span>전체 진행률</span>
+      <strong>${pct}%</strong>
+      <span class="pm-muted">${solved.toLocaleString("ko-KR")} / ${totalDemo.toLocaleString(
+      "ko-KR"
+    )} 문제 기준 (${Number.isFinite(solvedFromApi) ? "API 집계" : "진도율 근사"})</span>
+    </div>
+    <div class="pm-learn-sum-card">
+      <span>최근 학습 요약</span>
+      <strong>${escapeHtmlLite(summaryLead)}</strong>
+      <span class="pm-muted">${escapeHtmlLite(summaryMutedFallback)}</span>
+    </div>
+  </div>
+  <p class="pm-stage-grid-head">학습 단계 카드 · 12단계 구조</p>
+  <div class="pm-stage-grid" role="list">${stageGridHtml}</div>
+  <div class="pm-learn-hub-foot">
+    <a class="pm-btn pm-btn-primary" style="display:inline-flex" href="${continueHref}">
+      이어서 학습하기
+    </a>
+    <a class="pm-btn pm-btn-ghost" style="display:inline-flex" href="${uNav.finalReport}">전체 통계 리포트</a>
+    <a class="pm-btn pm-btn-ghost" style="display:inline-flex" href="${uNav.completeView}">수강 완료 화면</a>
+    <span class="pm-muted" style="font-size:12px;margin-left:auto">※ view 파라미터는 학습 SPA·과정별 화면이 붙으면 교체됩니다.</span>
+  </div>
+</section>`;
+  }
+
   async function mountLearningDashboard() {
     const root = document.querySelector("[data-api='learning-dashboard-root']");
     if (!root) return;
@@ -2688,8 +2971,8 @@
       if (!bars) return;
       bars.innerHTML = "";
       if (!appliedOnly.length) {
-        bars.innerHTML =
-          '<p class="pm-detail">수강 중인 과정이 없습니다. <a href="../../enroll/index.html">수강 신청</a>에서 과정을 신청하면 여기에 진도 그래프가 표시됩니다.</p>';
+        const enrollHref = toSitePath("/enroll/index.html");
+        bars.innerHTML = `<p class="pm-detail">수강 중인 과정이 없습니다. <a href="${enrollHref}">수강 신청</a>에서 과정을 신청하면 학습 허브가 표시됩니다.</p>`;
         if (msg) showMessage(msg, "신청한 수강 정보가 없어 표시할 학습 데이터가 없습니다.", "info");
         return;
       }
@@ -2724,28 +3007,12 @@
       `;
       bars.appendChild(summary);
       appliedOnly.forEach((e) => {
-        const pct = Math.min(100, Math.max(0, Number(e.progress_percent ?? 0)));
-        const uid = encodeURIComponent(`e-${e.id}`);
-        const safeTitle = escapeHtmlLite(e.course_title || "과정");
-        const rowEl = document.createElement("div");
-        rowEl.className = "pm-learning-course-row";
-        rowEl.innerHTML = `
-          <div class="pm-learning-row-visual">
-            <div class="pm-learning-ring-wrap" aria-hidden="true">${learningProgressRingSvg(pct, uid)}</div>
-            <div class="pm-learning-row-body">
-              <div class="pm-learning-course-head">
-                <strong>${safeTitle}</strong>
-                <span>${toLearningStatusLabel(e.learning_status)}</span>
-              </div>
-              <div class="pm-learning-bar-track" role="presentation" aria-label="진도 ${pct}퍼센트"><div class="pm-learning-bar-fill" style="width:${pct}%"></div></div>
-              <div class="pm-learning-meta">결제 ${toPaymentStatusLabel(e.payment_status)} · 승인 ${toApprovalStatusLabel(
-          e.approval_status
-        )}</div>
-            </div>
-          </div>`;
-        bars.appendChild(rowEl);
+        const wrap = document.createElement("template");
+        wrap.innerHTML = renderEnrollmentLearningHub(e).trim();
+        const frag = wrap.content;
+        bars.appendChild(frag);
       });
-      if (msg) showMessage(msg, `신청 과정 학습 현황 ${appliedOnly.length}건을 불러왔습니다.`, "success");
+      if (msg) showMessage(msg, `과정 학습 허브 ${appliedOnly.length}건을 불러왔습니다.`, "success");
     } catch (error) {
       if (bars) bars.innerHTML = "";
       if (msg) showMessage(msg, error.message, "error");

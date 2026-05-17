@@ -4,6 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PASSmaster | 학습 현황</title>
+    <meta
+      name="description"
+      content="관리자 승인 후 수강 중인 과정의 12단계 로드맵, 진행률, 학습 페이지 이동(내 강의실·학습 허브·문제풀이)을 확인합니다."
+    />
     <link rel="stylesheet" href="../../assets/shared.css" />
     <script defer src="../../assets/shared.js"></script>
   </head>
@@ -12,35 +16,104 @@
       <header class="pm-header">
         <a class="pm-logo" href="../../index.html">PASSmaster</a>
         <nav class="pm-nav" aria-label="공통 이동">
-          <a href="../../login.html">로그인</a>
-          <a href="../../register.html">회원가입</a>
+          <a href="../../my-courses/index.html">내 강의실</a>
+          <a href="../index.html">마이페이지</a>
           <a href="../../enroll/index.html">수강신청</a>
-          <a href="../../my-courses/index.html">내 강의</a>
+          <a href="../../study/makeup/index.html">학습(데모)</a>
           <a href="../../pages.html">전체 페이지</a>
         </nav>
       </header>
 
       <main class="pm-main">
-        <p class="pm-pill">User Flow</p>
+        <p class="pm-pill">Learning dashboard</p>
         <h1>학습 현황</h1>
-        <p class="pm-summary">수강 <strong>신청으로 접수된 과정</strong>별 진행률을 막대 그래프로 확인합니다.</p>
+        <p class="pm-summary">
+          승인된 과정별로 <strong>현재 단계·진행률·12단계 카드 상태</strong>를 확인합니다. 문서상 URL은
+          이 사이트의 정적 경로와 쿼리로 아래처럼 연결되어 있습니다.
+        </p>
 
-        <section class="pm-card" data-api="learning-dashboard-root">
-          <h2>과정별 진도</h2>
-          <p class="auth-message info" data-api="learning-dashboard-message">불러오는 중…</p>
-          <div data-api="learning-bars"></div>
-          <p class="pm-detail" style="margin-top: 14px">
-            상세 학습 화면은 <strong>내 강의실</strong>에서 이어가기 할 수 있습니다.
+        <section class="pm-card pm-learn-route-card">
+          <h2>학습 페이지 URL 매핑 (구조안 → PASSmaster)</h2>
+          <p class="pm-detail pm-learn-route-lead">
+            동적 ID는 각 수강의 <strong>실제 신청 ID</strong>로 바꿉니다. 과정 허브는
+            <code class="pm-code-inline">my-courses/enrollment-001/index.html?id=<em>{enrollmentId}</em></code> 형태로 부릅니다.
           </p>
+          <div class="pm-table-wrap">
+            <table class="pm-table pm-learn-route-table">
+              <thead>
+                <tr>
+                  <th>역할</th>
+                  <th>구조안 예시 URL</th>
+                  <th>사이트 경로</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>내 강의실</td>
+                  <td><span class="pm-muted">/my/courses</span></td>
+                  <td>
+                    <a href="../../my-courses/index.html"><code>/my-courses/</code></a>
+                  </td>
+                </tr>
+                <tr>
+                  <td>과정 학습 홈</td>
+                  <td><span class="pm-muted">/learn/:courseId</span></td>
+                  <td>
+                    <code>/my-courses/enrollment-001/index.html?id=</code>{id}
+                  </td>
+                </tr>
+                <tr>
+                  <td>단계 시작 안내</td>
+                  <td><span class="pm-muted">/learn/…/stage/:n/start</span></td>
+                  <td>
+                    <code>/study/makeup/index.html?enrollmentId=</code>{id}<code>&amp;stage=</code>{n}<code>&amp;view=start</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td>문제풀이</td>
+                  <td><span class="pm-muted">/learn/…/stage/:n/play</span></td>
+                  <td>
+                    <code>/study/makeup/index.html?enrollmentId=</code>{id}<code>&amp;stage=</code>{n}<code>&amp;view=play</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td>단계 결과</td>
+                  <td><span class="pm-muted">/learn/…/stage/:n/result</span></td>
+                  <td>
+                    <code>/study/makeup/index.html?enrollmentId=</code>{id}<code>&amp;stage=</code>{n}<code>&amp;view=result</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td>전체 통계 리포트</td>
+                  <td><span class="pm-muted">/learn/:id/final-report</span></td>
+                  <td>
+                    <code>/study/makeup/index.html?enrollmentId=</code>{id}<code>&amp;view=final-report</code>
+                    <span class="pm-muted">(리포트 UI는 과정별 연동 시 확장)</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>수강 완료</td>
+                  <td><span class="pm-muted">/learn/:id/complete</span></td>
+                  <td>
+                    <code>/study/makeup/index.html?enrollmentId=</code>{id}<code>&amp;view=complete</code>
+                    <span class="pm-muted">(완료 화면 과정별 연동)</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
 
-        <section class="pm-card">
-          <h2>현재 경로</h2>
-          <p class="pm-route">/mypage/learning</p>
+        <section class="pm-card" data-api="learning-dashboard-root">
+          <h2>과정별 학습 허브</h2>
+          <p class="auth-message info" data-api="learning-dashboard-message">불러오는 중…</p>
+          <div data-api="learning-bars"></div>
         </section>
 
         <div class="pm-cta-row" aria-label="페이지 이동">
-          <a class="pm-btn pm-btn-primary" href="../index.html">마이페이지로 가기</a>
+          <a class="pm-btn pm-btn-ghost" href="../../my-courses/index.html">내 강의실로</a>
+          <a class="pm-btn pm-btn-ghost" href="../../study/makeup/index.html">문제풀이 데모</a>
+          <a class="pm-btn pm-btn-primary" href="../index.html">마이페이지</a>
         </div>
       </main>
 
@@ -50,6 +123,6 @@
         <a href="../../pages.html">사이트맵</a>
       </footer>
     </div>
-    <script defer src="../../assets/auth-client.js?v=20260215-member-ui"></script>
+    <script defer src="../../assets/auth-client.js?v=20260215-learning-meta"></script>
   </body>
 </html>

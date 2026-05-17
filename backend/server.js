@@ -157,6 +157,76 @@ function toSafeMoney(value) {
   return Number.isFinite(num) ? Math.max(0, Math.floor(num)) : 0;
 }
 
+const LEARNING_STAGE_STATUSES = new Set(["locked", "available", "in_progress", "completed"]);
+
+function parseJsonEnvelope(raw) {
+  if (raw == null || raw === "") return {};
+  if (typeof raw === "object" && !Array.isArray(raw)) return raw;
+  if (typeof raw === "string") {
+    try {
+      const p = JSON.parse(raw);
+      return typeof p === "object" && p && !Array.isArray(p) ? p : {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+function sanitizeLearningStagesPatch(bodyStages) {
+  if (!bodyStages || typeof bodyStages !== "object" || Array.isArray(bodyStages)) return null;
+  const out = {};
+  Object.entries(bodyStages).forEach(([k, v]) => {
+    const n = Number(String(k));
+    if (!Number.isInteger(n) || n < 1 || n > 12) return;
+    const s = String(v || "").trim().toLowerCase();
+    if (!LEARNING_STAGE_STATUSES.has(s)) return;
+    out[String(n)] = s;
+  });
+  return Object.keys(out).length ? out : null;
+}
+
+function sanitizeLearningSummaryPatch(summary) {
+  if (!summary || typeof summary !== "object" || Array.isArray(summary)) return null;
+  const out = {};
+  if (summary.last_study_at != null) {
+    const t = String(summary.last_study_at).trim();
+    if (t.length <= 42) out.last_study_at = t.slice(0, 42);
+  }
+  if (summary.current_stage_label != null) {
+    const lbl = String(summary.current_stage_label).trim().slice(0, 120);
+    if (lbl) out.current_stage_label = lbl;
+  }
+  ["solved_count", "weak_flagged", "wrong_count"].forEach((key) => {
+    if (summary[key] != null && Number.isFinite(Number(summary[key]))) {
+      out[key] = Math.max(0, Math.floor(Number(summary[key])));
+    }
+  });
+  if (summary.mock_exam_avg != null && Number.isFinite(Number(summary.mock_exam_avg))) {
+    out.mock_exam_avg = Math.round(Number(summary.mock_exam_avg) * 100) / 100;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+function mergeLearningMetaRow(prevRaw, incoming) {
+  const prev = parseJsonEnvelope(prevRaw);
+  const prevStages =
+    typeof prev.stages === "object" && prev.stages && !Array.isArray(prev.stages) ? { ...prev.stages } : {};
+  const prevSummary =
+    typeof prev.summary === "object" && prev.summary && !Array.isArray(prev.summary) ? { ...prev.summary } : {};
+  let stages = { ...prevStages };
+  if (incoming.stages && typeof incoming.stages === "object") {
+    const san = sanitizeLearningStagesPatch(incoming.stages);
+    if (san) stages = { ...stages, ...san };
+  }
+  let summary = { ...prevSummary };
+  if (incoming.summary && typeof incoming.summary === "object") {
+    const sanSum = sanitizeLearningSummaryPatch(incoming.summary);
+    if (sanSum) summary = { ...summary, ...sanSum };
+  }
+  return { ...prev, stages, summary };
+}
+
 async function summarizeEnrollmentPayments(enrollmentId, db = null) {
   const q = db || { get, all, run };
   const enrollment = await q.get(
@@ -533,6 +603,7 @@ async function initSchema() {
   await run(`ALTER TABLE public.enrollments ADD COLUMN IF NOT EXISTS application_status TEXT`);
   await run(`ALTER TABLE public.enrollments ADD COLUMN IF NOT EXISTS learning_status TEXT`);
   await run(`ALTER TABLE public.enrollments ADD COLUMN IF NOT EXISTS application_meta JSONB NOT NULL DEFAULT '{}'::jsonb`);
+  await run(`ALTER TABLE public.enrollments ADD COLUMN IF NOT EXISTS learning_meta JSONB NOT NULL DEFAULT '{}'::jsonb`);
 
   await run(`
     CREATE TABLE IF NOT EXISTS public.payments (
@@ -1014,6 +1085,60 @@ async function seedData() {
             o3.id,
           ],
         );
+        await run(
+          `UPDATE public.enrollments e SET learning_meta = ?::jsonb
+           WHERE e.user_id = ? AND e.course_id = ?`,
+          [
+            JSON.stringify({
+              stages: {
+                "1": "completed",
+                "2": "completed",
+                "3": "completed",
+                "4": "in_progress",
+              },
+              summary: {
+                current_stage_label: "4단계 · 실전 선택 풀이",
+                last_study_at: "2026-05-14",
+                solved_count: 420,
+                weak_flagged: 18,
+                wrong_count: 64,
+                mock_exam_avg: 67.8,
+              },
+            }),
+            student1.id,
+            cForklift.id,
+          ],
+        );
+        await run(
+          `UPDATE public.enrollments e SET learning_meta = ?::jsonb
+           WHERE e.user_id = ? AND e.course_id = ?`,
+          [
+            JSON.stringify({
+              stages: {
+                "1": "completed",
+                "2": "completed",
+                "3": "completed",
+                "4": "completed",
+                "5": "completed",
+                "6": "completed",
+                "7": "completed",
+                "8": "completed",
+                "9": "completed",
+                "10": "in_progress",
+              },
+              summary: {
+                current_stage_label: "10단계 · 모의고사 5회",
+                last_study_at: "2026-05-13",
+                solved_count: 980,
+                weak_flagged: 24,
+                wrong_count: 120,
+                mock_exam_avg: 71.25,
+              },
+            }),
+            student2.id,
+            cElectric.id,
+          ],
+        );
       }
     }
   }
@@ -1118,6 +1243,12 @@ app.get("/api/docs", async (req, res) => {
       { method: "PATCH", path: "/me/inquiries/:id", auth: true },
       { method: "DELETE", path: "/me/inquiries/:id", auth: true },
       { method: "GET", path: "/me/enrollments/:id", auth: true },
+      {
+        method: "PATCH",
+        path: "/me/enrollments/:id/learning-meta",
+        auth: true,
+        notes: "승인된 수강의 learning_meta(stages 1–12)·summary 또는 progress_percent 갱신",
+      },
       { method: "PATCH", path: "/me/enrollments/:id/deposit", auth: true, notes: "계좌이체 입금요청" },
       { method: "GET", path: "/me/payments", auth: true },
       { method: "GET", path: "/faqs" },
@@ -2189,7 +2320,7 @@ app.post("/api/enrollments", requireAuth, async (req, res) => {
 app.get("/api/me/enrollments", requireAuth, async (req, res) => {
   const rows = await all(
     `SELECT e.id, e.course_id, e.opening_id, e.payment_status, e.approval_status,
-            e.application_status, e.learning_status, e.progress_percent, e.created_at,
+            e.application_status, e.learning_status, e.progress_percent, e.learning_meta, e.created_at,
             c.title AS course_title, c.code AS course_code,
             o.start_date, o.end_date
      FROM public.enrollments e
@@ -2223,6 +2354,63 @@ app.get("/api/me/enrollments/:id", requireAuth, async (req, res) => {
   );
   const paymentSummary = await summarizeEnrollmentPayments(id);
   return res.json({ ...row, payments, payment_summary: paymentSummary });
+});
+
+app.patch("/api/me/enrollments/:id/learning-meta", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return sendError(res, 400, "유효한 수강 ID가 필요합니다.");
+  }
+  const row = await get(
+    `SELECT id, user_id, approval_status, progress_percent, learning_status, learning_meta
+     FROM public.enrollments
+     WHERE id = ? AND user_id = ?`,
+    [id, req.auth.sub]
+  );
+  if (!row) return sendError(res, 404, "수강 정보를 찾을 수 없습니다.");
+  if (String(row.approval_status || "").toLowerCase() !== "approved") {
+    return sendError(res, 403, "관리자 승인 후에만 학습 진행 정보를 업데이트할 수 있습니다.");
+  }
+  const hasMetaPatch = req.body.learning_meta && typeof req.body.learning_meta === "object";
+  const wantsProgress =
+    req.body.progress_percent !== undefined &&
+    req.body.progress_percent !== null &&
+    `${req.body.progress_percent}`.length > 0;
+  if (!hasMetaPatch && !wantsProgress) {
+    return sendError(res, 400, "learning_meta 또는 progress_percent 중 하나 이상을 보내 주세요.");
+  }
+  const fields = [];
+  const params = [];
+  if (hasMetaPatch) {
+    const merged = mergeLearningMetaRow(row.learning_meta, req.body.learning_meta || {});
+    fields.push("learning_meta = ?::jsonb");
+    params.push(JSON.stringify(merged));
+  }
+  if (wantsProgress) {
+    let p = Number(req.body.progress_percent);
+    if (!Number.isFinite(p)) return sendError(res, 400, "progress_percent는 숫자여야 합니다.");
+    p = Math.min(100, Math.max(0, Math.round(p)));
+    fields.push("progress_percent = ?");
+    fields.push(
+      "learning_status = CASE WHEN ? >= 100 THEN 'completed' WHEN ? > 0 THEN 'in_progress' ELSE COALESCE(learning_status, 'not_started') END"
+    );
+    params.push(p, p, p);
+  }
+  params.push(id);
+  await run(`UPDATE public.enrollments SET ${fields.join(", ")} WHERE id = ?`, params);
+
+  const out = await get(
+    `SELECT e.id, e.course_id, e.opening_id, e.payment_status, e.approval_status,
+            e.application_status, e.learning_status, e.progress_percent, e.learning_meta, e.created_at,
+            c.title AS course_title, c.code AS course_code,
+            o.start_date, o.end_date
+     FROM public.enrollments e
+     JOIN public.courses c ON c.id = e.course_id
+     LEFT JOIN public.course_openings o ON o.id = e.opening_id
+     WHERE e.id = ? AND e.user_id = ?`,
+    [id, req.auth.sub]
+  );
+  return res.json(out);
 });
 
 app.patch("/api/me/enrollments/:id/deposit", requireAuth, async (req, res) => {
@@ -2334,7 +2522,7 @@ app.get("/api/me/payments", requireAuth, async (req, res) => {
 app.get("/api/admin/enrollments", requireAuth, requireAdmin, async (req, res) => {
   const rows = await all(
     `SELECT e.id, e.user_id, e.course_id, e.opening_id, e.payment_status, e.approval_status,
-            e.application_status, e.learning_status, e.progress_percent, e.created_at,
+            e.application_status, e.learning_status, e.progress_percent, e.learning_meta, e.created_at,
             u.name AS user_name, u.email AS user_email,
             c.title AS course_title, c.code AS course_code
      FROM public.enrollments e
@@ -2372,9 +2560,16 @@ app.patch("/api/admin/enrollments/:id", requireAuth, requireAdmin, async (req, r
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ message: "유효한 수강 ID가 필요합니다." });
   }
-  const exists = await get("SELECT id FROM public.enrollments WHERE id = ?", [id]);
-  if (!exists) return res.status(404).json({ message: "수강 정보를 찾을 수 없습니다." });
-  const { payment_status, approval_status, learning_status, application_status, progress_percent } = req.body;
+  const metaRow = await get("SELECT id, learning_meta FROM public.enrollments WHERE id = ?", [id]);
+  if (!metaRow) return res.status(404).json({ message: "수강 정보를 찾을 수 없습니다." });
+  const {
+    payment_status,
+    approval_status,
+    learning_status,
+    application_status,
+    progress_percent,
+    learning_meta,
+  } = req.body;
   const fields = [];
   const params = [];
   if (payment_status) {
@@ -2396,6 +2591,14 @@ app.patch("/api/admin/enrollments/:id", requireAuth, requireAdmin, async (req, r
   if (progress_percent !== undefined && progress_percent !== null) {
     fields.push("progress_percent = ?");
     params.push(Number(progress_percent));
+  }
+  if (learning_meta !== undefined && learning_meta !== null && typeof learning_meta === "object") {
+    const merged = mergeLearningMetaRow(metaRow.learning_meta, learning_meta);
+    fields.push("learning_meta = ?::jsonb");
+    params.push(JSON.stringify(merged));
+  }
+  if (!fields.length) {
+    return res.status(400).json({ message: "변경할 필드를 지정해 주세요." });
   }
   if (!fields.length) {
     return res.status(400).json({ message: "변경할 필드를 지정해 주세요." });

@@ -130,7 +130,7 @@ Response: (201) `enrollment`
 
 ### GET `/me/enrollments` (auth)
 
-Response: `enrollments[]`
+Response: `enrollments[]` — 각 항목에 `learning_meta`(단계·요약 JSONB), `progress_percent` 등이 포함됩니다.
 
 ### GET `/me/enrollments/:id` (auth)
 
@@ -139,9 +139,55 @@ Response:
 ```json
 {
   "...": "enrollment fields",
+  "learning_meta": {
+    "stages": {
+      "1": "completed",
+      "4": "in_progress",
+      "5": "locked"
+    },
+    "summary": {
+      "current_stage_label": "4단계 · 실전 선택 풀이",
+      "last_study_at": "2026-05-14",
+      "solved_count": 420,
+      "weak_flagged": 18,
+      "wrong_count": 64,
+      "mock_exam_avg": 67.8
+    }
+  },
   "payments": [{ "id": 1, "amount": 219000, "method": "bank_transfer", "status": "pending", "created_at": "..." }]
 }
 ```
+
+`stages`의 키는 `"1"` ~ `"12"` 문자열이며 값은 `locked` \| `available` \| `in_progress` \| `completed` 입니다.
+
+### PATCH `/me/enrollments/:id/learning-meta` (auth)
+
+**조건:** 해당 수강의 `approval_status`가 승인(`approved`)된 경우만 허용합니다.
+
+Request (부분 병합):
+
+```json
+{
+  "learning_meta": {
+    "stages": { "4": "in_progress", "5": "locked" },
+    "summary": {
+      "last_study_at": "2026-05-14T09:30:00.000Z",
+      "solved_count": 430,
+      "weak_flagged": 18,
+      "wrong_count": 64,
+      "mock_exam_avg": 68,
+      "current_stage_label": "4단계 · 실전 선택 풀이"
+    }
+  },
+  "progress_percent": 33
+}
+```
+
+`progress_percent`를 함께 보내면 진도율과 `learning_status`(completed/in_progress)가 함께 갱신될 수 있습니다.
+
+Response: 목록 조회와 동일 형태의 enrollment 행 일부 필드(`learning_meta`, `progress_percent` 등).
+
+운영자는 `PATCH /admin/enrollments/:id` 요청 본문에 `learning_meta`를 포함하면 동일 병합 규칙으로 저장할 수 있습니다.
 
 ### PATCH `/me/enrollments/:id/deposit` (auth)
 
