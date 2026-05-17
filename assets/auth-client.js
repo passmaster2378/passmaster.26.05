@@ -403,6 +403,42 @@
     return map[value] || (status || "-");
   }
 
+  /** 서버 `meEnrollmentDeleteBlockedReason` 과 동일 조건 */
+  function studentEnrollmentDeleteBlockedReason(e) {
+    const ls = String(e.learning_status || "").trim().toLowerCase();
+    const pct = Number(e.progress_percent);
+    if (Number.isFinite(pct) && pct >= 100) return "완료된 수강은 삭제할 수 없습니다.";
+    if (ls === "completed") return "완료된 수강은 삭제할 수 없습니다.";
+    if (ls === "in_progress") return "학습 진행 중인 과정은 삭제할 수 없습니다.";
+    if (Number.isFinite(pct) && pct > 0) return "학습 진행 중인 과정은 삭제할 수 없습니다.";
+    return null;
+  }
+
+  function bindMeEnrollmentDeleteDelegation(tbody, reloadTable) {
+    if (!tbody || tbody.dataset.pmMeEnrollmentDelBound === "1") return;
+    tbody.dataset.pmMeEnrollmentDelBound = "1";
+    tbody.addEventListener("click", async (ev) => {
+      const btn = ev.target.closest("[data-me-enrollment-delete]");
+      if (!btn || !tbody.contains(btn)) return;
+      const id = Number(btn.dataset.meEnrollmentDelete);
+      if (!Number.isFinite(id) || id <= 0) return;
+      if (
+        !window.confirm(
+          `신청 ID ${id} 항목을 목록에서 삭제할까요?\n연결된 결제 기록은 함께 삭제될 수 있습니다.`
+        )
+      )
+        return;
+      try {
+        btn.disabled = true;
+        await request(`/me/enrollments/${id}`, { method: "DELETE" });
+        await reloadTable();
+      } catch (error) {
+        alert(error.message || "삭제할 수 없습니다.");
+        btn.disabled = false;
+      }
+    });
+  }
+
   async function warmupApi() {
     if (apiWarmupPromise) return apiWarmupPromise;
     apiWarmupPromise = fetchWithTimeout(`${API_BASE}/health`, { method: "GET" }, AUTH_TIMEOUT_MS)
@@ -1608,6 +1644,7 @@
   async function mountMeEnrollmentsTable(selector) {
     const tbody = document.querySelector(selector);
     if (!tbody) return;
+    bindMeEnrollmentDeleteDelegation(tbody, () => mountMeEnrollmentsTable(selector));
     try {
       const rows = await request("/me/enrollments");
       tbody.innerHTML = "";
@@ -1618,13 +1655,21 @@
       rows.forEach((e) => {
         const tr = document.createElement("tr");
         const detailHref = toSitePath(`/my-courses/enrollment-001/index.html?id=${encodeURIComponent(String(e.id))}`);
+        const blocked = studentEnrollmentDeleteBlockedReason(e);
+        const deleteCtrl = blocked
+          ? `<span class="pm-muted" style="font-size:12px" title="${blocked.replace(/"/g, "&quot;")}">삭제 불가</span>`
+          : `<button type="button" class="pm-btn pm-btn-ghost" style="padding:4px 8px;font-size:12px" data-me-enrollment-delete="${e.id}">삭제</button>`;
         tr.innerHTML = `
           <td>${e.id}</td>
           <td>${e.course_title || "-"}</td>
           <td>${toPaymentStatusLabel(e.payment_status)}</td>
           <td>${toApprovalStatusLabel(e.approval_status)}</td>
           <td>${e.progress_percent ?? 0}%</td>
-          <td><a href="${detailHref}">상세</a></td>
+          <td style="white-space:nowrap">
+            <a href="${detailHref}">상세</a>
+            <span aria-hidden="true" style="margin:0 6px;color:#c9d6ee">|</span>
+            ${deleteCtrl}
+          </td>
         `;
         tbody.appendChild(tr);
       });

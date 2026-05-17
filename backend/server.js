@@ -1243,6 +1243,7 @@ app.get("/api/docs", async (req, res) => {
       { method: "PATCH", path: "/me/inquiries/:id", auth: true },
       { method: "DELETE", path: "/me/inquiries/:id", auth: true },
       { method: "GET", path: "/me/enrollments/:id", auth: true },
+      { method: "DELETE", path: "/me/enrollments/:id", auth: true, notes: "진행·완료가 아닌 본인 신청 삭제" },
       {
         method: "PATCH",
         path: "/me/enrollments/:id/learning-meta",
@@ -2354,6 +2355,33 @@ app.get("/api/me/enrollments/:id", requireAuth, async (req, res) => {
   );
   const paymentSummary = await summarizeEnrollmentPayments(id);
   return res.json({ ...row, payments, payment_summary: paymentSummary });
+});
+
+/** 수강생 본인 신청 삭제: 학습 시작·진행·완료 건은 금지 */
+function meEnrollmentDeleteBlockedReason(row) {
+  const ls = String(row.learning_status || "").trim().toLowerCase();
+  const pct = Number(row.progress_percent);
+  if (Number.isFinite(pct) && pct >= 100) return "완료된 수강은 삭제할 수 없습니다.";
+  if (ls === "completed") return "완료된 수강은 삭제할 수 없습니다.";
+  if (ls === "in_progress") return "학습 진행 중인 과정은 삭제할 수 없습니다.";
+  if (Number.isFinite(pct) && pct > 0) return "학습 진행 중인 과정은 삭제할 수 없습니다.";
+  return null;
+}
+
+app.delete("/api/me/enrollments/:id", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return sendError(res, 400, "유효한 수강 ID가 필요합니다.");
+  }
+  const row = await get(
+    `SELECT id, user_id, learning_status, progress_percent FROM public.enrollments WHERE id = ? AND user_id = ?`,
+    [id, req.auth.sub]
+  );
+  if (!row) return sendError(res, 404, "수강 정보를 찾을 수 없습니다.");
+  const blocked = meEnrollmentDeleteBlockedReason(row);
+  if (blocked) return sendError(res, 403, blocked);
+  await run(`DELETE FROM public.enrollments WHERE id = ? AND user_id = ?`, [id, req.auth.sub]);
+  return res.status(204).end();
 });
 
 app.patch("/api/me/enrollments/:id/learning-meta", requireAuth, async (req, res) => {

@@ -194,6 +194,14 @@ Response: 목록 조회와 동일 형태의 enrollment 행 일부 필드(`learni
 Request: `{}`  
 Response: `enrollment`
 
+### DELETE `/me/enrollments/:id` (auth)
+
+본인 수강 신청 행만 삭제합니다.
+
+**삭제 불가:** 학습 진행 중(`learning_status === 'in_progress'` 또는 `progress_percent > 0`), 또는 완료(`progress_percent >= 100` 또는 `learning_status === 'completed'`). 해당 경우 **403**과 차단 사유 메시지가 내려옵니다.
+
+Response: 성공 시 **204** (본문 없음).
+
 ## Payments
 
 ### GET `/me/payments` (auth)
