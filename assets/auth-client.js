@@ -2675,8 +2675,8 @@
 
   function pmLearningStageCatalog() {
     return [
-      { n: 1, title: "무료체험", hint: "~100문항 · 회원 체험" },
-      { n: 2, title: "첫 학습", hint: "정답·해설 함께" },
+      { n: 1, title: "학습 준비", hint: "과정 일반 정보·수강 신청 안내 연결" },
+      { n: 2, title: "무료체험(첫 학습)", hint: "~100문항 · 타이머 없음 · 과정 정보 페이지에서 시작" },
       { n: 3, title: "40초 반복", hint: "취약 표시" },
       { n: 4, title: "실전 선택", hint: "30초 타이머" },
       { n: 5, title: "취약 복습", hint: "3·4단계 연동" },

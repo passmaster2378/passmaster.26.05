@@ -257,7 +257,10 @@
 
   function getRoundRuleText(round) {
     if (round === 1) return "무제한 / 전체문항 셔플 / 정답·해설 즉시 표시";
-    if (round === 2) return "40초 / 전체문항 셔플 / 선지 고정";
+    if (round === 2) {
+      if (!hasFullMakeupAccess) return "무료체험 한도 · 타이머 없음 · 선지 고정 · 선택 후 해설(학습현황 2단계)";
+      return "40초 / 전체문항 셔플 / 선지 고정";
+    }
     if (round === 3) return "30초 / 전체문항 셔플 / 선지 셔플";
     if (round === 4) return "30초 / 학습 오답 복습 / 선지 셔플";
     if (round === 5) return "30초 / 기출 오답 복습 / 선지 셔플";
@@ -325,7 +328,14 @@
 
   function currentStudyMeta() {
     if (studyRound === 1) return { label: "1차 · 무제한 · 정답/해설 동시 표시", time: null };
-    if (studyRound === 2) return { label: "2차 · 문항당 40초", time: T_R2 };
+    if (studyRound === 2) {
+      if (!hasFullMakeupAccess)
+        return {
+          label: "무료체험 · 학습현황 2단계(첫 학습) · 타이머 없음 · 100문항 한도",
+          time: null,
+        };
+      return { label: "2차 · 문항당 40초", time: T_R2 };
+    }
     if (studyRound === 3) return { label: "3차 · 30초 · 문제/선지 셔플", time: T_R3 };
     if (studyRound === 4) return { label: "오답 복습 (3회 학습)", time: T_REV };
     if (studyRound === 5) return { label: "기출 오답 복습", time: T_REV };
@@ -336,7 +346,7 @@
     const q = studyQueue[studyIndex];
     if (!q) return;
     if (E.trialModeStrip && !hasFullMakeupAccess) {
-      E.trialModeStrip.textContent = `100문제 무료체험 · 학습 제공 범위 ${FREE_TRIAL_QUESTION_LIMIT}문항(문제은행 전체 약 ${bankFull.length}문항). 결제 승인 시 전체 이용.`;
+      E.trialModeStrip.textContent = `무료체험은 학습 현황 로드맵 2단계(첫 학습) 방식으로 최대 ${FREE_TRIAL_QUESTION_LIMIT}문항까지 제공됩니다. 전체 약 ${bankFull.length}문항은 수강·승인 후 이용합니다.`;
     }
     const meta = currentStudyMeta();
     if (E.qRoundLabel) E.qRoundLabel.textContent = meta.label;
@@ -631,6 +641,7 @@
         return;
       }
       studyRound = saved.studyRound || 1;
+      if (!hasFullMakeupAccess && studyRound === 1) studyRound = 2;
       studyIndex = Math.min(Math.max(0, saved.studyIndex || 0), sq.length - 1);
       studyQueue = sq;
       studyWrong = new Set(saved.studyWrongIds || []);
@@ -676,18 +687,22 @@
 
   function endStudyRound() {
     clearStudyTimer();
-    if (studyRound === 1) {
-      if (!hasFullMakeupAccess) {
-        wireTrialEndedDialogOnce();
-        const dlg = document.getElementById("trial-end-dialog");
-        if (dlg && typeof dlg.showModal === "function") dlg.showModal();
-        else if (window.confirm("100문제 무료체험을 마쳤습니다. 수강신청서 작성 페이지로 이동할까요?")) {
-          window.location.href = ENROLL_APPLY_MAKEUP_HREF;
-        } else {
-          window.location.href = MAIN_SITE_HREF;
-        }
-        return;
+    if (!hasFullMakeupAccess) {
+      wireTrialEndedDialogOnce();
+      const dlg = document.getElementById("trial-end-dialog");
+      if (dlg && typeof dlg.showModal === "function") dlg.showModal();
+      else if (
+        window.confirm(
+          "100문제 무료체험(학습현황 2단계)을 마쳤습니다. 수강신청 페이지로 이동할까요?"
+        )
+      ) {
+        window.location.href = ENROLL_APPLY_MAKEUP_HREF;
+      } else {
+        window.location.href = MAIN_SITE_HREF;
       }
+      return;
+    }
+    if (studyRound === 1) {
       studyRound = 2;
       studyQueue = window.MakeupQuestionEngine.fisherYates([...bank]);
       studyIndex = 0;
@@ -753,7 +768,7 @@
     const w = mockWrapped[mockIndex];
     if (!w) return;
     if (E.trialModeStripMock && !hasFullMakeupAccess) {
-      E.trialModeStripMock.textContent = `100문제 무료체험 · 모의고사도 동일 ${FREE_TRIAL_QUESTION_LIMIT}문항 범위에서만 출제됩니다(전체 약 ${bankFull.length}문항).`;
+      E.trialModeStripMock.textContent = `무료체험 구간에서는 모의고사도 최대 ${FREE_TRIAL_QUESTION_LIMIT}문항 범위에서만 출제됩니다. 승인 후 전체 약 ${bankFull.length}문항 이용 가능.`;
     }
     const q = w.base;
     pushShuffleAudit({
@@ -1006,7 +1021,7 @@
     const cats = Object.keys(byCat).sort((a, b) => byCat[b] - byCat[a]);
     const maxW = Math.max(1, ...Object.values(byCat), 1);
     const trialDashBanner = !hasFullMakeupAccess
-      ? `<div class="trial-callout" role="status"><strong>100문제 무료체험 집계</strong>까지 반영합니다. (전체 은행 약 ${bankFull.length}문항) <a href="../../enroll/index.html?cert=makeup#enroll-openings" style="font-weight:800;color:#ad1457">수강신청 후 전체 이용</a></div>`
+      ? `<div class="trial-callout" role="status"><strong>무료체험(2단계·100문항 한도)</strong> 집계까지 반영합니다. (전체 약 ${bankFull.length}문항) <a href="../../enroll/index.html?cert=makeup#enroll-openings" style="font-weight:800;color:#ad1457">수강·승인 후 다음 단계</a></div>`
       : "";
     E.dashCharts.innerHTML = `
 ${trialDashBanner}
@@ -1148,11 +1163,15 @@ ${trialDashBanner}
       : "";
     const trialHubBanner = !hasFullMakeupAccess
       ? `<div class="trial-callout" role="status">
-          <strong>100문제 무료체험 · 로그인 회원 전용</strong>
-          <p>회원가입·로그인 후 <strong>${Math.min(FREE_TRIAL_QUESTION_LIMIT, bankFull.length)}문제</strong>까지 무료로 풀어볼 수 있습니다. (결제·승인 완료 시 전체 약 <strong>${bankFull.length}</strong>문항 이용)</p>
-          <p>무료체험 100문제를 모두 마치면 이어서 수강신청할지 선택할 수 있는 안내가 표시됩니다.</p>
+          <strong>무료체험 · 학습 현황 2단계(첫 학습)</strong>
+          <p>회원 로그인 후 약 <strong>${Math.min(FREE_TRIAL_QUESTION_LIMIT, bankFull.length)}문항</strong>까지, 타이머 없이 선택 후 해설 확인 방식으로 체험할 수 있습니다. (문제은행 전체 약 ${bankFull.length}문항은 <strong>수강·승인 후</strong> 이용)</p>
+          ${
+            trialEntrySlug
+              ? `<p style="margin-top:8px;font-size:13px;color:#444">연결 경로: 자격증 일반 정보 페이지 (<code style="font-size:12px">${trialEntrySlug}</code>)</p>`
+              : ""
+          }
           <div class="trial-actions">
-            <a class="mq-bigbtn mq-bigbtn-link" href="${enrollHrefHub}">전체 이용 · 수강신청</a>
+            <a class="mq-bigbtn mq-bigbtn-link" href="${enrollHrefHub}">수강신청 후 전체 단계 이용</a>
           </div>
         </div>`
       : "";
@@ -1325,14 +1344,17 @@ ${trialDashBanner}
       mockHistory = [];
       expectedMockRound = 1;
       canEnterFinalReview = false;
-      studyRound = 1;
+      studyRound = hasFullMakeupAccess ? 1 : 2;
       studyQueue = window.MakeupQuestionEngine.fisherYates([...bank]);
       studyIndex = 0;
       studyDisplayCache = new Map();
       setScreen("quiz");
-      updateAdminPanel("학습 시작: 1차 진입");
+      updateAdminPanel(hasFullMakeupAccess ? "학습 시작: 1차 진입" : "무료체험 시작: 로드맵 2단계(첫 학습)");
       renderStudyQuestion();
     });
+    const startStudyBtn = document.getElementById("btn-start-study");
+    if (startStudyBtn)
+      startStudyBtn.textContent = hasFullMakeupAccess ? "1회차 시작" : "무료체험 시작 (2단계 첫 학습)";
     updateAdminPanel("허브 렌더 완료");
   }
 
@@ -1432,6 +1454,15 @@ ${trialDashBanner}
   if (E.adminStartR3) E.adminStartR3.addEventListener("click", () => adminStartStudyRound(3));
   if (E.adminStartMock) E.adminStartMock.addEventListener("click", adminStartMockRound);
   if (E.adminForceComplete) E.adminForceComplete.addEventListener("click", adminForceCompleteCurrent);
+
+  let trialEntrySlug = "";
+  try {
+    trialEntrySlug = (new URLSearchParams(window.location.search).get("trialFrom") || "")
+      .trim()
+      .toLowerCase();
+  } catch (_e) {
+    trialEntrySlug = "";
+  }
 
   function init() {
     setScreen("loading");

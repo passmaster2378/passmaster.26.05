@@ -129,6 +129,16 @@
         <h1 id="cert-title">자격증</h1>
         <p class="pm-summary" id="cert-intro"></p>
 
+        <section class="pm-card pm-cert-trial-card">
+          <h2>문제은행 무료체험</h2>
+          <p class="pm-detail" id="cert-trial-desc"></p>
+          <div class="pm-cta-row">
+            <a class="pm-btn pm-btn-primary" id="cert-trial-start" href="../study/makeup/index.html">로그인 후 100문제 체험</a>
+            <a class="pm-btn pm-btn-ghost" href="../login.html">로그인</a>
+            <a class="pm-btn pm-btn-ghost" href="../register.html">회원가입</a>
+          </div>
+        </section>
+
         <div id="cert-gallery" class="cert-info-gallery" hidden aria-label="관련 참고 이미지"></div>
 
         <p class="pm-official-note" id="cert-official" hidden></p>
@@ -158,187 +168,190 @@
       /** @typedef {{ written: string[], practical: string[], passing: string, footnote?: string }} ExamSpec */
       /** @typedef {{ intro: string, official?: string, sections: InfoSection[] }} CertInfo */
 
-      /** Unsplash 원본 이미지만 사용. 메인 페이지 등에서 접근 검증된 id 위주입니다. */
-      function certPhoto(id, caption) {
-        return {
-          src: `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=960&q=80`,
+      /** 대표 이미지는 메인 과정 카드와 동일(Unsplash). 나머지는 과정·슬롯별 고유 시드(Picsum)로 중복을 줄였습니다. */
+      function certGalleryMix(slugKey, heroPhotoId, captions) {
+        return captions.map((caption, idx) => ({
+          src:
+            idx === 0
+              ? `https://images.unsplash.com/photo-${heroPhotoId}?auto=format&fit=crop&w=960&q=80`
+              : `https://picsum.photos/seed/pm-cert-${slugKey}-slot${idx}/960/720`,
           caption,
-        };
+        }));
       }
 
       /** @type {Record<string, Array<{ src: string, caption: string }>>} */
       const CERT_GALLERY = {
-        forklift: [
-          certPhoto("1553413077-190dd305871c", "지게차·창고 하역"),
-          certPhoto("1541888946425-d81bb19240f5", "건설·중장비 현장 참고"),
-          certPhoto("1504917595217-d4dc5ebe6122", "작업 현장 안전 브리핑"),
-          certPhoto("1504328345606-18bbc8c9d7d1", "용접·제조 라인 현장 참고"),
-          certPhoto("1621905252507-b35492cc74b4", "전기 패널 및 설비"),
-          certPhoto("1581092918056-0c4c3acd3789", "산업 현장 검사 참고 이미지"),
-        ],
-        excavator: [
-          certPhoto("1541888946425-d81bb19240f5", "건설 현장 중장비 투입"),
-          certPhoto("1553413077-190dd305871c", "하역·장비 라인 참고"),
-          certPhoto("1504917595217-d4dc5ebe6122", "현장 협업·안전"),
-          certPhoto("1621905252507-b35492cc74b4", "설비·전기 교육 연계 참고"),
-          certPhoto("1504328345606-18bbc8c9d7d1", "금속·제조 접합 현장 참고"),
-          certPhoto("1461749280684-dccba630e2f6", "학습·점검 루틴 참고"),
-        ],
-        electric: [
-          certPhoto("1621905252507-b35492cc74b4", "전기 패널·배선"),
-          certPhoto("1558618666-fcd25c85cd64", "측정·시험 도구 활용"),
-          certPhoto("1581092918056-0c4c3acd3789", "현장 검사 참고 장면"),
-          certPhoto("1503387762-592deb58ef4e", "기계실·설비 공간 참고"),
-          certPhoto("1541888946425-d81bb19240f5", "설비 교육 교차 참고(건설 현장 맥락)"),
-          certPhoto("1461749280684-dccba630e2f6", "이론·실습 교육 흐름 참고"),
-        ],
-        welding: [
-          certPhoto("1504328345606-18bbc8c9d7d1", "피복아크 용접·스패터 환경 참고"),
-          certPhoto("1621905252507-b35492cc74b4", "현장 안전 교육(전기 장비 교차 참고)"),
-          certPhoto("1581092918056-0c4c3acd3789", "작업 검사 순서 참고"),
-          certPhoto("1541888946425-d81bb19240f5", "건설·제조 라인 현장 참고"),
-          certPhoto("1504917595217-d4dc5ebe6122", "현장 협업·안전"),
-          certPhoto("1553413077-190dd305871c", "장비 라인 참고 이미지"),
-        ],
-        carrepair: [
-          certPhoto("1549317661-bd32c8ce0db2", "정비 차량 라인 참고 이미지"),
-          certPhoto("1625047509248-ec889cbff17f", "휠·하체 접근 교육 참고"),
-          certPhoto("1492144534655-ae79c964c9d7", "스포츠카 정비 브랜드 참고 장면"),
-          certPhoto("1454165804606-c3d57bc86b40", "팀 협업·작업 순서 참고"),
-          certPhoto("1504917595217-d4dc5ebe6122", "현장 안전 브리핑 참고"),
-          certPhoto("1461749280684-dccba630e2f6", "기술 진단 교육 흐름 참고"),
-        ],
-        beautician: [
-          certPhoto("1522337360788-8b13dee7a37e", "헤어·미용 교육"),
-          certPhoto("1516975080664-ed2fc6a32937", "브러시·팔레트 정리 및 위생"),
-          certPhoto("1570172619644-dfd03ed5d881", "관리 프로그램·상담"),
-          certPhoto("1604654894610-df63bc536371", "네일·핸드 케어 연계 참고"),
-          certPhoto("1552664730-d307ca884978", "학습 과정 브랜치 참고"),
-          certPhoto("1504674900247-0877df9cc836", "식·조리 과정 디테일 참고"),
-        ],
-        makeup: [
-          certPhoto("1516975080664-ed2fc6a32937", "메이크업 작업 장면 참고"),
-          certPhoto("1522337360788-8b13dee7a37e", "미용 전반 교육 배경 참고"),
-          certPhoto("1570172619644-dfd03ed5d881", "피부·관리 과정 교차 참고"),
-          certPhoto("1604654894610-df63bc536371", "네일·핸드 연계 과정 참고"),
-          certPhoto("1552664730-d307ca884978", "학습 목표 과정 브랜치 참고"),
-          certPhoto("1504674900247-0877df9cc836", "식·메이크업 실습 과정 디테일 참고"),
-        ],
-        skin: [
-          certPhoto("1570172619644-dfd03ed5d881", "피부관리 프로그램·상담"),
-          certPhoto("1516975080664-ed2fc6a32937", "뷰티 실습 디테일 참고"),
-          certPhoto("1522337360788-8b13dee7a37e", "미용 전반 과정 교차 참고"),
-          certPhoto("1604654894610-df63bc536371", "핸드·네일 과정 교차 참고"),
-          certPhoto("1552664730-d307ca884978", "학습 과정 브랜치 참고"),
-          certPhoto("1454165804606-c3d57bc86b40", "팀 상담·학습 흐름 참고"),
-        ],
-        nail: [
-          certPhoto("1604654894610-df63bc536371", "네일 아트 디테일"),
-          certPhoto("1516975080664-ed2fc6a32937", "뷰티 실무 참고 장면"),
-          certPhoto("1522337360788-8b13dee7a37e", "미용 전반 과정 교차 참고"),
-          certPhoto("1570172619644-dfd03ed5d881", "피부·케어 연계 참고"),
-          certPhoto("1552664730-d307ca884978", "학습 목표 과정 참고"),
-          certPhoto("1504674900247-0877df9cc836", "디테일 실습 과정 참고"),
-        ],
-        elevator: [
-          certPhoto("1560518883-ce09059eeffa", "고층 건물·승강 환경"),
-          certPhoto("1503387762-592deb58ef4e", "기계실·설비 공간 참고"),
-          certPhoto("1621905252507-b35492cc74b4", "전기 패널·제어 교육 연계 참고"),
-          certPhoto("1558618666-fcd25c85cd64", "측정·안전 순서 교육 참고"),
-          certPhoto("1581092918056-0c4c3acd3789", "현장 검사 참고 장면"),
-          certPhoto("1461749280684-dccba630e2f6", "기술 이론·실무 브라우징 참고"),
-        ],
-        cookkr: [
-          certPhoto("1498654896293-37aacf113fd9", "한식 진열·수업 장면 참고"),
-          certPhoto("1556910103-1c02745aae4d", "실습 주방 브리핑 과정 참고"),
-          certPhoto("1504674900247-0877df9cc836", "요리 과정 디테일 참고"),
-          certPhoto("1414235077428-338989a2e8c0", "레스토랑 과정 교차 참고 장면"),
-          certPhoto("1553621042-f6e147245754", "밥·면 코스 교차 참고 장면"),
-          certPhoto("1621996346565-e3dbc646d9a9", "복·국 조리 과정 교차 참고 장면"),
-        ],
-        cookwest: [
-          certPhoto("1414235077428-338989a2e8c0", "양식 테이블 세팅"),
-          certPhoto("1498654896293-37aacf113fd9", "양·한 과정 교차 참고 장면"),
-          certPhoto("1556910103-1c02745aae4d", "실습 주방 브리핑 과정 교차 참고"),
-          certPhoto("1504674900247-0877df9cc836", "요리 디테일·위생 과정 참고"),
-          certPhoto("1553621042-f6e147245754", "밥·국 코스 교차 과정 교육 참고"),
-          certPhoto("1621996346565-e3dbc646d9a9", "복·면 조리 단계 과정 교차 참고"),
-        ],
-        cookcn: [
-          certPhoto("1553621042-f6e147245754", "밥·면 실습 과정 참고 장면"),
-          certPhoto("1498654896293-37aacf113fd9", "한·중 과정 교차 참고 교육 장면"),
-          certPhoto("1414235077428-338989a2e8c0", "서양 과정 교차 참고 교육 장면"),
-          certPhoto("1556910103-1c02745aae4d", "실습 주방 브리핑 교육 과정 교차 참고"),
-          certPhoto("1504674900247-0877df9cc836", "플레이팅·위생 과정 참고 교육 장면"),
-          certPhoto("1621996346565-e3dbc646d9a9", "국·면 조리 단계 과정 교차 참고 교육 장면"),
-        ],
-        cookjp: [
-          certPhoto("1553621042-f6e147245754", "밥·회 실습 과정 참고 장면"),
-          certPhoto("1498654896293-37aacf113fd9", "한중일 과정 교차 참고 교육 장면"),
-          certPhoto("1414235077428-338989a2e8c0", "서양 과정 교차 참고 교육 장면"),
-          certPhoto("1556910103-1c02745aae4d", "실습 주방 브리핑 교육 과정 교차 참고 장면"),
-          certPhoto("1504674900247-0877df9cc836", "요리 과정 디테일 위생 참고 교육 장면"),
-          certPhoto("1621996346565-e3dbc646d9a9", "국·면 조리 단계 과정 교차 참고 장면"),
-        ],
-        bakery: [
-          certPhoto("1509440159598-924e33e385ea", "제빵·실습 과정 참고"),
-          certPhoto("1556910103-1c02745aae4d", "실습 주방 교육 참고"),
-          certPhoto("1498654896293-37aacf113fd9", "조리 과정 교차 참고"),
-          certPhoto("1558961363-fa893d6d5b4e", "패스트리·실습 과정 참고"),
-          certPhoto("1504674900247-0877df9cc836", "식품 위생·품질 과정 참고"),
-          certPhoto("1461749280684-dccba630e2f6", "이론·실습 교육 흐름 참고"),
-        ],
-        confection: [
-          certPhoto("1558961363-fa893d6d5b4e", "제과·디저트 과정 참고"),
-          certPhoto("1509440159598-924e33e385ea", "베이킹 과정 교차 참고"),
-          certPhoto("1556910103-1c02745aae4d", "실습 주방 참고"),
-          certPhoto("1414235077428-338989a2e8c0", "서양 과정 디테일 참고"),
-          certPhoto("1504674900247-0877df9cc836", "위생·표준화 과정 참고"),
-          certPhoto("1454165804606-c3d57bc86b40", "교육 협업 장면 참고"),
-        ],
-        landscape: [
-          certPhoto("1541888946425-d81bb19240f5", "야외 현장·시공 참고"),
-          certPhoto("1581092918056-0c4c3acd3789", "장비·점검 현장 참고"),
-          certPhoto("1504917595217-d4dc5ebe6122", "현장 브리핑·안전 참고"),
-          certPhoto("1553413077-190dd305871c", "장비 라인 교차 참고"),
-          certPhoto("1560518883-ce09059eeffa", "시설 외관·환경 참고"),
-          certPhoto("1461749280684-dccba630e2f6", "교육·설명 장면 참고"),
-        ],
-        hazmat: [
-          certPhoto("1581092918056-0c4c3acd3789", "현장 점검·안전 참고"),
-          certPhoto("1504917595217-d4dc5ebe6122", "작업 허가·통제 교육 참고"),
-          certPhoto("1625047509248-ec889cbff17f", "장비 취급 참고 교차"),
-          certPhoto("1558618666-fcd25c85cd64", "측정·기록 과정 참고"),
-          certPhoto("1454165804606-c3d57bc86b40", "팀 교육·협업 참고"),
-          certPhoto("1522337360788-8b13dee7a37e", "교육 이론·실무 참고(교차)"),
-        ],
-        info_proc: [
-          certPhoto("1517694712202-14dd9538aa97", "컴퓨터 교육·개발 참고"),
-          certPhoto("1551288049-bebda4e38f71", "데이터 화면·분석 참고"),
-          certPhoto("1454165804606-c3d57bc86b40", "협업 교육 장면 참고"),
-          certPhoto("1461749280684-dccba630e2f6", "코드·실습 과정 교차 참고"),
-          certPhoto("1503387762-592deb58ef4e", "장비실·설비 참고 교차"),
-          certPhoto("1516321310581-adb5c4438d10", "기술 문서 학습 참고"),
-        ],
-        comp_app: [
-          certPhoto("1551288049-bebda4e38f71", "표·차트 교육 화면 참고"),
-          certPhoto("1517694712202-14dd9538aa97", "스프레드시트·OA 교육 참고"),
-          certPhoto("1454165804606-c3d57bc86b40", "실무 협업 장면 참고"),
-          certPhoto("1549317661-bd32c8ce0db2", "노트북 실습 과정 참고"),
-          certPhoto("1522071820081-86f924e4c5c", "문서 업무 과정 교차 참고"),
-          certPhoto("1487057308791-736c8fde8c93", "집중 실습 과정 교차 참고"),
-        ],
-        word_proc: [
-          certPhoto("1454165804606-c3d57bc86b40", "사무 교육·문서 과정 참고"),
-          certPhoto("1517694712202-14dd9538aa97", "PC 실습 과정 참고"),
-          certPhoto("1522071820081-86f924e4c5c", "문서 작성 과정 교차 참고"),
-          certPhoto("1516321310581-adb5c4438d10", "교재·메뉴얼 학습 참고"),
-          certPhoto("1486312578147-4235d5eaf4fb", "노트북 활용 과정 교차 참고"),
-          certPhoto("1504384307860-e5c931c6d4c5", "집중 실습 과정 교차 참고"),
-        ],
+        forklift: certGalleryMix("forklift", "1553413077-190dd305871c", [
+          "지게차·창고 하역 및 물류 현장",
+          "안전·작업 동선 참고",
+          "적재 라인·표지 참고",
+          "교육·브리핑 참고",
+          "설비 점검 참고",
+          "학습 자료 참고",
+        ]),
+        excavator: certGalleryMix("excavator", "1541888946425-d81bb19240f5", [
+          "건설 현장 중장비 투입",
+          "굴찍·평탄화 작업 참고",
+          "현장 협업·신호 참고",
+          "장비 점검 참고",
+          "안전 통제 참고",
+          "교육 흐름 참고",
+        ]),
+        electric: certGalleryMix("electric", "1621905252507-b35492cc74b4", [
+          "전기 패널·배선 실무",
+          "측정·시험 도구 활용",
+          "기계실·설비 공간",
+          "현장 검사 순서 참고",
+          "회로·제어 교육 참고",
+          "기술 문서 학습 참고",
+        ]),
+        welding: certGalleryMix("welding", "1504328345606-18bbc8c9d7d1", [
+          "피복아크 용접·스패터 환경",
+          "용접 자세·품질 참고",
+          "안전 장비·환기 참고",
+          "재료·비드 성형 참고",
+          "현장 검사 참고",
+          "실습 교육 참고",
+        ]),
+        carrepair: certGalleryMix("carrepair", "1549317661-bd32c8ce0db2", [
+          "정비 차량 라인",
+          "진단·점검 순서 참고",
+          "공구·부품 관리 참고",
+          "전장·하체 교육 참고",
+          "안전 작업 참고",
+          "실무 워크플로 참고",
+        ]),
+        beautician: certGalleryMix("beautician", "1522337360788-8b13dee7a37e", [
+          "헤어·미용 교육 현장",
+          "위생·도구 정리 참고",
+          "컷·펌 실습 참고",
+          "상담·컨설팅 참고",
+          "교실 동선 참고",
+          "시험 과제 준비 참고",
+        ]),
+        makeup: certGalleryMix("makeup", "1516975080664-ed2fc6a32937", [
+          "메이크업 작업 장면",
+          "컬러·재료 준비 참고",
+          "위생·도구 배열 참고",
+          "연출 단계 참고",
+          "교실 실습 참고",
+          "시험 시간 배분 참고",
+        ]),
+        skin: certGalleryMix("skin", "1570172619644-dfd03ed5d881", [
+          "피부관리 프로그램·상담",
+          "기기·관리 단계 참고",
+          "위생·소독 참고",
+          "케어 재료 참고",
+          "실습 테이블 참고",
+          "시험 포트폴리오 참고",
+        ]),
+        nail: certGalleryMix("nail", "1604654894610-df63bc536371", [
+          "네일 아트·케어 디테일",
+          "도구·재료 배열 참고",
+          "위생·살균 참고",
+          "실습 조명 참고",
+          "교실 좌석 참고",
+          "시험 과제 참고",
+        ]),
+        elevator: certGalleryMix("elevator", "1560518883-ce09059eeffa", [
+          "고층 건물·승강 환경",
+          "기계실·제어 패널 참고",
+          "점검·측정 순서 참고",
+          "안전 교육 참고",
+          "설비 도면 참고",
+          "실무 워크플로 참고",
+        ]),
+        cookkr: certGalleryMix("cookkr", "1498654896293-37aacf113fd9", [
+          "한식 진열·수업 장면",
+          "실습 주방 브리핑",
+          "재료 손질 참고",
+          "화력·조리 순서 참고",
+          "위생·품질 참고",
+          "시험 과제 참고",
+        ]),
+        cookwest: certGalleryMix("cookwest", "1414235077428-338989a2e8c0", [
+          "양식 테이블·플레이팅",
+          "실습 주방 동선 참고",
+          "소스·육류 조리 참고",
+          "위생·보관 참고",
+          "교실 시연 참고",
+          "시험 시간 관리 참고",
+        ]),
+        cookcn: certGalleryMix("cookcn", "1621996346565-e3dbc646d9a9", [
+          "중식 화력·웍 조리",
+          "실습 주방 참고",
+          "향·양념 균형 참고",
+          "재료 준비 참고",
+          "위생 참고",
+          "시험 과제 참고",
+        ]),
+        cookjp: certGalleryMix("cookjp", "1553621042-f6e147245754", [
+          "일식 밥·생선 처리 실습",
+          "실습 주방 참고",
+          "칼질·안전 참고",
+          "국·면 코스 참고",
+          "위생 참고",
+          "시험 과제 참고",
+        ]),
+        bakery: certGalleryMix("bakery", "1509440159598-924e33e385ea", [
+          "제빵·반죽 실습",
+          "발효·성형 참고",
+          "오븐·온도 관리 참고",
+          "위생·품질 참고",
+          "교실 워크플로 참고",
+          "시험 과제 참고",
+        ]),
+        confection: certGalleryMix("confection", "1558961363-fa893d6d5b4e", [
+          "제과·디저트 장면",
+          "초콜릿·아이스 참고",
+          "위생·온도 참고",
+          "실습 테이블 참고",
+          "포장·마감 참고",
+          "시험 과제 참고",
+        ]),
+        landscape: certGalleryMix("landscape", "1416879595882-3373a0480b5b", [
+          "조경·식재 현장",
+          "시공 순서 참고",
+          "장비·안전 참고",
+          "수목 관리 참고",
+          "설계 도면 참고",
+          "실무 교육 참고",
+        ]),
+        hazmat: certGalleryMix("hazmat", "1581090464777-f3220dff2d7c", [
+          "위험물 시설·안전",
+          "점검·허가 참고",
+          "측정·기록 참고",
+          "비상 대응 교육 참고",
+          "보호 장비 참고",
+          "법규 학습 참고",
+        ]),
+        info_proc: certGalleryMix("info_proc", "1517694712202-14dd9538aa97", [
+          "프로그래밍·개발 교육",
+          "데이터·알고리즘 참고",
+          "협업·코드 리뷰 참고",
+          "문서·명세 참고",
+          "실습 환경 참고",
+          "시험 유형 참고",
+        ]),
+        comp_app: certGalleryMix("comp_app", "1551288049-bebda4e38f71", [
+          "스프레드시트·OA 실습",
+          "차트·함수 참고",
+          "업무 문서 참고",
+          "실습 과제 참고",
+          "자격 시험 유형 참고",
+          "시험 시간 참고",
+        ]),
+        word_proc: certGalleryMix("word_proc", "1484480974693-037337fdd749", [
+          "워드프로세서 문서 작업",
+          "스타일·목차 참고",
+          "교재형 레이아웃 참고",
+          "실습 과제 참고",
+          "출력·편집 참고",
+          "시험 과제 참고",
+        ]),
       };
 
-      /** @type {Record<string, ExamSpec>} */
+/** @type {Record<string, ExamSpec>} */
       const CERT_EXAM_SPEC = {
         forklift: {
           written: ["지게차 주행(이론)", "화물 적재(이론)", "운반 작업 지식(이론)", "하역 안전 및 작업(이론)", "안전관리·직업건강(이론)"],
@@ -1236,7 +1249,29 @@
           a.setAttribute("href", href);
         });
       }
+
+      function syncCertTrialLinks(certSlug) {
+        const key = String(certSlug || "").trim().toLowerCase();
+        const link = document.getElementById("cert-trial-start");
+        if (link) {
+          const base = "../study/makeup/index.html";
+          link.href = key ? `${base}?trialFrom=${encodeURIComponent(key)}` : base;
+        }
+        const desc = document.getElementById("cert-trial-desc");
+        if (!desc) return;
+        if (key === "makeup") {
+          desc.textContent =
+            "로그인 후 학습 현황 로드맵 2단계(첫 학습) 방식으로 최대 약 100문항까지 무료 체험할 수 있습니다. 이후 단계는 수강·승인 후 이용합니다.";
+        } else if (key && Object.prototype.hasOwnProperty.call(CERT_GENERAL, key)) {
+          desc.textContent =
+            "연습 문제은행은 현재 미용사(메이크업) 데모 데이터로 제공되어 UI와 학습 흐름을 확인하는 용도입니다. 본 과정 학습은 수강신청·승인 후 단계별로 진행됩니다.";
+        } else {
+          desc.textContent =
+            "데모 문제은행으로 풀이 환경을 확인할 수 있습니다. 과정별 본 학습은 수강·승인 후 제공됩니다.";
+        }
+      }
       syncCertInfoEnrollLinks(slug);
+      syncCertTrialLinks(slug);
 
       const data = CERT_GENERAL[slug];
 
