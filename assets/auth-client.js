@@ -2726,13 +2726,60 @@
     const id = encodeURIComponent(String(enrollmentId));
     const sn = encodeURIComponent(String(stageNo));
     return {
-      courseHome: toSitePath(`/my-courses/enrollment-001/index.html?id=${id}`),
       stageStart: toSitePath(`/study/makeup/index.html?enrollmentId=${id}&stage=${sn}&view=start`),
       play: toSitePath(`/study/makeup/index.html?enrollmentId=${id}&stage=${sn}&view=play`),
       result: toSitePath(`/study/makeup/index.html?enrollmentId=${id}&stage=${sn}&view=result`),
-      finalReport: toSitePath(`/study/makeup/index.html?enrollmentId=${id}&view=final-report`),
-      completeView: toSitePath(`/study/makeup/index.html?enrollmentId=${id}&view=complete`),
+      completePage: toSitePath("/mypage/learning/complete/index.html"),
+      finalReportPage: toSitePath("/mypage/learning/final-report/index.html"),
     };
+  }
+
+  function isEnrollmentLearningComplete(e) {
+    const approved = String(e.approval_status || "").toLowerCase() === "approved";
+    if (!approved) return false;
+    const ls = String(e.learning_status || "").trim().toLowerCase();
+    if (ls === "completed") return true;
+    const pct = Number(e.progress_percent);
+    return Number.isFinite(pct) && pct >= 100;
+  }
+
+  function allApprovedEnrollmentsCompleted(appliedOnly) {
+    const approvedRows = appliedOnly.filter(
+      (row) => String(row.approval_status || "").toLowerCase() === "approved"
+    );
+    if (!approvedRows.length) return false;
+    return approvedRows.every(isEnrollmentLearningComplete);
+  }
+
+  function enrollmentIsInProgressLearning(e) {
+    const approved = String(e.approval_status || "").toLowerCase() === "approved";
+    if (!approved) return false;
+    const ls = String(e.learning_status || "").trim().toLowerCase();
+    if (ls === "in_progress") return true;
+    const p = Number(e.progress_percent);
+    return Number.isFinite(p) && p > 0 && p < 100;
+  }
+
+  function enrollmentIsRecentApplication(e, days) {
+    const d = Number(days) > 0 ? Number(days) : 21;
+    if (!e || !e.created_at) return false;
+    const t = new Date(e.created_at).valueOf();
+    if (Number.isNaN(t)) return false;
+    return Date.now() - t < d * 86400000;
+  }
+
+  function isPriorityEnrollment(e) {
+    if (enrollmentIsInProgressLearning(e)) return true;
+    if (enrollmentIsRecentApplication(e, 21)) return true;
+    return false;
+  }
+
+  function sortEnrollmentsByCreatedDesc(arr) {
+    return [...arr].sort((a, b) => {
+      const ta = new Date(a.created_at || 0).valueOf();
+      const tb = new Date(b.created_at || 0).valueOf();
+      return tb - ta;
+    });
   }
 
   function parseEnrollmentLearningMeta(e) {
@@ -2821,18 +2868,18 @@
     const ovr = String(metaSummary.current_stage_label || "").trim().slice(0, 140);
     if (st.approved && st.kind !== "all_done" && ovr) currentLabel = ovr;
 
-    let stageGridHtml = "";
+    let stageGraphHtml = '<div class="pm-stage-graph" role="list">';
     stages.forEach((meta) => {
       const chip = presentationForStage(meta.n, st, metaStages);
       const u = buildLearningDeckUrls(e.id, meta.n);
       const variantCls =
         chip.variant === "done"
-          ? "pm-stage-chip--done"
+          ? "pm-stage-graph-step--done"
           : chip.variant === "active"
-            ? "pm-stage-chip--active"
+            ? "pm-stage-graph-step--active"
             : chip.variant === "locked"
-              ? "pm-stage-chip--locked"
-              : "pm-stage-chip--blocked";
+              ? "pm-stage-graph-step--locked"
+              : "pm-stage-graph-step--blocked";
       let actionHtml = "";
       if (!st.approved) {
         actionHtml = "<span>승인 후 단계 시작</span>";
@@ -2843,21 +2890,22 @@
       } else {
         actionHtml = `<span>${escapeHtmlLite(chip.line || "잠금")}</span>`;
       }
-      stageGridHtml += `
-      <article class="pm-stage-chip ${variantCls}" aria-label="${meta.n}단계 카드">
-        <div class="pm-stage-chip-top">
-          <span class="pm-stage-chip-num">${meta.n}</span>
-          <span>${escapeHtmlLite(chip.badge)}</span>
+      const connector =
+        meta.n < 12 ? '<span class="pm-stage-graph-connector" aria-hidden="true"></span>' : "";
+      stageGraphHtml += `
+      <div class="pm-stage-graph-step ${variantCls}" role="listitem" aria-label="${meta.n}단계">
+        <div class="pm-stage-graph-track">
+          <span class="pm-stage-graph-ring">${meta.n}</span>
+          ${connector}
         </div>
-        <div>
-          <h4>${escapeHtmlLite(meta.title)}</h4>
-          <p>${escapeHtmlLite(meta.hint)}</p>
-        </div>
-        <div class="pm-stage-actions">${actionHtml}</div>
-      </article>`;
+        <span class="pm-stage-graph-badge">${escapeHtmlLite(chip.badge)}</span>
+        <strong class="pm-stage-graph-title">${escapeHtmlLite(meta.title)}</strong>
+        <p class="pm-stage-graph-hint">${escapeHtmlLite(meta.hint)}</p>
+        <div class="pm-stage-graph-actions">${actionHtml}</div>
+      </div>`;
     });
+    stageGraphHtml += "</div>";
 
-    const uNav = buildLearningDeckUrls(e.id, 11);
     const uid = encodeURIComponent(`hub-${e.id}`);
     const pctRing = Math.min(100, Math.max(0, pct));
 
@@ -2865,12 +2913,8 @@
     const exFocus = findExplicitActiveStage(metaStages);
     if (st.approved && st.kind !== "all_done" && exFocus != null) focusStage = exFocus;
 
-    let continueHref = uNav.courseHome;
-    if (st.approved) {
-      const uCurr = buildLearningDeckUrls(e.id, focusStage);
-      if (st.kind === "all_done") continueHref = uCurr.finalReport || uCurr.completeView;
-      else continueHref = uCurr.play;
-    }
+    let continueHref = "#";
+    if (st.approved) continueHref = buildLearningDeckUrls(e.id, focusStage).play;
 
     const weakN =
       metaSummary.weak_flagged != null ? Math.max(0, Math.floor(Number(metaSummary.weak_flagged))) : null;
@@ -2914,9 +2958,6 @@
           toApprovalStatusLabel(e.approval_status)
         )}
       </span>
-      <a class="pm-learn-hub-link" href="${buildLearningDeckUrls(e.id, 1).courseHome}">
-        과정 학습 홈으로 (수강 상세 대시보드)
-      </a>
     </div>
     <div class="pm-learning-ring-wrap" aria-hidden="true">${learningProgressRingSvg(pctRing, uid)}</div>
   </div>
@@ -2943,17 +2984,68 @@
       <span class="pm-muted">${escapeHtmlLite(summaryMutedFallback)}</span>
     </div>
   </div>
-  <p class="pm-stage-grid-head">학습 단계 카드 · 12단계 구조</p>
-  <div class="pm-stage-grid" role="list">${stageGridHtml}</div>
+  <p class="pm-stage-graph-head">학습 단계 로드맵 · 12단계</p>
+  ${stageGraphHtml}
   <div class="pm-learn-hub-foot">
     <a class="pm-btn pm-btn-primary" style="display:inline-flex" href="${continueHref}">
       이어서 학습하기
     </a>
-    <a class="pm-btn pm-btn-ghost" style="display:inline-flex" href="${uNav.finalReport}">전체 통계 리포트</a>
-    <a class="pm-btn pm-btn-ghost" style="display:inline-flex" href="${uNav.completeView}">수강 완료 화면</a>
-    <span class="pm-muted" style="font-size:12px;margin-left:auto">※ view 파라미터는 학습 SPA·과정별 화면이 붙으면 교체됩니다.</span>
   </div>
 </section>`;
+  }
+
+  function renderLearningEnrollmentPickRow(e, selectedId) {
+    const sel = Number(selectedId) === Number(e.id) ? " pm-learn-pick--selected" : "";
+    const title = escapeHtmlLite(e.course_title || `신청 ${e.id}`);
+    const pay = escapeHtmlLite(toPaymentStatusLabel(e.payment_status));
+    const appr = escapeHtmlLite(toApprovalStatusLabel(e.approval_status));
+    const pct = Math.min(100, Math.max(0, Number(e.progress_percent ?? 0)));
+    return `
+    <li class="pm-learn-pick-li">
+      <button type="button" class="pm-learn-pick${sel}" data-learning-pick="${e.id}">
+        <span class="pm-learn-pick-title">${title}</span>
+        <span class="pm-learn-pick-meta">${pay} · ${appr} · 진행 ${pct}%</span>
+      </button>
+    </li>`;
+  }
+
+  function renderLearningDashboardWorkspace(appliedOnly, selectedId) {
+    const prioritySorted = sortEnrollmentsByCreatedDesc(appliedOnly.filter(isPriorityEnrollment));
+    const restSorted = sortEnrollmentsByCreatedDesc(appliedOnly.filter((row) => !isPriorityEnrollment(row)));
+    const exists = appliedOnly.some((row) => Number(row.id) === Number(selectedId));
+    const resolvedId = exists ? selectedId : prioritySorted[0]?.id ?? appliedOnly[0]?.id;
+    const selectedEnrollment =
+      appliedOnly.find((row) => Number(row.id) === Number(resolvedId)) || appliedOnly[0];
+
+    let listHtml = '<div class="pm-learn-list-panel">';
+    listHtml += '<h3 class="pm-learn-list-heading">진행 중 · 최근 신청</h3>';
+    if (!prioritySorted.length) {
+      listHtml +=
+        '<p class="pm-muted pm-learn-list-empty">진행 중이거나 최근에 신청한 과정이 없습니다. 아래 목록에서 과정을 선택하세요.</p>';
+    } else {
+      listHtml += '<ul class="pm-learn-pick-list">';
+      prioritySorted.forEach((row) => {
+        listHtml += renderLearningEnrollmentPickRow(row, resolvedId);
+      });
+      listHtml += "</ul>";
+    }
+    if (restSorted.length) {
+      listHtml += '<h3 class="pm-learn-list-heading pm-learn-list-heading--muted">기타 수강 내역</h3>';
+      listHtml += '<ul class="pm-learn-pick-list pm-learn-pick-list--muted">';
+      restSorted.forEach((row) => {
+        listHtml += renderLearningEnrollmentPickRow(row, resolvedId);
+      });
+      listHtml += "</ul>";
+    }
+    listHtml += "</div>";
+
+    const detailHtml = selectedEnrollment ? renderEnrollmentLearningHub(selectedEnrollment) : "";
+
+    return `
+<div class="pm-learn-dashboard-shell">
+  <div class="pm-learn-list-col">${listHtml}</div>
+  <div class="pm-learn-detail-col">${detailHtml}</div>
+</div>`;
   }
 
   async function mountLearningDashboard() {
@@ -2961,6 +3053,7 @@
     if (!root) return;
     const bars = root.querySelector("[data-api='learning-bars']");
     const msg = root.querySelector("[data-api='learning-dashboard-message']");
+    if (!bars) return;
     try {
       const rows = await request("/me/enrollments");
       const list = Array.isArray(rows) ? rows : [];
@@ -2968,7 +3061,6 @@
         const oid = e.opening_id;
         return oid != null && Number(oid) > 0;
       });
-      if (!bars) return;
       bars.innerHTML = "";
       if (!appliedOnly.length) {
         const enrollHref = toSitePath("/enroll/index.html");
@@ -3006,15 +3098,175 @@
         </div>
       `;
       bars.appendChild(summary);
-      appliedOnly.forEach((e) => {
-        const wrap = document.createElement("template");
-        wrap.innerHTML = renderEnrollmentLearningHub(e).trim();
-        const frag = wrap.content;
-        bars.appendChild(frag);
+
+      const workspaceMount = document.createElement("div");
+      workspaceMount.className = "pm-learn-dashboard-workspace";
+      bars.appendChild(workspaceMount);
+
+      const prioritySorted = sortEnrollmentsByCreatedDesc(appliedOnly.filter(isPriorityEnrollment));
+      let selectedId = prioritySorted[0]?.id ?? appliedOnly[0]?.id;
+
+      function paint(selId) {
+        workspaceMount.innerHTML = renderLearningDashboardWorkspace(appliedOnly, selId);
+      }
+
+      paint(selectedId);
+
+      bars.addEventListener("click", (ev) => {
+        const btn = ev.target.closest("[data-learning-pick]");
+        if (!btn || !workspaceMount.contains(btn)) return;
+        const nextId = Number(btn.dataset.learningPick);
+        if (!Number.isFinite(nextId)) return;
+        paint(nextId);
       });
+
+      const globalUnlocked = allApprovedEnrollmentsCompleted(appliedOnly);
+      if (globalUnlocked) {
+        const sampleId = appliedOnly[0].id;
+        const completeHref = buildLearningDeckUrls(sampleId, 12).completePage;
+        const banner = document.createElement("section");
+        banner.className = "pm-card pm-learn-completion-banner";
+        banner.innerHTML = `
+          <h3 class="pm-learn-completion-banner-title">모든 승인 과정 학습을 마쳤습니다</h3>
+          <p class="pm-detail">수강 완료 화면에서 안내를 확인한 뒤 전체 통계 리포트로 이동할 수 있습니다.</p>
+          <div class="pm-learn-completion-banner-actions">
+            <a class="pm-btn pm-btn-primary" href="${completeHref}">수강 완료 화면 보기</a>
+          </div>`;
+        bars.appendChild(banner);
+      }
+
       if (msg) showMessage(msg, `과정 학습 허브 ${appliedOnly.length}건을 불러왔습니다.`, "success");
     } catch (error) {
-      if (bars) bars.innerHTML = "";
+      bars.innerHTML = "";
+      if (msg) showMessage(msg, error.message, "error");
+    }
+  }
+
+  async function mountLearningCompletePage() {
+    const root = document.querySelector("[data-api='learning-complete-root']");
+    if (!root) return;
+    const msg = root.querySelector("[data-api='learning-complete-message']");
+    const locked = root.querySelector("[data-api='learning-complete-locked']");
+    const body = root.querySelector("[data-api='learning-complete-body']");
+    try {
+      const rows = await request("/me/enrollments");
+      const list = Array.isArray(rows) ? rows : [];
+      const appliedOnly = list.filter((e) => {
+        const oid = e.opening_id;
+        return oid != null && Number(oid) > 0;
+      });
+      const unlocked = allApprovedEnrollmentsCompleted(appliedOnly);
+      if (!unlocked) {
+        if (locked) locked.hidden = false;
+        if (body) body.hidden = true;
+        if (msg) showMessage(msg, "모든 승인 과정의 학습이 완료된 후 이 화면을 이용할 수 있습니다.", "info");
+        return;
+      }
+      if (locked) locked.hidden = true;
+      if (body) {
+        body.hidden = false;
+        const sampleId = appliedOnly[0].id;
+        const reportHref = buildLearningDeckUrls(sampleId, 12).finalReportPage;
+        const learningHref = toSitePath("/mypage/learning/index.html");
+        body.innerHTML = `
+          <p class="pm-detail">신청하신 승인 과정의 학습 진행이 모두 완료 상태입니다. 축하드립니다.</p>
+          <div class="pm-cta-row">
+            <a class="pm-btn pm-btn-primary" href="${reportHref}">전체 통계 리포트 보기</a>
+            <a class="pm-btn pm-btn-ghost" href="${learningHref}">학습 현황으로</a>
+          </div>`;
+      }
+      if (msg) showMessage(msg, "수강 완료 안내를 불러왔습니다.", "success");
+    } catch (error) {
+      if (msg) showMessage(msg, error.message, "error");
+    }
+  }
+
+  async function mountLearningFinalReportPage() {
+    const root = document.querySelector("[data-api='learning-final-report-root']");
+    if (!root) return;
+    const msg = root.querySelector("[data-api='learning-final-report-message']");
+    const locked = root.querySelector("[data-api='learning-final-report-locked']");
+    const body = root.querySelector("[data-api='learning-final-report-body']");
+    try {
+      const rows = await request("/me/enrollments");
+      const list = Array.isArray(rows) ? rows : [];
+      const appliedOnly = list.filter((e) => {
+        const oid = e.opening_id;
+        return oid != null && Number(oid) > 0;
+      });
+      const unlocked = allApprovedEnrollmentsCompleted(appliedOnly);
+      if (!unlocked) {
+        if (locked) locked.hidden = false;
+        if (body) body.hidden = true;
+        if (msg) showMessage(msg, "모든 승인 과정 학습 완료 후 통계 리포트를 확인할 수 있습니다.", "info");
+        return;
+      }
+      if (locked) locked.hidden = true;
+      if (body) {
+        body.hidden = false;
+        const approvedRows = appliedOnly.filter(
+          (row) => String(row.approval_status || "").toLowerCase() === "approved"
+        );
+        let totalSolved = 0;
+        let solvedFromMeta = false;
+        approvedRows.forEach((row) => {
+          const { summary } = parseEnrollmentLearningMeta(row);
+          const sc = Number(summary.solved_count);
+          if (Number.isFinite(sc)) {
+            totalSolved += Math.max(0, Math.floor(sc));
+            solvedFromMeta = true;
+          }
+        });
+        const avgPct =
+          approvedRows.length > 0
+            ? Math.round(
+                (approvedRows.reduce(
+                  (acc, row) => acc + Math.min(100, Math.max(0, Number(row.progress_percent ?? 0))),
+                  0
+                ) /
+                  approvedRows.length) *
+                  10
+              ) / 10
+            : 0;
+        const courseLines = approvedRows
+          .map((row) => {
+            const pct = Math.min(100, Math.max(0, Number(row.progress_percent ?? 0)));
+            return `<li>${escapeHtmlLite(row.course_title || `신청 ${row.id}`)} · 진행 ${pct}% · ${escapeHtmlLite(
+              toLearningStatusLabel(row.learning_status)
+            )}</li>`;
+          })
+          .join("");
+        const solvedLine = solvedFromMeta
+          ? `${totalSolved.toLocaleString("ko-KR")}문항 (learning-meta 집계 합)`
+          : "학습 클라이언트에서 solved_count 등 요약 필드를 채우면 여기에 반영됩니다.";
+        const completeHref = toSitePath("/mypage/learning/complete/index.html");
+        const learningHref = toSitePath("/mypage/learning/index.html");
+        body.innerHTML = `
+          <div class="pm-learn-report-stats">
+            <div class="pm-learn-sum-card">
+              <span>완료 과정 수</span>
+              <strong>${approvedRows.length.toLocaleString("ko-KR")}</strong>
+              <span class="pm-muted">승인된 신청 기준</span>
+            </div>
+            <div class="pm-learn-sum-card">
+              <span>평균 진도율</span>
+              <strong>${avgPct}%</strong>
+              <span class="pm-muted">완료 게이트 통과 시 대체로 100%에 근접합니다.</span>
+            </div>
+            <div class="pm-learn-sum-card">
+              <span>풀이 문항 합산</span>
+              <strong>${solvedLine}</strong>
+            </div>
+          </div>
+          <h3 class="pm-learn-report-subhead">과정별 요약</h3>
+          <ul class="pm-learn-report-list">${courseLines}</ul>
+          <div class="pm-cta-row">
+            <a class="pm-btn pm-btn-ghost" href="${completeHref}">수강 완료 화면</a>
+            <a class="pm-btn pm-btn-primary" href="${learningHref}">학습 현황으로</a>
+          </div>`;
+      }
+      if (msg) showMessage(msg, "전체 통계 리포트를 불러왔습니다.", "success");
+    } catch (error) {
       if (msg) showMessage(msg, error.message, "error");
     }
   }
@@ -3182,6 +3434,8 @@
 
     mountProfileSummary();
     mountLearningDashboard();
+    mountLearningCompletePage();
+    mountLearningFinalReportPage();
     mountMypageInquiriesSection();
     hydrateMypageCourseDetailQuickLink();
   }

@@ -6,7 +6,7 @@
     <title>PASSmaster | 학습 현황</title>
     <meta
       name="description"
-      content="관리자 승인 후 수강 중인 과정의 12단계 로드맵, 진행률, 학습 페이지 이동(내 강의실·학습 허브·문제풀이)을 확인합니다."
+      content="관리자 승인 후 수강 중인 과정의 12단계 로드맵, 진행률, 학습 진행 링크를 확인합니다."
     />
     <link rel="stylesheet" href="../../assets/shared.css" />
     <script defer src="../../assets/shared.js"></script>
@@ -28,81 +28,9 @@
         <p class="pm-pill">Learning dashboard</p>
         <h1>학습 현황</h1>
         <p class="pm-summary">
-          승인된 과정별로 <strong>현재 단계·진행률·12단계 카드 상태</strong>를 확인합니다. 문서상 URL은
-          이 사이트의 정적 경로와 쿼리로 아래처럼 연결되어 있습니다.
+          왼쪽 목록에서 과정을 선택하면 <strong>현재 단계·진행률·12단계 로드맵</strong>이 표시됩니다. 진행 중이거나 최근에 신청한
+          과정이 위쪽에 모이고, 나머지는 간단한 목록으로만 나열됩니다.
         </p>
-
-        <section class="pm-card pm-learn-route-card">
-          <h2>학습 페이지 URL 매핑 (구조안 → PASSmaster)</h2>
-          <p class="pm-detail pm-learn-route-lead">
-            동적 ID는 각 수강의 <strong>실제 신청 ID</strong>로 바꿉니다. 과정 허브는
-            <code class="pm-code-inline">my-courses/enrollment-001/index.html?id=<em>{enrollmentId}</em></code> 형태로 부릅니다.
-          </p>
-          <div class="pm-table-wrap">
-            <table class="pm-table pm-learn-route-table">
-              <thead>
-                <tr>
-                  <th>역할</th>
-                  <th>구조안 예시 URL</th>
-                  <th>사이트 경로</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>내 강의실</td>
-                  <td><span class="pm-muted">/my/courses</span></td>
-                  <td>
-                    <a href="../../my-courses/index.html"><code>/my-courses/</code></a>
-                  </td>
-                </tr>
-                <tr>
-                  <td>과정 학습 홈</td>
-                  <td><span class="pm-muted">/learn/:courseId</span></td>
-                  <td>
-                    <code>/my-courses/enrollment-001/index.html?id=</code>{id}
-                  </td>
-                </tr>
-                <tr>
-                  <td>단계 시작 안내</td>
-                  <td><span class="pm-muted">/learn/…/stage/:n/start</span></td>
-                  <td>
-                    <code>/study/makeup/index.html?enrollmentId=</code>{id}<code>&amp;stage=</code>{n}<code>&amp;view=start</code>
-                  </td>
-                </tr>
-                <tr>
-                  <td>문제풀이</td>
-                  <td><span class="pm-muted">/learn/…/stage/:n/play</span></td>
-                  <td>
-                    <code>/study/makeup/index.html?enrollmentId=</code>{id}<code>&amp;stage=</code>{n}<code>&amp;view=play</code>
-                  </td>
-                </tr>
-                <tr>
-                  <td>단계 결과</td>
-                  <td><span class="pm-muted">/learn/…/stage/:n/result</span></td>
-                  <td>
-                    <code>/study/makeup/index.html?enrollmentId=</code>{id}<code>&amp;stage=</code>{n}<code>&amp;view=result</code>
-                  </td>
-                </tr>
-                <tr>
-                  <td>전체 통계 리포트</td>
-                  <td><span class="pm-muted">/learn/:id/final-report</span></td>
-                  <td>
-                    <code>/study/makeup/index.html?enrollmentId=</code>{id}<code>&amp;view=final-report</code>
-                    <span class="pm-muted">(리포트 UI는 과정별 연동 시 확장)</span>
-                  </td>
-                </tr>
-                <tr>
-                  <td>수강 완료</td>
-                  <td><span class="pm-muted">/learn/:id/complete</span></td>
-                  <td>
-                    <code>/study/makeup/index.html?enrollmentId=</code>{id}<code>&amp;view=complete</code>
-                    <span class="pm-muted">(완료 화면 과정별 연동)</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
 
         <section class="pm-card" data-api="learning-dashboard-root">
           <h2>과정별 학습 허브</h2>
@@ -123,6 +51,6 @@
         <a href="../../pages.html">사이트맵</a>
       </footer>
     </div>
-    <script defer src="../../assets/auth-client.js?v=20260215-learning-meta"></script>
+    <script defer src="../../assets/auth-client.js?v=20260515-learning-dashboard"></script>
   </body>
 </html>

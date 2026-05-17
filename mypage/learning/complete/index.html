@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PASSmaster | 수강 완료</title>
+    <meta
+      name="description"
+      content="모든 승인 과정의 학습이 완료된 수강생에게 표시되는 완료 안내입니다."
+    />
+    <link rel="stylesheet" href="../../../assets/shared.css" />
+    <script defer src="../../../assets/shared.js"></script>
+  </head>
+  <body>
+    <div class="pm-shell">
+      <header class="pm-header">
+        <a class="pm-logo" href="../../../index.html">PASSmaster</a>
+        <nav class="pm-nav" aria-label="공통 이동">
+          <a href="../../../my-courses/index.html">내 강의실</a>
+          <a href="../../index.html">마이페이지</a>
+          <a href="../../../enroll/index.html">수강신청</a>
+          <a href="../../../pages.html">전체 페이지</a>
+        </nav>
+      </header>
+
+      <main class="pm-main">
+        <p class="pm-pill">Learning complete</p>
+        <h1>수강 완료</h1>
+        <p class="pm-summary">
+          승인된 모든 과정의 학습이 완료된 경우에만 이 페이지와 다음 단계인 전체 통계 리포트를 이용할 수 있습니다.
+        </p>
+
+        <section class="pm-card" data-api="learning-complete-root">
+          <p class="auth-message info" data-api="learning-complete-message">불러오는 중…</p>
+          <div data-api="learning-complete-locked" hidden class="pm-learn-gated-panel">
+            <p class="pm-detail">
+              아직 진행 중인 승인 과정이 있습니다. 학습 현황에서 해당 과정을 완료한 뒤 다시 이용해 주세요.
+            </p>
+            <div class="pm-cta-row">
+              <a class="pm-btn pm-btn-primary" href="../index.html">학습 현황으로</a>
+            </div>
+          </div>
+          <div data-api="learning-complete-body" hidden></div>
+        </section>
+
+        <div class="pm-cta-row" aria-label="페이지 이동">
+          <a class="pm-btn pm-btn-ghost" href="../index.html">학습 현황</a>
+          <a class="pm-btn pm-btn-ghost" href="../../../my-courses/index.html">내 강의실</a>
+          <a class="pm-btn pm-btn-primary" href="../../index.html">마이페이지</a>
+        </div>
+      </main>
+
+      <footer class="pm-footer">
+        <a href="../../../index.html">메인으로</a>
+        <a href="../../../support/index.html">고객센터</a>
+        <a href="../../../pages.html">사이트맵</a>
+      </footer>
+    </div>
+    <script defer src="../../../assets/auth-client.js?v=20260515-learning-dashboard"></script>
+  </body>
+</html>
