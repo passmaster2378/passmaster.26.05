@@ -117,8 +117,11 @@
       <header class="pm-header">
         <a class="pm-logo" href="../index.html">PASSmaster</a>
         <nav class="pm-nav" aria-label="공통 이동">
-          <a href="../login.html">로그인</a>
-          <a href="../register.html">회원가입</a>
+          <a href="../login.html" data-cert-auth-guest>로그인</a>
+          <a href="../register.html" data-cert-auth-guest>회원가입</a>
+          <a href="../my-courses/index.html" hidden data-cert-auth-member>내 강의</a>
+          <a href="../mypage/index.html" hidden data-cert-auth-member>마이페이지</a>
+          <a href="#" hidden data-cert-auth-member data-cert-logout-btn>로그아웃</a>
           <a href="../index.html#cert-courses">자격증 목록</a>
           <a href="../enroll/apply/index.html" data-cert-enroll-apply>수강신청</a>
         </nav>
@@ -133,13 +136,13 @@
           <h2>문제은행 무료체험</h2>
           <p class="pm-detail" id="cert-trial-desc"></p>
           <div class="pm-cta-row">
-            <a class="pm-btn pm-btn-primary" id="cert-trial-start" href="../study/makeup/index.html">로그인 후 100문제 체험</a>
-            <a class="pm-btn pm-btn-ghost" href="../login.html">로그인</a>
-            <a class="pm-btn pm-btn-ghost" href="../register.html">회원가입</a>
+            <a class="pm-btn pm-btn-primary" id="cert-trial-start" href="../study/makeup/index.html">무료체험하기</a>
+            <a class="pm-btn pm-btn-ghost" href="../login.html" data-cert-auth-guest>로그인</a>
+            <a class="pm-btn pm-btn-ghost" href="../register.html" data-cert-auth-guest>회원가입</a>
           </div>
         </section>
 
-        <div id="cert-gallery" class="cert-info-gallery" hidden aria-label="관련 참고 이미지"></div>
+        <div id="cert-gallery" class="cert-info-gallery" hidden aria-label="과정 참고 이미지"></div>
 
         <p class="pm-official-note" id="cert-official" hidden></p>
         <div id="cert-sections"></div>
@@ -168,186 +171,120 @@
       /** @typedef {{ written: string[], practical: string[], passing: string, footnote?: string }} ExamSpec */
       /** @typedef {{ intro: string, official?: string, sections: InfoSection[] }} CertInfo */
 
-      /** 대표 이미지는 메인 과정 카드와 동일(Unsplash). 나머지는 과정·슬롯별 고유 시드(Picsum)로 중복을 줄였습니다. */
-      function certGalleryMix(slugKey, heroPhotoId, captions) {
-        return captions.map((caption, idx) => ({
-          src:
-            idx === 0
-              ? `https://images.unsplash.com/photo-${heroPhotoId}?auto=format&fit=crop&w=960&q=80`
-              : `https://picsum.photos/seed/pm-cert-${slugKey}-slot${idx}/960/720`,
+      /** 과정별 참고 이미지 3점(Unsplash). 메인 과정 카드와 동일 출처 위주로 통일했습니다. */
+      function certGalleryTriple(rows) {
+        return rows.map(([photoId, caption]) => ({
+          src: `https://images.unsplash.com/photo-${photoId}?auto=format&fit=crop&w=960&q=80`,
           caption,
         }));
       }
 
       /** @type {Record<string, Array<{ src: string, caption: string }>>} */
       const CERT_GALLERY = {
-        forklift: certGalleryMix("forklift", "1553413077-190dd305871c", [
-          "지게차·창고 하역 및 물류 현장",
-          "안전·작업 동선 참고",
-          "적재 라인·표지 참고",
-          "교육·브리핑 참고",
-          "설비 점검 참고",
-          "학습 자료 참고",
+        forklift: certGalleryTriple([
+          ["1553413077-190dd305871c", "지게차 운전 및 창고 적재 작업 현장"],
+          ["1541888946425-d81bb19240f5", "건설 현장 중장비 투입·작업 반경·안전 거리 참고"],
+          ["1549317661-bd32c8ce0db2", "산업 단지 내 차량·설비 동선 및 정비 환경 참고"],
         ]),
-        excavator: certGalleryMix("excavator", "1541888946425-d81bb19240f5", [
-          "건설 현장 중장비 투입",
-          "굴찍·평탄화 작업 참고",
-          "현장 협업·신호 참고",
-          "장비 점검 참고",
-          "안전 통제 참고",
-          "교육 흐름 참고",
+        excavator: certGalleryTriple([
+          ["1541888946425-d81bb19240f5", "굴착기가 투입된 건설·토목 현장"],
+          ["1553413077-190dd305871c", "물류·적재 장비와 연계되는 현장 동선 참고"],
+          ["1416879595882-3373a0480b5b", "토공 후 조경·정지 등 부대 작업 흐름 참고"],
         ]),
-        electric: certGalleryMix("electric", "1621905252507-b35492cc74b4", [
-          "전기 패널·배선 실무",
-          "측정·시험 도구 활용",
-          "기계실·설비 공간",
-          "현장 검사 순서 참고",
-          "회로·제어 교육 참고",
-          "기술 문서 학습 참고",
+        electric: certGalleryTriple([
+          ["1621905252507-b35492cc74b4", "전기 패널·배선 및 설비 실무"],
+          ["1504328345606-18bbc8c9d7d1", "설비 금속 가공·용접 등 인접 작업 시 전기 안전 참고"],
+          ["1549317661-bd32c8ce0db2", "차량 전장·진단 등 저전압 배선 사고 예방 참고"],
         ]),
-        welding: certGalleryMix("welding", "1504328345606-18bbc8c9d7d1", [
-          "피복아크 용접·스패터 환경",
-          "용접 자세·품질 참고",
-          "안전 장비·환기 참고",
-          "재료·비드 성형 참고",
-          "현장 검사 참고",
-          "실습 교육 참고",
+        welding: certGalleryTriple([
+          ["1504328345606-18bbc8c9d7d1", "피복아크 용접 작업 및 스패터 환경"],
+          ["1621905252507-b35492cc74b4", "차단기·설비 인근 작업 시 감전·화재 예방 참고"],
+          ["1541888946425-d81bb19240f5", "야외·현장 용접 시 바람·유해 물질 통제 참고"],
         ]),
-        carrepair: certGalleryMix("carrepair", "1549317661-bd32c8ce0db2", [
-          "정비 차량 라인",
-          "진단·점검 순서 참고",
-          "공구·부품 관리 참고",
-          "전장·하체 교육 참고",
-          "안전 작업 참고",
-          "실무 워크플로 참고",
+        carrepair: certGalleryTriple([
+          ["1549317661-bd32c8ce0db2", "자동차 정비 및 진단 작업"],
+          ["1621905252507-b35492cc74b4", "전장·전원 회로 점검 순서 참고"],
+          ["1504328345606-18bbc8c9d7d1", "차체·프레임 보수 시 용접·방청 등 연계 참고"],
         ]),
-        beautician: certGalleryMix("beautician", "1522337360788-8b13dee7a37e", [
-          "헤어·미용 교육 현장",
-          "위생·도구 정리 참고",
-          "컷·펌 실습 참고",
-          "상담·컨설팅 참고",
-          "교실 동선 참고",
-          "시험 과제 준비 참고",
+        beautician: certGalleryTriple([
+          ["1522337360788-8b13dee7a37e", "미용(헤어) 교실 실습 및 도구 배치"],
+          ["1516975080664-ed2fc6a32937", "메이크업·색상 학습과 연계되는 미용 종목 준비 참고"],
+          ["1570172619644-dfd03ed5d881", "두피·피부 위생 관점에서의 살균·케어 참고"],
         ]),
-        makeup: certGalleryMix("makeup", "1516975080664-ed2fc6a32937", [
-          "메이크업 작업 장면",
-          "컬러·재료 준비 참고",
-          "위생·도구 배열 참고",
-          "연출 단계 참고",
-          "교실 실습 참고",
-          "시험 시간 배분 참고",
+        makeup: certGalleryTriple([
+          ["1516975080664-ed2fc6a32937", "메이크업 연출 및 재료 준비"],
+          ["1522337360788-8b13dee7a37e", "살롱·교실 위생과 헤어 과목 동선 참고"],
+          ["1570172619644-dfd03ed5d881", "피부 컨디션과 메이크업 시술 순서 참고"],
         ]),
-        skin: certGalleryMix("skin", "1570172619644-dfd03ed5d881", [
-          "피부관리 프로그램·상담",
-          "기기·관리 단계 참고",
-          "위생·소독 참고",
-          "케어 재료 참고",
-          "실습 테이블 참고",
-          "시험 포트폴리오 참고",
+        skin: certGalleryTriple([
+          ["1570172619644-dfd03ed5d881", "피부관리 시술 및 상담 장면"],
+          ["1516975080664-ed2fc6a32937", "색조·마무리 등 연계 미용 과목 참고"],
+          ["1604654894610-df63bc536371", "손·발 관리 위생과 동일하게 적용되는 도구 소독 참고"],
         ]),
-        nail: certGalleryMix("nail", "1604654894610-df63bc536371", [
-          "네일 아트·케어 디테일",
-          "도구·재료 배열 참고",
-          "위생·살균 참고",
-          "실습 조명 참고",
-          "교실 좌석 참고",
-          "시험 과제 참고",
+        nail: certGalleryTriple([
+          ["1604654894610-df63bc536371", "네일 아트·케어 디테일 작업"],
+          ["1570172619644-dfd03ed5d881", "피부·손 관리 위생 기준 참고"],
+          ["1522337360788-8b13dee7a37e", "미용 교실 실습 테이블·조명 배치 참고"],
         ]),
-        elevator: certGalleryMix("elevator", "1560518883-ce09059eeffa", [
-          "고층 건물·승강 환경",
-          "기계실·제어 패널 참고",
-          "점검·측정 순서 참고",
-          "안전 교육 참고",
-          "설비 도면 참고",
-          "실무 워크플로 참고",
+        elevator: certGalleryTriple([
+          ["1560518883-ce09059eeffa", "고층 건물·수직 교통 및 설비 환경"],
+          ["1621905252507-b35492cc74b4", "기계실·전기 패널 유지보수 연계 참고"],
+          ["1549317661-bd32c8ce0db2", "건물 내 설비 동선·점검 접근 참고"],
         ]),
-        cookkr: certGalleryMix("cookkr", "1498654896293-37aacf113fd9", [
-          "한식 진열·수업 장면",
-          "실습 주방 브리핑",
-          "재료 손질 참고",
-          "화력·조리 순서 참고",
-          "위생·품질 참고",
-          "시험 과제 참고",
+        cookkr: certGalleryTriple([
+          ["1498654896293-37aacf113fd9", "한식 조리 및 진열"],
+          ["1621996346565-e3dbc646d9a9", "강한 화력·웍 조리 등 위생·화력 통제 참고"],
+          ["1553621042-f6e147245754", "칼질·생선 처리 등 부재료 준비 안전 참고"],
         ]),
-        cookwest: certGalleryMix("cookwest", "1414235077428-338989a2e8c0", [
-          "양식 테이블·플레이팅",
-          "실습 주방 동선 참고",
-          "소스·육류 조리 참고",
-          "위생·보관 참고",
-          "교실 시연 참고",
-          "시험 시간 관리 참고",
+        cookwest: certGalleryTriple([
+          ["1414235077428-338989a2e8c0", "양식 플레이팅 및 테이블 세팅"],
+          ["1498654896293-37aacf113fd9", "식재료 보관·위생 기준 비교 참고"],
+          ["1578985545062-69928b1d9587", "베이커리·디저트 요소와 연계되는 마감 참고"],
         ]),
-        cookcn: certGalleryMix("cookcn", "1621996346565-e3dbc646d9a9", [
-          "중식 화력·웍 조리",
-          "실습 주방 참고",
-          "향·양념 균형 참고",
-          "재료 준비 참고",
-          "위생 참고",
-          "시험 과제 참고",
+        cookcn: certGalleryTriple([
+          ["1621996346565-e3dbc646d9a9", "중식 웍 조리 및 화력 활용"],
+          ["1498654896293-37aacf113fd9", "식재료 손질·위생 동선 참고"],
+          ["1414235077428-338989a2e8c0", "소스·육류 균형 등 플레이팅 참고"],
         ]),
-        cookjp: certGalleryMix("cookjp", "1553621042-f6e147245754", [
-          "일식 밥·생선 처리 실습",
-          "실습 주방 참고",
-          "칼질·안전 참고",
-          "국·면 코스 참고",
-          "위생 참고",
-          "시험 과제 참고",
+        cookjp: certGalleryTriple([
+          ["1553621042-f6e147245754", "일식 조리 및 실습 주방"],
+          ["1579584425555-c3ce17fd4351", "생선·밥상 구성 등 재료 배열 참고"],
+          ["1498654896293-37aacf113fd9", "발효·장류 등 한식 조리와 비교되는 위생 참고"],
         ]),
-        bakery: certGalleryMix("bakery", "1509440159598-924e33e385ea", [
-          "제빵·반죽 실습",
-          "발효·성형 참고",
-          "오븐·온도 관리 참고",
-          "위생·품질 참고",
-          "교실 워크플로 참고",
-          "시험 과제 참고",
+        bakery: certGalleryTriple([
+          ["1578985545062-69928b1d9587", "제빵·반죽·오븐 작업(페이스트리)"],
+          ["1498654896293-37aacf113fd9", "실습 주방 위생·재료 준비 참고"],
+          ["1579584425555-c3ce17fd4351", "완성 디저트 진열·품질 확인 참고"],
         ]),
-        confection: certGalleryMix("confection", "1558961363-fa893d6d5b4e", [
-          "제과·디저트 장면",
-          "초콜릿·아이스 참고",
-          "위생·온도 참고",
-          "실습 테이블 참고",
-          "포장·마감 참고",
-          "시험 과제 참고",
+        confection: certGalleryTriple([
+          ["1579584425555-c3ce17fd4351", "디저트·플레이팅 및 마감"],
+          ["1578985545062-69928b1d9587", "반죽·굽기 등 베이커리 공정 참고"],
+          ["1414235077428-338989a2e8c0", "양식 코스 디저트 연출 참고"],
         ]),
-        landscape: certGalleryMix("landscape", "1416879595882-3373a0480b5b", [
-          "조경·식재 현장",
-          "시공 순서 참고",
-          "장비·안전 참고",
-          "수목 관리 참고",
-          "설계 도면 참고",
-          "실무 교육 참고",
+        landscape: certGalleryTriple([
+          ["1416879595882-3373a0480b5b", "조경·식재 및 정원 시공"],
+          ["1541888946425-d81bb19240f5", "토공·평탄화 등 조경 전 단계 참고"],
+          ["1560518883-ce09059eeffa", "건물·옥외 공간 녹지 계획 참고"],
         ]),
-        hazmat: certGalleryMix("hazmat", "1581090464777-f3220dff2d7c", [
-          "위험물 시설·안전",
-          "점검·허가 참고",
-          "측정·기록 참고",
-          "비상 대응 교육 참고",
-          "보호 장비 참고",
-          "법규 학습 참고",
+        hazmat: certGalleryTriple([
+          ["1504328345606-18bbc8c9d7d1", "화기·용접 등 인화성 환경 통제 참고"],
+          ["1621905252507-b35492cc74b4", "전기 차단·락아웃 등 에너지 차단 참고"],
+          ["1541888946425-d81bb19240f5", "산업 현장 유해위험 요소 관리 참고"],
         ]),
-        info_proc: certGalleryMix("info_proc", "1517694712202-14dd9538aa97", [
-          "프로그래밍·개발 교육",
-          "데이터·알고리즘 참고",
-          "협업·코드 리뷰 참고",
-          "문서·명세 참고",
-          "실습 환경 참고",
-          "시험 유형 참고",
+        info_proc: certGalleryTriple([
+          ["1517694712202-14dd9538aa97", "프로그래밍·정보처리 학습 환경"],
+          ["1498050108023-c5249f4df085", "노트북 실습·문제 풀이 자세 참고"],
+          ["1460925895917-afdab827c52f", "데이터 정리·분석 업무 패턴 참고"],
         ]),
-        comp_app: certGalleryMix("comp_app", "1551288049-bebda4e38f71", [
-          "스프레드시트·OA 실습",
-          "차트·함수 참고",
-          "업무 문서 참고",
-          "실습 과제 참고",
-          "자격 시험 유형 참고",
-          "시험 시간 참고",
+        comp_app: certGalleryTriple([
+          ["1551288049-bebda4e38f71", "스프레드시트·차트 등 OA 실습"],
+          ["1460925895917-afdab827c52f", "업무 데이터 시각화 참고"],
+          ["1544197150-b99a580bb7a8", "키보드 입력·문서 작성 속도 향상 참고"],
         ]),
-        word_proc: certGalleryMix("word_proc", "1484480974693-037337fdd749", [
-          "워드프로세서 문서 작업",
-          "스타일·목차 참고",
-          "교재형 레이아웃 참고",
-          "실습 과제 참고",
-          "출력·편집 참고",
-          "시험 과제 참고",
+        word_proc: certGalleryTriple([
+          ["1544197150-b99a580bb7a8", "워드프로세서 문서 작성·편집"],
+          ["1489515217757-5fd1be406fef", "데스크 환경에서의 레이아웃·출력 준비 참고"],
+          ["1498050108023-c5249f4df085", "PC 활용 학습 공간 참고"],
         ]),
       };
 
@@ -1238,6 +1175,41 @@
       const params = new URLSearchParams(window.location.search);
       const slug = (params.get("slug") || "").trim().toLowerCase();
 
+      function getCertStoredSession() {
+        try {
+          const raw = localStorage.getItem("passmaster_auth");
+          const s = raw ? JSON.parse(raw) : null;
+          return s && s.user && s.token ? s : null;
+        } catch (_e) {
+          return null;
+        }
+      }
+
+      function refreshCertAuthChrome() {
+        const session = getCertStoredSession();
+        document.querySelectorAll("[data-cert-auth-guest]").forEach((el) => {
+          el.hidden = Boolean(session);
+        });
+        document.querySelectorAll("[data-cert-auth-member]").forEach((el) => {
+          el.hidden = !session;
+        });
+        const logout = document.querySelector("[data-cert-logout-btn]");
+        if (logout && session && logout.dataset.certLogoutBound !== "1") {
+          logout.dataset.certLogoutBound = "1";
+          logout.addEventListener("click", (event) => {
+            event.preventDefault();
+            localStorage.removeItem("passmaster_auth");
+            try {
+              sessionStorage.removeItem("passmaster_return_to");
+            } catch (_err) {
+              /* ignore */
+            }
+            window.location.reload();
+          });
+        }
+      }
+      refreshCertAuthChrome();
+
       /** 탑메뉴·본문 CTA 수강신청 → 과정별 신청서(모집 자동 선택), 목록 페이지 생략 */
       function syncCertInfoEnrollLinks(certSlug) {
         const key = String(certSlug || "").trim().toLowerCase();
@@ -1336,7 +1308,7 @@
         const examSpec = CERT_EXAM_SPEC[slug];
         if (galleryEl) {
           const imgs = CERT_GALLERY[slug];
-          if (imgs && imgs.length === 6) {
+          if (imgs && imgs.length === 3) {
             galleryEl.hidden = false;
             galleryEl.innerHTML = "";
             for (const item of imgs) {
