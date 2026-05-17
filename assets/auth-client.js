@@ -1607,7 +1607,8 @@
 
       const agreeRefund = form.querySelector("input[name='agreeRefund']");
       const agreePrivacy = form.querySelector("input[name='agreePrivacy']");
-      if (!agreeRefund?.checked || !agreePrivacy?.checked) {
+      const agreeAiQuestions = form.querySelector("input[name='agreeAiQuestions']");
+      if (!agreeRefund?.checked || !agreePrivacy?.checked || !agreeAiQuestions?.checked) {
         if (messageEl) showMessage(messageEl, "필수 동의 항목에 체크해 주세요.", "error");
         return;
       }
@@ -1622,6 +1623,7 @@
         agreements: {
           refund: true,
           privacy: true,
+          aiReconstructedQuestions: true,
         },
       };
 

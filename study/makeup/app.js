@@ -7,6 +7,7 @@
   const CERT_SLUG = "makeup";
   /** 수강·결제·승인 전 무료 체험으로 풀 수 있는 문항 수(과목명·문항 순서 기준 앞쪽 구간). */
   const FREE_TRIAL_QUESTION_LIMIT = 100;
+  const TRIAL_DISCLAIMER_SESSION_KEY = "passmaster_makeup_trial_disclaimer_v1";
   const SESSION_RESUME_KEY = "makeupSessionResume";
   const ENROLL_APPLY_MAKEUP_HREF = "../../enroll/apply/index.html?cert=makeup";
   const MAIN_SITE_HREF = "../../index.html";
@@ -533,6 +534,36 @@
       }
       window.location.href = MAIN_SITE_HREF;
     });
+  }
+
+  function wireTrialDisclaimerDialogOnce() {
+    const dlg = document.getElementById("trial-disclaimer-dialog");
+    const btnOk = document.getElementById("trial-disclaimer-confirm");
+    const btnClose = document.getElementById("trial-disclaimer-close");
+    if (!dlg || !btnOk || dlg.dataset.wired === "1") return;
+    dlg.dataset.wired = "1";
+    btnOk.addEventListener("click", () => {
+      try {
+        window.sessionStorage.setItem(TRIAL_DISCLAIMER_SESSION_KEY, "1");
+      } catch (_e) {
+        /* ignore */
+      }
+      try {
+        dlg.close();
+      } catch (_e2) {
+        /* ignore */
+      }
+      beginStudyRoundFromHub();
+    });
+    if (btnClose) {
+      btnClose.addEventListener("click", () => {
+        try {
+          dlg.close();
+        } catch (_e) {
+          /* ignore */
+        }
+      });
+    }
   }
 
   function mockHistoryToRows() {
@@ -1142,6 +1173,21 @@ ${trialDashBanner}
     updateAdminPanel("최종 결과 표시");
   }
 
+  function beginStudyRoundFromHub() {
+    clearSessionResume();
+    studyWrong = new Set();
+    mockHistory = [];
+    expectedMockRound = 1;
+    canEnterFinalReview = false;
+    studyRound = hasFullMakeupAccess ? 1 : 2;
+    studyQueue = window.MakeupQuestionEngine.fisherYates([...bank]);
+    studyIndex = 0;
+    studyDisplayCache = new Map();
+    setScreen("quiz");
+    updateAdminPanel(hasFullMakeupAccess ? "학습 시작: 1차 진입" : "무료체험 시작: 로드맵 2단계(첫 학습)");
+    renderStudyQuestion();
+  }
+
   function renderHub() {
     if (!E.hubActions) {
       throw new Error("허브 UI 요소를 찾지 못했습니다. 페이지를 새로고침해 주세요.");
@@ -1338,23 +1384,26 @@ ${trialDashBanner}
         renderHub();
       });
     }
-    document.getElementById("btn-start-study").addEventListener("click", () => {
-      clearSessionResume();
-      studyWrong = new Set();
-      mockHistory = [];
-      expectedMockRound = 1;
-      canEnterFinalReview = false;
-      studyRound = hasFullMakeupAccess ? 1 : 2;
-      studyQueue = window.MakeupQuestionEngine.fisherYates([...bank]);
-      studyIndex = 0;
-      studyDisplayCache = new Map();
-      setScreen("quiz");
-      updateAdminPanel(hasFullMakeupAccess ? "학습 시작: 1차 진입" : "무료체험 시작: 로드맵 2단계(첫 학습)");
-      renderStudyQuestion();
-    });
     const startStudyBtn = document.getElementById("btn-start-study");
-    if (startStudyBtn)
+    if (startStudyBtn) {
       startStudyBtn.textContent = hasFullMakeupAccess ? "1회차 시작" : "무료체험 시작 (2단계 첫 학습)";
+      startStudyBtn.onclick = () => {
+        if (!hasFullMakeupAccess) {
+          try {
+            if (window.sessionStorage.getItem(TRIAL_DISCLAIMER_SESSION_KEY) !== "1") {
+              const dlg = document.getElementById("trial-disclaimer-dialog");
+              if (dlg && typeof dlg.showModal === "function") {
+                dlg.showModal();
+                return;
+              }
+            }
+          } catch (_e) {
+            /* ignore */
+          }
+        }
+        beginStudyRoundFromHub();
+      };
+    }
     updateAdminPanel("허브 렌더 완료");
   }
 
@@ -1523,4 +1572,5 @@ ${trialDashBanner}
   }
 
   init();
+  wireTrialDisclaimerDialogOnce();
 })();

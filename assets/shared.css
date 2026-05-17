@@ -535,6 +535,20 @@ h1 {
 .pm-site-footer-links a:hover {
   color: #fff;
 }
+.pm-site-footer-disclaimer {
+  margin: 0 20px 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(214, 223, 242, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+  line-height: 1.55;
+  font-weight: 600;
+  color: #c5cee0;
+}
+.pm-site-footer-disclaimer strong {
+  color: #e8edf7;
+}
 .pm-site-footer-company {
   padding: 14px 20px;
   border-top: 1px solid rgba(214, 223, 242, 0.15);

@@ -2378,6 +2378,9 @@ function injectUnifiedFooterMeta() {
           <a href="${withBase("/support/index.html")}">고객센터</a>
         </nav>
       </div>
+      <p class="pm-site-footer-disclaimer" role="note">
+        본 사이트는 큐넷(Q-Net) 및 한국산업인력공단의 공식 사이트가 아니며, 제공되는 문제는 AI를 활용해 재구성한 학습용 문제입니다.
+      </p>
       <div class="pm-site-footer-company">
         <p><strong>주식회사 모든코퍼레이션</strong> · 대표이사 이동길 · 사업자등록번호 402-86-15931</p>
         <p>통신판매업 신고 제2022-인천서구-1321호 · 주소 인천광역시 서구 가재울로 20</p>

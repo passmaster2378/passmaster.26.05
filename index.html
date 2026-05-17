@@ -416,6 +416,111 @@
         line-height: 1.5;
       }
 
+      .landing-disclaimer-banner {
+        margin: 0 26px 14px;
+        padding: 12px 16px;
+        border-radius: 14px;
+        border: 1px solid #c9daf8;
+        background: linear-gradient(135deg, #f8fbff, #eef4ff);
+        box-shadow: 0 8px 22px rgba(24, 56, 118, 0.06);
+      }
+      .landing-disclaimer-banner h3 {
+        margin: 0 0 8px;
+        font-size: 14px;
+        font-weight: 900;
+        letter-spacing: -0.02em;
+        color: #153565;
+      }
+      .landing-disclaimer-banner p {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+        color: #3d5280;
+        line-height: 1.55;
+      }
+
+      .landing-cert-q-hint {
+        margin: -8px 0 18px;
+        padding: 10px 14px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.65);
+        border: 1px solid #dbe6fb;
+        font-size: 13px;
+        font-weight: 600;
+        color: #395174;
+        line-height: 1.5;
+      }
+      .landing-cert-q-hint a {
+        color: var(--primary-deep);
+        font-weight: 800;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+
+      .legal-notice-shell {
+        border-radius: 20px;
+        border: 1px solid #cddcf5;
+        background: linear-gradient(180deg, #fbfdff 0%, #f3f7ff 100%);
+        padding: 18px 18px 16px;
+      }
+      .legal-notice-important {
+        margin: 0 0 14px;
+        padding: 14px 16px;
+        border-radius: 14px;
+        border: 1px solid #f0c36a;
+        background: linear-gradient(135deg, #fffaf0, #fff6e8);
+      }
+      .legal-notice-important h3 {
+        margin: 0 0 10px;
+        font-size: 17px;
+        font-weight: 900;
+        color: #8a4b00;
+      }
+      .legal-notice-important p {
+        margin: 0 0 10px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #4a3720;
+        line-height: 1.55;
+      }
+      .legal-notice-important p:last-child {
+        margin-bottom: 0;
+      }
+      .legal-notice-detail {
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid #d5e4ff;
+        background: rgba(255, 255, 255, 0.92);
+      }
+      .legal-notice-detail h3 {
+        margin: 0 0 10px;
+        font-size: 16px;
+        font-weight: 900;
+        color: #1a355f;
+      }
+      .legal-notice-detail p {
+        margin: 0 0 10px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #455a7a;
+        line-height: 1.55;
+      }
+      .legal-notice-detail p:last-child {
+        margin-bottom: 0;
+      }
+
+      .footer-disclaimer-short {
+        margin: 0 0 14px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid rgba(214, 223, 242, 0.22);
+        background: rgba(255, 255, 255, 0.05);
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.55;
+        color: #c5cee0;
+      }
+
       .twelve-wrap {
         border-radius: 20px;
         border: 1px solid #cddcf5;
@@ -983,6 +1088,10 @@
       }
 
       @media (max-width: 960px) {
+        .landing-disclaimer-banner {
+          margin: 0 20px 12px;
+        }
+
         .header {
           flex-wrap: wrap;
           gap: 12px;
@@ -1143,6 +1252,14 @@
           </div>
         </header>
 
+        <aside class="landing-disclaimer-banner fade d1" aria-label="안내사항">
+          <h3>안내사항</h3>
+          <p>
+            본 사이트에서 제공하는 문제는 큐넷(Q-Net) 또는 한국산업인력공단의 공식 기출문제가 아닙니다.
+            공개된 자격증 기출 경향과 학습 자료를 바탕으로 AI를 활용하여 재구성한 학습용 문제입니다.
+          </p>
+        </aside>
+
         <section class="hero fade d1">
           <article class="hero-main fade d2">
             <span class="hero-badge">합격 로드맵 기반 커리큘럼</span>
@@ -1273,6 +1390,10 @@
           <div class="section-head">
             <h2>국가자격증 필기 · 문제은행</h2>
           </div>
+          <p class="landing-cert-q-hint">
+            제공 문항은 공식 기출 원문이 아닙니다. 자세한 고지는 하단
+            <a href="#question-source-notice">문제·학습 자료 관련 안내</a>를 참고하세요.
+          </p>
           <div class="course-grid">
             <article class="course-card">
               <div class="course-thumb">
@@ -1871,6 +1992,42 @@
           <a class="btn btn-primary" href="./enroll/index.html#enroll-openings">수강 신청 바로가기</a>
         </section>
 
+        <section class="section fade" id="question-source-notice">
+          <div class="section-head">
+            <h2>문제·학습 자료 관련 안내</h2>
+          </div>
+          <div class="legal-notice-shell">
+            <div class="legal-notice-important">
+              <h3>중요 안내</h3>
+              <p>
+                본 사이트는 큐넷(Q-Net), 한국산업인력공단 또는 국가자격시험 시행기관과 직접적인 제휴·운영 관계가 없는 민간 학습 서비스입니다.
+              </p>
+              <p>
+                본 사이트의 문제는 공식 기출문제 원문을 그대로 제공하는 것이 아니라, 공개된 기출 경향과 시험 범위를 참고하여 AI 기반으로 재구성한 학습용 예상·복습 문제입니다.
+                문제 지문, 선택지, 해설은 학습 편의를 위해 본 사이트 형식에 맞게 편집·구성될 수 있으며, 실제 시험문제와 동일하지 않을 수 있습니다.
+              </p>
+              <p>
+                본 사이트의 학습 자료는 자격증 필기시험 준비를 돕기 위한 보조 자료이며, 실제 시험의 합격을 보장하지 않습니다.
+                시험과 관련된 공식 정보는 반드시 큐넷(Q-Net) 또는 해당 시험 시행기관의 공지사항을 확인해 주시기 바랍니다.
+              </p>
+            </div>
+            <div class="legal-notice-detail">
+              <h3>문제 제공 관련 안내</h3>
+              <p>
+                본 사이트는 국가자격증 필기시험을 준비하는 수험생을 위한 학습용 문제은행 서비스입니다.
+                본 사이트에서 제공하는 문제는 큐넷(Q-Net), 한국산업인력공단 또는 각 자격시험 시행기관에서 공식적으로 제공하는 정식 기출문제가 아닙니다.
+              </p>
+              <p>
+                제공되는 문제는 공개된 국가자격증 기출문제의 출제 경향, 과목 구성, 문제 유형을 참고하여 본 사이트의 학습 단계와 문제풀이 형식에 맞게 AI를 활용해 재구성한 학습용 문제입니다.
+                따라서 실제 시험에 동일한 문항이 출제된다는 것을 보장하지 않으며, 실제 시험의 출제 범위, 출제 방식, 법령·기준 개정 내용과 차이가 있을 수 있습니다.
+              </p>
+              <p>
+                수험생은 본 사이트의 문제를 학습 보조 자료로 활용하시고, 시험 접수, 출제기준, 시험 일정, 합격 기준 등 공식 정보는 반드시 큐넷(Q-Net) 또는 해당 자격시험의 공식 시행기관 안내를 확인하시기 바랍니다.
+              </p>
+            </div>
+          </div>
+        </section>
+
         <footer class="footer">
           <div class="footer-top">
             <div class="footer-brand">
@@ -1894,6 +2051,9 @@
               서비스명 PASSmaster · 개인정보보호책임자 이태나 · 무통장 입금 계좌 등은 수강·결제 안내를 따릅니다.
             </p>
           </div>
+          <p class="footer-disclaimer-short" role="note">
+            본 사이트는 큐넷(Q-Net) 및 한국산업인력공단의 공식 사이트가 아니며, 제공되는 문제는 AI를 활용해 재구성한 학습용 문제입니다.
+          </p>
           <div class="footer-bottom">
             <span>© 2026 주식회사 모든코퍼레이션. All rights reserved.</span>
           </div>

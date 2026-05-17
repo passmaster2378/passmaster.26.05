@@ -362,14 +362,16 @@
         color: #b71c1c;
         font-size: 14px;
       }
-      #trial-end-dialog {
+      #trial-end-dialog,
+      #trial-disclaimer-dialog {
         border: none;
         border-radius: 16px;
         padding: 0;
         max-width: min(440px, calc(100vw - 32px));
         box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
       }
-      #trial-end-dialog::backdrop {
+      #trial-end-dialog::backdrop,
+      #trial-disclaimer-dialog::backdrop {
         background: rgba(0, 0, 0, 0.35);
       }
       .trial-end-inner {
@@ -699,6 +701,21 @@
             <div class="trial-end-actions">
               <button type="button" class="mq-bigbtn" id="trial-end-enroll">수강신청서 작성</button>
               <button type="button" class="trial-end-secondary" id="trial-end-main">메인 페이지로</button>
+            </div>
+          </div>
+        </dialog>
+
+        <dialog id="trial-disclaimer-dialog" aria-labelledby="trial-disclaimer-title">
+          <div class="trial-end-inner">
+            <h2 id="trial-disclaimer-title">무료체험 문제 안내</h2>
+            <p>무료체험 문제는 실제 국가자격시험의 공식 기출문제가 아닙니다.</p>
+            <p>공개된 출제 경향과 학습 자료를 바탕으로 AI가 재구성한 학습용 문제입니다.</p>
+            <p>실제 시험과 문제 표현, 선택지 구성, 출제 방식이 다를 수 있습니다.</p>
+            <div class="trial-end-actions">
+              <button type="button" class="mq-bigbtn" id="trial-disclaimer-confirm">
+                내용을 확인하고 무료체험 시작하기
+              </button>
+              <button type="button" class="trial-end-secondary" id="trial-disclaimer-close">닫기</button>
             </div>
           </div>
         </dialog>
