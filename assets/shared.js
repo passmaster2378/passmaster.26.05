@@ -1160,7 +1160,7 @@ const defaultDomainRecordSets = {
     columns: ["회원", "과정", "진도율", "최근학습"],
     rows: [
       ["김OO", "전기기능사", "72%", "오늘 10:20"],
-      ["박OO", "용접기능사", "64%", "오늘 08:55"],
+      ["박OO", "피복아크용접기능사", "64%", "오늘 08:55"],
       ["이OO", "한식조리기능사", "81%", "어제 22:14"],
     ],
     note: "7일 미접속 수강생은 자동 리마인드 대상에 포함됩니다.",
@@ -1942,21 +1942,119 @@ function getCanonicalAdminEmail() {
 function isStrictAdminSession(session) {
   if (!session || !session.user) return false;
   const user = session.user;
-  return user.role === "admin" && normalizeEmail(user.email) === getCanonicalAdminEmail();
+  if (normalizeEmail(user.email) !== getCanonicalAdminEmail()) return false;
+  const role = String(user.role || "")
+    .trim()
+    .toLowerCase();
+  return role === "admin";
+}
+
+/** 탑 헤더 관리자 대시보드로 가는 앵커(텍스트·URL 기준). 로그인/회원가입 슬롯은 제외 */
+function linkAppearsLikeAdminShortcut(link) {
+  if (!link) return false;
+  const href = String(link.getAttribute("href") || "")
+    .replace(/\\/g, "/")
+    .toLowerCase();
+  const text = String(link.textContent || "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (text === "관리자") return true;
+  return (
+    href.includes("/admin/") || href.endsWith("/admin") || href.includes("admin/index.html") || /\b\/admin\b/.test(href)
+  );
 }
 
 function linkLooksLikePrivilegedAdmin(link, loginAnchor, registerAnchor) {
   if (!link || link === loginAnchor || link === registerAnchor) return false;
-  const href = String(link.getAttribute("href") || "")
-    .replace(/\\/g, "/")
-    .toLowerCase();
-  const text = String(link.textContent || "").trim();
-  if (text === "관리자") return true;
-  return (
-    href.includes("/admin/") ||
-    href.endsWith("/admin") ||
-    href.includes("admin/index.html")
-  );
+  return linkAppearsLikeAdminShortcut(link);
+}
+
+/** href를 동일 과정까지 비교용 경로로 정규화(…/mypage, …/mypage/index.html 동치) */
+function normalizePassmasterNavTargetPath(href) {
+  if (!href || typeof href !== "string") return "";
+  try {
+    const u = new URL(href.trim(), window.location.href);
+    let p = u.pathname.replace(/\\/g, "/");
+    if (p.endsWith("/index.html")) {
+      const base = p.slice(0, -"/index.html".length);
+      p = base || "/";
+    }
+    p = p.replace(/\/+$/, "") || "/";
+    return p.toLowerCase();
+  } catch (_e) {
+    return "";
+  }
+}
+
+/** 헤더 nav 안의 앵커(로그아웃 제외). 직계 자식만이 아니라 래퍼 안 링크도 포함해 탐지 실패를 줄입니다. */
+function listHeaderNavAnchors(nav) {
+  return Array.from(nav.querySelectorAll("a")).filter((a) => !a.hasAttribute("data-pm-logout"));
+}
+
+/** 로그인/회원가입 고정 슬롯 및 로그아웃 제외 후, 관리자 대시보드로 들어가는 앵커를 DOM에서 제거 */
+function removeAdminishNavAnchors(nav, protectedLinks) {
+  const keep = new Set((protectedLinks || []).filter(Boolean));
+  listHeaderNavAnchors(nav).forEach((link) => {
+    if (keep.has(link)) return;
+    const href = link.getAttribute("href") || "";
+    if (href === "#") return;
+    if (linkAppearsLikeAdminShortcut(link)) link.remove();
+  });
+}
+
+/** 로그인/회원가입 슬롯을 찾지 못한 경우에도 헤더에 남은 관리자 진입 링크 제거(슈퍼관리자·비로그인 제외 안 함으로 일반 회원·게스트 혼선 방지) */
+function purgeAdminNavWhenUnconfigured(nav, session) {
+  if (!nav) return;
+  if (session && session.user && isStrictAdminSession(session)) return;
+  listHeaderNavAnchors(nav).forEach((link) => {
+    const href = link.getAttribute("href") || "";
+    if (href === "#") return;
+    if (linkAppearsLikeAdminShortcut(link)) link.remove();
+  });
+}
+
+/** 슈퍼관리자가 아닌데도 남아 있는 관리자식 링크·잘못된 슬롯 라벨 정리 */
+function sweepNonPrivilegedAdminFromNav(nav, session, loginLink, registerLink) {
+  if (!nav || !session || !session.user || isStrictAdminSession(session)) return;
+  const protect = new Set([loginLink, registerLink, nav.querySelector("a[data-pm-logout]")].filter(Boolean));
+  listHeaderNavAnchors(nav).forEach((link) => {
+    if (protect.has(link)) return;
+    const href = link.getAttribute("href") || "";
+    if (href === "#") return;
+    if (linkAppearsLikeAdminShortcut(link)) link.remove();
+  });
+  if (registerLink) {
+    const label = String(registerLink.textContent || "")
+      .trim()
+      .replace(/\s+/g, " ");
+    const regHref = String(registerLink.getAttribute("href") || "")
+      .replace(/\\/g, "/")
+      .toLowerCase();
+    if (label === "관리자" || regHref.includes("/admin/") || regHref.includes("admin/index.html")) {
+      const originalRegisterHref =
+        nav.dataset.pmOrigRegisterHref || registerLink.getAttribute("href") || "./register.html";
+      const myInfoHref = originalRegisterHref.replace("register.html", "mypage/index.html");
+      registerLink.textContent = "마이페이지";
+      registerLink.setAttribute("href", myInfoHref);
+    }
+  }
+}
+
+/** register 슬롯이 마이페이지 허브를 가리킬 때, 같은 URL의 추가「마이페이지」메뉴 제거 */
+function removeDuplicateMypageHubNav(nav, protectedLinks, mypageHref) {
+  const keep = new Set((protectedLinks || []).filter(Boolean));
+  const target = normalizePassmasterNavTargetPath(mypageHref);
+  if (!target || !/\/mypage$/i.test(target)) return;
+
+  listHeaderNavAnchors(nav).forEach((link) => {
+    if (keep.has(link)) return;
+    const hp = normalizePassmasterNavTargetPath(link.getAttribute("href") || "");
+    if (hp !== target) return;
+    const t = String(link.textContent || "")
+      .trim()
+      .replace(/\s+/g, " ");
+    if (t.includes("마이페이지")) link.remove();
+  });
 }
 
 function updateNavigationByAuth(session) {
@@ -1966,7 +2064,7 @@ function updateNavigationByAuth(session) {
     document.querySelector("nav.pm-nav");
   if (!nav) return;
 
-  const nonLogoutAnchors = Array.from(nav.querySelectorAll(":scope > a")).filter(
+  let nonLogoutAnchors = Array.from(nav.querySelectorAll(":scope > a")).filter(
     (a) => !a.hasAttribute("data-pm-logout")
   );
   let loginLink = nonLogoutAnchors.find((a) => /login\.html/i.test(a.getAttribute("href") || ""));
@@ -1974,30 +2072,27 @@ function updateNavigationByAuth(session) {
     /register\.html/i.test(a.getAttribute("href") || "")
   );
   if (!loginLink || !registerLink) {
-    loginLink = nonLogoutAnchors[0];
-    registerLink = nonLogoutAnchors[1];
+    nonLogoutAnchors = listHeaderNavAnchors(nav);
+    loginLink = nonLogoutAnchors.find((a) => /login\.html/i.test(a.getAttribute("href") || ""));
+    registerLink = nonLogoutAnchors.find((a) => /register\.html/i.test(a.getAttribute("href") || ""));
   }
-  if (!loginLink || !registerLink) return;
+  if (!loginLink || !registerLink) {
+    purgeAdminNavWhenUnconfigured(nav, session);
+    return;
+  }
 
   const h0 = loginLink.getAttribute("href") || "";
   const h1 = registerLink.getAttribute("href") || "";
   if (/login\.html/i.test(h0)) nav.dataset.pmOrigLoginHref = h0;
   if (/register\.html/i.test(h1)) nav.dataset.pmOrigRegisterHref = h1;
 
-  const restNavLinks = nonLogoutAnchors.filter((a) => a !== loginLink && a !== registerLink);
+  /** 로그인/회원가입 슬롯 외 모든 탑메뉴 「관리자」·/admin 진입점 DOM 제거(엄격 관리자는 아래 브랜치에서 회원가입 칸 하나만 관리자로 재할당). */
+  removeAdminishNavAnchors(nav, [loginLink, registerLink]);
+
+  const restNavLinks = listHeaderNavAnchors(nav).filter((a) => a !== loginLink && a !== registerLink);
 
   const logoLink =
     document.querySelector(".pm-header .pm-logo") || document.querySelector(".pm-logo");
-  const navLinks = nonLogoutAnchors;
-  const adminLinks = navLinks.filter((link) =>
-    linkLooksLikePrivilegedAdmin(link, loginLink, registerLink)
-  );
-
-  /** 정적 '관리자' 앵커(admin 페이지 헤더 등)와 JS가 바꾸는 회원가입→관리자 슬롯이 중복되지 않도록, 별도 관리자 링크는 항상 숨깁니다. */
-  adminLinks.forEach((link) => {
-    link.style.display = "none";
-    link.hidden = true;
-  });
 
   const pagesLink = nav.querySelector("a[href*='pages.html']");
   const enrollLink = nav.querySelector("a[href*='enroll/index.html']");
@@ -2077,6 +2172,11 @@ function updateNavigationByAuth(session) {
     registerLink.textContent = "관리자";
     registerLink.setAttribute("href", adminHref);
     restNavLinks.forEach((link) => {
+      if (linkLooksLikePrivilegedAdmin(link, loginLink, registerLink)) {
+        link.style.display = "none";
+        link.hidden = true;
+        return;
+      }
       link.style.display = "";
       link.hidden = false;
     });
@@ -2113,7 +2213,9 @@ function updateNavigationByAuth(session) {
       link.hidden = false;
     }
   });
-  if (pagesLink) pagesLink.style.display = "none";
+  removeDuplicateMypageHubNav(nav, [loginLink, registerLink], myInfoHref);
+
+  sweepNonPrivilegedAdminFromNav(nav, session, loginLink, registerLink);
 
   bindStudentLogoutLink();
 }

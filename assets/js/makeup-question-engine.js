@@ -4,6 +4,10 @@
  */
 (function () {
   const FILES = ["makeup1.json", "makeup2.json", "makeup3.json", "makeup4.json"];
+  /** 누락 데이터 보정용(항상 4지선다 유지 · 정답 1개) */
+  function padMissingOption(slotKey) {
+    return `※ 보기 보완 필요 (선택지 ${slotKey}번)`;
+  }
   const BASE = (() => {
     const scripts = document.getElementsByTagName("script");
     for (let i = scripts.length - 1; i >= 0; i -= 1) {
@@ -28,8 +32,14 @@
     const fileTag = `M${fileIndex + 1}`;
     const oid = raw.id != null ? String(raw.id) : String(itemIndex + 1);
     const uniqueId = `${fileTag}-${oid}`;
-    const options = raw.options || {};
-    const keys = ["1", "2", "3", "4"].filter((k) => options[k] != null);
+    const rawOpts = raw.options || {};
+    const options = {};
+    for (const k of ["1", "2", "3", "4"]) {
+      const rawText = rawOpts[k];
+      const trimmed = rawText != null ? String(rawText).trim() : "";
+      options[k] = trimmed ? String(rawText) : padMissingOption(k);
+    }
+    let ans = String(raw.answer || "1").replace(/[^1-4]/, "").slice(0, 1) || "1";
     return {
       uniqueId,
       fileTag,
@@ -39,7 +49,7 @@
       difficulty: String(raw.difficulty || "중"),
       question: String(raw.question || ""),
       options,
-      answer: String(raw.answer || "1").replace(/[^1-4]/, "").slice(0, 1) || "1",
+      answer: ans,
       explanation: String(raw.explanation || ""),
     };
   }
@@ -100,14 +110,20 @@
    * @returns {{ displayOptions: string[], correctIndex: number }}
    */
   function shuffleDisplayOptions(question) {
-    const texts = ["1", "2", "3", "4"].map((k) => question.options[k]).filter(Boolean);
-    if (texts.length !== 4) {
-      return { displayOptions: texts, correctIndex: Math.max(0, Number(question.answer) - 1) };
-    }
+    const texts = ["1", "2", "3", "4"].map((k) => {
+      const t = question.options[k];
+      const trimmed = t != null ? String(t).trim() : "";
+      return trimmed || padMissingOption(k);
+    });
     const correctNum = String(question.answer).replace(/[^1-4]/, "") || "1";
-    const correctText = question.options[correctNum];
-    const shuffled = fisherYates(texts);
-    const correctIndex = shuffled.indexOf(correctText);
+    const correctText = (() => {
+      const t = question.options[correctNum];
+      const trimmed = t != null ? String(t).trim() : "";
+      return trimmed || padMissingOption(correctNum);
+    })();
+    const shuffled = fisherYates([...texts]);
+    let correctIndex = shuffled.indexOf(correctText);
+    if (correctIndex < 0) correctIndex = Math.max(0, Number(correctNum) - 1);
     return { displayOptions: shuffled, correctIndex };
   }
 

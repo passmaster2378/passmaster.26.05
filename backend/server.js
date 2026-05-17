@@ -28,6 +28,8 @@ const ADMIN_WRITE_RATE_LIMIT_WINDOW_MS = Number(process.env.ADMIN_WRITE_RATE_LIM
 /** 운영 DB 초기화 API: production에서는 true일 때만 POST /admin/operations-reset 허용 */
 const ALLOW_ADMIN_OPERATIONS_RESET =
   String(process.env.ALLOW_ADMIN_OPERATIONS_RESET || "").toLowerCase() === "true";
+
+const INQUIRY_TYPE_SET = new Set(["결제", "학습", "계정", "환불", "기타"]);
 const OPS_RESET_CONFIRM = "RESET_PASSMASTER_OPERATIONS";
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || "")
   .split(",")
@@ -307,6 +309,21 @@ function requireAuth(req, res, next) {
   }
 }
 
+function tryDecodeAuth(req) {
+  const token = getTokenFromHeader(req);
+  if (!token) return null;
+  try {
+    return jwt.verify(token, JWT_SECRET);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function isStrictAdminAuth(auth) {
+  const email = auth && auth.email ? String(auth.email) : "";
+  return Boolean(auth && auth.role === "admin" && isStrictAdminEmail(email));
+}
+
 function requireAdmin(req, res, next) {
   const email = req.auth && req.auth.email ? req.auth.email : "";
   if (!req.auth || req.auth.role !== "admin" || !isStrictAdminEmail(email)) {
@@ -582,6 +599,8 @@ async function initSchema() {
   `);
 
   await run(`ALTER TABLE public.inquiries ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES public.users(id) ON DELETE SET NULL`);
+  await run(`ALTER TABLE public.inquiries ADD COLUMN IF NOT EXISTS user_hidden_at TIMESTAMPTZ`);
+  await run(`ALTER TABLE public.inquiries ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`);
 
   await run(`
     CREATE TABLE IF NOT EXISTS public.inquiry_messages (
@@ -797,7 +816,7 @@ const CANONICAL_PASSMASTER_COURSES = [
   { code: "forklift", title: "지게차기능사 국가자격증 필기 문제 풀이", category: "기능사·장비" },
   { code: "excavator", title: "굴착기기능사 국가자격증 필기 문제 풀이", category: "기능사·장비" },
   { code: "electric", title: "전기기능사 국가자격증 필기 문제 풀이", category: "전기" },
-  { code: "welding", title: "용접기능사 국가자격증 필기 문제 풀이", category: "용접" },
+  { code: "welding", title: "피복아크용접기능사 국가자격증 필기 문제 풀이", category: "용접" },
   { code: "carrepair", title: "자동차정비기능사 국가자격증 필기 문제 풀이", category: "정비" },
   { code: "beautician", title: "일반미용사 국가자격증 필기 문제 풀이", category: "미용" },
   { code: "makeup", title: "메이크업 미용사 국가자격증 필기 문제 풀이", category: "미용" },
@@ -808,6 +827,13 @@ const CANONICAL_PASSMASTER_COURSES = [
   { code: "cookwest", title: "양식조리기능사 국가자격증 필기 문제 풀이", category: "외식업" },
   { code: "cookcn", title: "중식조리기능사 국가자격증 필기 문제 풀이", category: "외식업" },
   { code: "cookjp", title: "일식조리기능사 국가자격증 필기 문제 풀이", category: "외식업" },
+  { code: "bakery", title: "제빵기능사 국가자격증 필기 문제 풀이", category: "식품" },
+  { code: "confection", title: "제과기능사 국가자격증 필기 문제 풀이", category: "식품" },
+  { code: "landscape", title: "조경기능사 국가자격증 필기 문제 풀이", category: "조경·산림" },
+  { code: "hazmat", title: "위험물기능사 국가자격증 필기 문제 풀이", category: "안전·환경" },
+  { code: "info_proc", title: "정보처리기능사 국가자격증 필기 문제 풀이", category: "전산·IT" },
+  { code: "comp_app", title: "컴퓨터활용능력 필기 학습 과정", category: "전산·IT" },
+  { code: "word_proc", title: "워드프로세서 필기 학습 과정", category: "전산·OA" },
 ];
 
 const LEGACY_DEMO_TECH_COURSE_CODES = ["IS", "EE", "IT"];
@@ -815,7 +841,7 @@ const LEGACY_DEMO_TECH_COURSE_CODES = ["IS", "EE", "IT"];
 async function upsertCanonicalCoursesAndOpenings() {
   const defaultPrice = 9900;
   /** 제거된 canonical 과정: 목록에서 빠진 코드는 계속 오픈 상태로 남지 않도록 닫는다 */
-  const REMOVED_CANONICAL_CODES = ["construction", "hazmat"];
+  const REMOVED_CANONICAL_CODES = ["construction", "cad_arch"];
 
   for (const row of CANONICAL_PASSMASTER_COURSES) {
     await run(
@@ -1089,6 +1115,8 @@ app.get("/api/docs", async (req, res) => {
       { method: "POST", path: "/enrollments", auth: true },
       { method: "GET", path: "/me/enrollments", auth: true },
       { method: "GET", path: "/me/inquiries", auth: true },
+      { method: "PATCH", path: "/me/inquiries/:id", auth: true },
+      { method: "DELETE", path: "/me/inquiries/:id", auth: true },
       { method: "GET", path: "/me/enrollments/:id", auth: true },
       { method: "PATCH", path: "/me/enrollments/:id/deposit", auth: true, notes: "계좌이체 입금요청" },
       { method: "GET", path: "/me/payments", auth: true },
@@ -1358,9 +1386,9 @@ app.get("/api/inquiries", async (req, res) => {
 
 app.get("/api/me/inquiries", requireAuth, async (req, res) => {
   const rows = await all(
-    `SELECT id, user_name, type, title, content, status, assignee_name, created_at
+    `SELECT id, user_name, type, title, content, status, assignee_name, created_at, updated_at
      FROM public.inquiries
-     WHERE user_id = ?
+     WHERE user_id = ? AND user_hidden_at IS NULL
      ORDER BY id DESC
      LIMIT 200`,
     [req.auth.sub]
@@ -1377,6 +1405,26 @@ app.get("/api/inquiries/:id", async (req, res) => {
   if (!row) {
     return sendError(res, 404, "문의를 찾을 수 없습니다.");
   }
+
+  const auth = tryDecodeAuth(req);
+  const isAdminViewer = isStrictAdminAuth(auth);
+  const isOwner = Boolean(auth && row.user_id != null && Number(row.user_id) === Number(auth.sub));
+
+  if (row.user_id != null) {
+    if (!auth || (!isOwner && !isAdminViewer)) {
+      return sendError(res, 403, "이 문의를 조회할 권한이 없습니다.");
+    }
+    if (row.user_hidden_at != null && !isAdminViewer && isOwner) {
+      return sendError(
+        res,
+        403,
+        "내 목록에서 삭제된 문의입니다. 운영에서 기록을 확인할 수 있습니다. 필요 시 고객센터로 문의해 주세요."
+      );
+    }
+  } else if (!isAdminViewer) {
+    return sendError(res, 403, "이 문의를 조회할 권한이 없습니다.");
+  }
+
   const messages = await all(
     "SELECT id, inquiry_id, author_role, author_name, message, created_at FROM public.inquiry_messages WHERE inquiry_id = ? ORDER BY id ASC",
     [id]
@@ -1395,6 +1443,78 @@ app.post("/api/inquiries", requireAuth, async (req, res) => {
   );
   const created = await get("SELECT * FROM public.inquiries WHERE id = ?", [result.rows[0].id]);
   return res.status(201).json(created);
+});
+
+app.patch("/api/me/inquiries/:id", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return sendError(res, 400, "유효한 문의 ID가 필요합니다.");
+  }
+  const row = await get("SELECT id, user_id, user_hidden_at FROM public.inquiries WHERE id = ?", [id]);
+  if (!row) return sendError(res, 404, "문의를 찾을 수 없습니다.");
+  if (Number(row.user_id) !== Number(req.auth.sub)) {
+    return sendError(res, 403, "본인 문의만 수정할 수 있습니다.");
+  }
+  if (row.user_hidden_at != null) {
+    return sendError(res, 400, "목록에서 삭제된 문의는 수정할 수 없습니다.");
+  }
+  const { type, title, content } = req.body || {};
+  if (type === undefined && title === undefined && content === undefined) {
+    return sendError(res, 400, "수정할 유형·제목·내용 중 하나 이상을 보내 주세요.");
+  }
+  const fields = [];
+  const params = [];
+  if (type !== undefined) {
+    const safeType = String(type || "").trim();
+    if (!INQUIRY_TYPE_SET.has(safeType)) {
+      return sendError(res, 400, "문의 유형 값이 올바르지 않습니다.");
+    }
+    fields.push("type = ?");
+    params.push(safeType);
+  }
+  if (title !== undefined) {
+    const safeTitle = String(title || "").trim();
+    if (!safeTitle || safeTitle.length > 240) {
+      return sendError(res, 400, "제목을 240자 이내로 입력해 주세요.");
+    }
+    fields.push("title = ?");
+    params.push(safeTitle);
+  }
+  if (content !== undefined) {
+    const safeContent = String(content || "").trim();
+    if (!safeContent || safeContent.length > 16000) {
+      return sendError(res, 400, "내용을 16000자 이내로 입력해 주세요.");
+    }
+    fields.push("content = ?");
+    params.push(safeContent);
+  }
+  fields.push("updated_at = now()");
+  params.push(id);
+  await run(`UPDATE public.inquiries SET ${fields.join(", ")} WHERE id = ?`, params);
+  const messages = await all(
+    "SELECT id, inquiry_id, author_role, author_name, message, created_at FROM public.inquiry_messages WHERE inquiry_id = ? ORDER BY id ASC",
+    [id]
+  );
+  const updated = await get("SELECT * FROM public.inquiries WHERE id = ?", [id]);
+  return res.json({ ...updated, messages });
+});
+
+app.delete("/api/me/inquiries/:id", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return sendError(res, 400, "유효한 문의 ID가 필요합니다.");
+  }
+  const row = await get("SELECT id, user_id, user_hidden_at FROM public.inquiries WHERE id = ?", [id]);
+  if (!row) return sendError(res, 404, "문의를 찾을 수 없습니다.");
+  if (Number(row.user_id) !== Number(req.auth.sub)) {
+    return sendError(res, 403, "본인 문의만 목록에서 삭제할 수 있습니다.");
+  }
+  if (row.user_hidden_at != null) {
+    return res.json({ id, ok: true, userHiddenAt: row.user_hidden_at });
+  }
+  await run("UPDATE public.inquiries SET user_hidden_at = now() WHERE id = ?", [id]);
+  const after = await get("SELECT id, user_hidden_at FROM public.inquiries WHERE id = ?", [id]);
+  return res.json({ id: after.id, ok: true, userHiddenAt: after.user_hidden_at });
 });
 
 app.patch("/api/inquiries/:id/status", requireAuth, requireAdmin, async (req, res) => {
@@ -2188,14 +2308,24 @@ app.patch("/api/me/enrollments/:id/deposit", requireAuth, async (req, res) => {
 });
 
 app.get("/api/me/payments", requireAuth, async (req, res) => {
+  /** 수강(e.id)별로 결제 레코드가 여러 줄이어도, 마이페이지에는 최신 1건만 노출합니다. */
   const rows = await all(
-    `SELECT p.id, p.amount, p.method, p.status, p.depositor_name, p.transfer_note, p.submitted_at, p.review_note, p.reviewed_at, p.created_at,
-            e.id AS enrollment_id, c.title AS course_title
+    `SELECT DISTINCT ON (e.id)
+            p.id, p.amount, p.method, p.status, p.depositor_name, p.transfer_note, p.submitted_at, p.review_note, p.reviewed_at, p.created_at,
+            e.id AS enrollment_id,
+            e.created_at AS enrollment_created_at,
+            e.approval_status AS enrollment_approval_status,
+            c.title AS course_title,
+            (
+              SELECT MIN(COALESCE(p2.reviewed_at, p2.created_at))
+              FROM public.payments p2
+              WHERE p2.enrollment_id = e.id AND p2.status = 'completed'
+            ) AS approval_related_at
      FROM public.payments p
      JOIN public.enrollments e ON e.id = p.enrollment_id
      JOIN public.courses c ON c.id = e.course_id
      WHERE e.user_id = ?
-     ORDER BY p.id DESC`,
+     ORDER BY e.id DESC, p.id DESC`,
     [req.auth.sub]
   );
   res.json(rows);

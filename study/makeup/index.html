@@ -362,73 +362,46 @@
         color: #b71c1c;
         font-size: 14px;
       }
-      .admin-panel {
-        margin-bottom: 12px;
-        border: 1px solid #cdd5e4;
-        border-radius: 14px;
-        background: #f9fbff;
-        overflow: hidden;
+      #trial-end-dialog {
+        border: none;
+        border-radius: 16px;
+        padding: 0;
+        max-width: min(440px, calc(100vw - 32px));
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
       }
-      .admin-panel summary {
-        cursor: pointer;
-        padding: 10px 12px;
-        font-size: 13px;
-        font-weight: 800;
-        background: #eef3ff;
+      #trial-end-dialog::backdrop {
+        background: rgba(0, 0, 0, 0.35);
       }
-      .admin-body {
-        padding: 10px 12px 12px;
+      .trial-end-inner {
+        padding: 22px 20px 20px;
+      }
+      .trial-end-inner h2 {
+        margin: 0 0 10px;
+        font-size: 1.15rem;
+        font-weight: 900;
+        color: #1a237e;
+      }
+      .trial-end-inner p {
+        margin: 0 0 14px;
+        font-size: 14px;
+        line-height: 1.55;
+        color: #444;
+      }
+      .trial-end-actions {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 10px;
       }
-      .admin-row {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        align-items: center;
-      }
-      .admin-tag {
-        font-size: 12px;
+      .trial-end-actions .trial-end-secondary {
+        min-height: 44px;
+        border-radius: 12px;
+        border: 1px solid #c5cae9;
         background: #fff;
-        border: 1px solid #dce3f3;
-        border-radius: 999px;
-        padding: 4px 8px;
-      }
-      .admin-pre {
-        margin: 0;
-        white-space: pre-line;
-        font-size: 12px;
-        color: #374151;
-        line-height: 1.45;
-        background: #fff;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        padding: 8px;
-      }
-      .admin-btn {
-        border: 1px solid #c5d2ee;
-        background: #fff;
-        color: #304c86;
-        border-radius: 10px;
-        padding: 7px 10px;
-        font-size: 12px;
+        font-size: 14px;
         font-weight: 700;
+        color: #3949ab;
         cursor: pointer;
       }
-      .admin-btn:disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
-      }
-      .admin-mini-input {
-        width: 64px;
-        border: 1px solid #c5d2ee;
-        border-radius: 8px;
-        padding: 6px 8px;
-        font-size: 12px;
-      }
-
-      /* --- Quiz top bar --- */
       .mq-top {
         display: flex;
         align-items: center;
@@ -717,35 +690,18 @@
       </header>
 
       <main class="pm-main mq-wrap">
-        <details id="admin-panel" class="admin-panel">
-          <summary>관리자 검증 패널</summary>
-          <div class="admin-body">
-            <div class="admin-row">
-              <label class="admin-tag">
-                <input type="checkbox" id="admin-mode-toggle" />
-                관리자 모드
-              </label>
-              <span class="admin-tag" id="admin-current">화면: -</span>
-              <span class="admin-tag" id="admin-step">단계: -</span>
-            </div>
-            <div class="admin-row">
-              <span class="admin-tag" id="admin-config">현재 규칙: -</span>
-            </div>
-            <pre class="admin-pre" id="admin-shuffle">최근 셔플 로그 없음</pre>
-            <pre class="admin-pre" id="admin-last-action">최근 관리자 액션 없음</pre>
-            <div class="admin-row">
-              <button type="button" class="admin-btn" id="btn-admin-force-complete">현재 회차 강제 완료</button>
-              <button type="button" class="admin-btn" id="btn-admin-start-r1">1차 바로 시작</button>
-              <button type="button" class="admin-btn" id="btn-admin-start-r2">2차 바로 시작</button>
-              <button type="button" class="admin-btn" id="btn-admin-start-r3">3차 바로 시작</button>
-            </div>
-            <div class="admin-row">
-              <label class="admin-tag">기출 회차 직접 시작</label>
-              <input id="admin-mock-round" class="admin-mini-input" type="number" min="1" max="6" value="1" />
-              <button type="button" class="admin-btn" id="btn-admin-start-mock">기출 시작</button>
+        <dialog id="trial-end-dialog" aria-labelledby="trial-end-title">
+          <div class="trial-end-inner">
+            <h2 id="trial-end-title">100문제 무료체험을 완료했습니다</h2>
+            <p>
+              유료 수강으로 전체 문제은행·학습 루프를 이용하려면 신청서를 작성해 주세요. 지금은 메인으로 돌아가도 이후에 다시 신청할 수 있습니다.
+            </p>
+            <div class="trial-end-actions">
+              <button type="button" class="mq-bigbtn" id="trial-end-enroll">수강신청서 작성</button>
+              <button type="button" class="trial-end-secondary" id="trial-end-main">메인 페이지로</button>
             </div>
           </div>
-        </details>
+        </dialog>
 
         <div id="view-loading" class="pm-card">
           <p>문항을 불러오는 중…</p>

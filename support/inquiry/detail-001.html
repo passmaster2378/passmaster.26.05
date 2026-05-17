@@ -6,6 +6,42 @@
     <title>PASSmaster | 문의 상세</title>
     <link rel="stylesheet" href="../../assets/shared.css" />
     <script defer src="../../assets/shared.js"></script>
+    <style>
+      .inquiry-edit-fields {
+        display: grid;
+        gap: 12px;
+        max-width: 640px;
+        margin-top: 10px;
+      }
+      .inquiry-edit-fields label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 800;
+        color: #35517f;
+      }
+      .inquiry-edit-fields input,
+      .inquiry-edit-fields select,
+      .inquiry-edit-fields textarea {
+        width: 100%;
+        border: 1px solid #cdddfb;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 15px;
+        font-family: inherit;
+        box-sizing: border-box;
+      }
+      .inquiry-edit-fields textarea {
+        min-height: 140px;
+        resize: vertical;
+      }
+      .inquiry-edit-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-top: 6px;
+      }
+    </style>
   </head>
   <body>
     <div class="pm-shell">
@@ -35,18 +71,53 @@
         <section class="pm-card" data-support-member-only hidden data-inquiry-detail>
           <h2>문의 상세 정보</h2>
           <p class="auth-message info" data-inquiry-error>실제 문의 데이터를 조회 중입니다.</p>
-          <div class="pm-table-wrap">
-            <table class="pm-table" aria-label="문의 상세 정보">
-              <tbody>
-                <tr><th>문의번호</th><td data-inquiry-field="id">-</td></tr>
-                <tr><th>문의유형</th><td data-inquiry-field="type">-</td></tr>
-                <tr><th>처리상태</th><td data-inquiry-field="status">-</td></tr>
-                <tr><th>제목</th><td data-inquiry-field="title">-</td></tr>
-                <tr><th>문의자</th><td data-inquiry-field="userName">-</td></tr>
-                <tr><th>등록일</th><td data-inquiry-field="createdAt">-</td></tr>
-                <tr><th>내용</th><td data-inquiry-field="content">-</td></tr>
-              </tbody>
-            </table>
+
+          <div data-inquiry-readonly-panel>
+            <div class="pm-table-wrap">
+              <table class="pm-table" aria-label="문의 상세 정보">
+                <tbody>
+                  <tr><th>문의번호</th><td data-inquiry-field="id">-</td></tr>
+                  <tr><th>문의유형</th><td data-inquiry-field="type">-</td></tr>
+                  <tr><th>처리상태</th><td data-inquiry-field="status">-</td></tr>
+                  <tr><th>제목</th><td data-inquiry-field="title">-</td></tr>
+                  <tr><th>문의자</th><td data-inquiry-field="userName">-</td></tr>
+                  <tr><th>등록일</th><td data-inquiry-field="createdAt">-</td></tr>
+                  <tr><th>최종 수정일</th><td data-inquiry-field="updatedAt">-</td></tr>
+                  <tr><th>내용</th><td data-inquiry-field="content">-</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div data-inquiry-edit-panel hidden>
+            <h3 style="margin: 14px 0 0; font-size: 17px">문의 수정</h3>
+            <p class="pm-detail" style="margin-top: 6px">유형·제목·내용만 수정할 수 있습니다. 처리 상태 변경은 고객센터 또는 답변을 통해 진행됩니다.</p>
+            <form class="inquiry-edit-fields" data-inquiry-edit-form>
+              <div>
+                <label for="inquiry-edit-type">문의 유형</label>
+                <select id="inquiry-edit-type" name="type" required>
+                  <option value="">유형을 선택하세요</option>
+                  <option value="결제">결제</option>
+                  <option value="학습">학습</option>
+                  <option value="계정">계정</option>
+                  <option value="환불">환불</option>
+                  <option value="기타">기타</option>
+                </select>
+              </div>
+              <div>
+                <label for="inquiry-edit-title">문의 제목</label>
+                <input id="inquiry-edit-title" name="title" type="text" required maxlength="240" />
+              </div>
+              <div>
+                <label for="inquiry-edit-content">문의 내용</label>
+                <textarea id="inquiry-edit-content" name="content" required maxlength="16000"></textarea>
+              </div>
+              <div class="inquiry-edit-actions">
+                <button class="pm-btn pm-btn-primary" type="submit" data-inquiry-edit-submit>변경 저장</button>
+                <a class="pm-btn pm-btn-ghost" data-inquiry-edit-cancel href="#">편집 취소</a>
+              </div>
+              <p class="auth-message info" data-inquiry-edit-message hidden></p>
+            </form>
           </div>
         </section>
 
@@ -66,6 +137,6 @@
 
       <footer class="pm-footer"></footer>
     </div>
-    <script defer src="../../assets/auth-client.js?v=20260516-inquiry-detail"></script>
+    <script defer src="../../assets/auth-client.js?v=20260215-member-ui"></script>
   </body>
 </html>

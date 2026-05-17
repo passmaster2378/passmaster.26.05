@@ -55,7 +55,7 @@
     forklift: "지게차기능사",
     excavator: "굴착기기능사",
     electric: "전기기능사",
-    welding: "용접기능사",
+    welding: "피복아크용접기능사",
     carrepair: "자동차정비기능사",
     beautician: "일반미용사",
     makeup: "메이크업 미용사",
@@ -66,6 +66,13 @@
     cookwest: "양식조리기능사",
     cookcn: "중식조리기능사",
     cookjp: "일식조리기능사",
+    bakery: "제빵기능사",
+    confection: "제과기능사",
+    landscape: "조경기능사",
+    hazmat: "위험물기능사",
+    info_proc: "정보처리기능사",
+    comp_app: "컴퓨터활용능력",
+    word_proc: "워드프로세서",
   };
 
   function openingMatchesCertSlug(o, slug) {
@@ -75,6 +82,26 @@
     const title = String(o.course_title || "").trim();
     const label = CERT_SLUG_LABEL_MAP[key] || key;
     return code === key || title.includes(label);
+  }
+
+  /** 모집 행에서 cert/info.html?slug= 에 쓸 slug (과정명 매칭은 필터 규칙과 동일) */
+  function resolveCertSlugForOpening(o) {
+    const code = String(o.course_code || "").trim().toLowerCase();
+    if (code && Object.prototype.hasOwnProperty.call(CERT_SLUG_LABEL_MAP, code)) return code;
+    const title = String(o.course_title || "").trim();
+    for (const slug of Object.keys(CERT_SLUG_LABEL_MAP)) {
+      const label = CERT_SLUG_LABEL_MAP[slug];
+      if (title.includes(label)) return slug;
+    }
+    return "";
+  }
+
+  /** 수강신청 목록(`/enroll/`) 등에서 과정 일반정보 페이지로 연결 */
+  function certInfoHrefFromOpening(o) {
+    const slug = resolveCertSlugForOpening(o);
+    const base = "../cert/info.html";
+    if (!slug) return base;
+    return `${base}?slug=${encodeURIComponent(slug)}`;
   }
 
   let apiWarmupPromise = null;
@@ -99,11 +126,55 @@
     const member = hasSupportMemberSession();
     document.querySelectorAll("[data-support-member-only]").forEach((el) => {
       el.hidden = !member;
+      el.style.display = !member ? "none" : "";
     });
     document.querySelectorAll("[data-support-guest-only]").forEach((el) => {
       el.hidden = member;
+      el.style.display = member ? "none" : "";
     });
     refreshPassmasterSiteNavigation();
+  }
+
+  async function hydrateMypageCourseDetailQuickLink() {
+    const link = document.querySelector("[data-api='mypage-quick-course-detail']");
+    if (!link) return;
+    const fallback = "./enrollments/index.html";
+    try {
+      const rows = await request("/me/enrollments");
+      const applied = [...(Array.isArray(rows) ? rows : [])]
+        .filter((e) => e.opening_id != null && Number(e.opening_id) > 0)
+        .sort((a, b) => Number(b.id) - Number(a.id));
+      if (!applied.length) {
+        link.setAttribute("href", fallback);
+        return;
+      }
+      link.setAttribute(
+        "href",
+        toSitePath(`/my-courses/enrollment-001/index.html?id=${encodeURIComponent(String(applied[0].id))}`)
+      );
+    } catch (_e) {
+      link.setAttribute("href", fallback);
+    }
+  }
+
+  /** SVG 링 차트(progress 0–100): outer radius r, viewBox 내 중심 (52,52) */
+  function learningProgressRingSvg(pct, uid) {
+    const id = String(uid ?? "lg").replace(/[^a-zA-Z0-9_-]/g, "");
+    const p = Math.min(100, Math.max(0, Number(pct) || 0));
+    const r = 44;
+    const c = 2 * Math.PI * r;
+    const dash = `${c}`;
+    const off = (c * (100 - p)) / 100;
+    const gid = `pmLearnGrad-${id}`;
+    return `<svg class="pm-learning-ring-svg" viewBox="0 0 104 104" width="104" height="104" aria-hidden="true">
+      <circle cx="52" cy="52" r="${r}" fill="none" stroke="#e7eefb" stroke-width="10"></circle>
+      <circle cx="52" cy="52" r="${r}" fill="none" stroke="url(#${gid})" stroke-width="10"
+        stroke-dasharray="${dash}" stroke-dashoffset="${off}" stroke-linecap="round" transform="rotate(-90 52 52)"></circle>
+      <defs><linearGradient id="${gid}" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#2169ff"/><stop offset="100%" stop-color="#6aa6ff"/></linearGradient>
+      </defs>
+      <text x="52" y="58" text-anchor="middle" font-size="22" font-weight="800" fill="#173b6f">${p}<tspan font-size="14">%</tspan></text>
+    </svg>`;
   }
 
   async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
@@ -558,27 +629,52 @@
     return map[status] || status || "-";
   }
 
+  function bindMemberInquiryDeleteDelegation(tbody, reloadFn) {
+    if (!tbody || tbody.dataset.pmInquiryDeleteBound === "1") return;
+    tbody.dataset.pmInquiryDeleteBound = "1";
+    tbody.addEventListener("click", async (event) => {
+      const delBtn = event.target.closest("[data-pm-inquiry-delete]");
+      if (!delBtn) return;
+      const id = delBtn.getAttribute("data-pm-inquiry-delete");
+      if (!id) return;
+      const ok = window.confirm(
+        "이 문의를 내 목록에서 삭제할까요?\n\n접수 내용은 운영 확인을 위해 서버에 보관되며, 관리자 화면에서는 계속 확인할 수 있습니다."
+      );
+      if (!ok) return;
+      try {
+        delBtn.disabled = true;
+        await request(`/me/inquiries/${encodeURIComponent(id)}`, { method: "DELETE" });
+        if (typeof reloadFn === "function") await reloadFn();
+      } catch (error) {
+        window.alert(error.message || "삭제하지 못했습니다.");
+      } finally {
+        delBtn.disabled = false;
+      }
+    });
+  }
+
   async function mountInquiryList() {
     const tableBody = document.querySelector("[data-inquiry-list-body]");
     if (!tableBody) return;
 
-    syncSupportGuestMemberSections();
-
     const summaryNode = document.querySelector("[data-inquiry-list-summary]");
-    if (!hasSupportMemberSession()) {
-      tableBody.innerHTML =
-        "<tr><td colspan=\"5\">1:1 문의 목록은 로그인한 회원만 이용할 수 있습니다. 로그인 또는 회원가입 후 다시 접속해 주세요.</td></tr>";
-      if (summaryNode) summaryNode.textContent = "로그인 필요";
-      return;
-    }
-
     try {
+      syncSupportGuestMemberSections();
+      if (!hasSupportMemberSession()) {
+        tableBody.innerHTML =
+          "<tr><td colspan=\"6\">1:1 문의 목록은 로그인한 회원만 이용할 수 있습니다. 로그인 또는 회원가입 후 다시 접속해 주세요.</td></tr>";
+        if (summaryNode) summaryNode.textContent = "로그인 필요";
+        return;
+      }
+
+      bindMemberInquiryDeleteDelegation(tableBody, mountInquiryList);
+
       const inquiries = await request("/me/inquiries");
       const list = Array.isArray(inquiries) ? inquiries : [];
       tableBody.innerHTML = "";
 
       if (!list.length) {
-        tableBody.innerHTML = "<tr><td colspan='5'>등록된 문의가 없습니다.</td></tr>";
+        tableBody.innerHTML = "<tr><td colspan='6'>등록된 문의가 없습니다.</td></tr>";
         if (summaryNode) summaryNode.textContent = "총 0건";
         const pageNode = document.querySelector("[data-inquiry-pagination]");
         if (pageNode) pageNode.innerHTML = "";
@@ -587,13 +683,22 @@
 
       list.forEach((item) => {
         const tr = document.createElement("tr");
+        const detailHrefBase = "./detail-001.html";
+        const editHref = `${detailHrefBase}?id=${encodeURIComponent(String(item.id))}&edit=1`;
+        const viewHref = `${detailHrefBase}?id=${encodeURIComponent(String(item.id))}`;
         tr.innerHTML = `
-          <td>INQ-${item.id}</td>
+          <td>
+            <div>INQ-${item.id}</div>
+            <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+              <a class="pm-btn pm-btn-ghost" style="padding:4px 8px;font-size:12px" href="${editHref}">수정</a>
+              <button type="button" class="pm-btn pm-btn-ghost" style="padding:4px 8px;font-size:12px" data-pm-inquiry-delete="${item.id}">삭제</button>
+            </div>
+          </td>
           <td>${item.type || "-"}</td>
-          <td><a href="./detail-001.html?id=${item.id}">${item.title || "-"}</a></td>
+          <td><a href="${viewHref}">${item.title || "-"}</a></td>
           <td>${normalizeStatus(item.status)}</td>
           <td>${formatDateTime(item.created_at)}</td>
-        `;
+          <td><a class="pm-btn pm-btn-primary" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${viewHref}">내용 보기</a></td>`;
         tableBody.appendChild(tr);
       });
 
@@ -604,8 +709,10 @@
       const pageNode = document.querySelector("[data-inquiry-pagination]");
       if (pageNode) pageNode.innerHTML = "";
     } catch (error) {
-      tableBody.innerHTML = `<tr><td colspan='5'>문의 목록을 불러오지 못했습니다: ${error.message}</td></tr>`;
+      tableBody.innerHTML = `<tr><td colspan='6'>문의 목록을 불러오지 못했습니다: ${error.message}</td></tr>`;
       if (summaryNode) summaryNode.textContent = "조회 실패";
+    } finally {
+      syncSupportGuestMemberSections();
     }
   }
 
@@ -617,27 +724,36 @@
 
     if (!hasSupportMemberSession()) {
       const errorNode = detailRoot.querySelector("[data-inquiry-error]");
-      const tableWrap = detailRoot.querySelector(".pm-table-wrap");
+      const readPanel = detailRoot.querySelector("[data-inquiry-readonly-panel]");
       if (errorNode) {
         errorNode.textContent =
           "문의 상세는 로그인한 회원만 볼 수 있습니다. 로그인 또는 회원가입 후 이용해 주세요.";
         errorNode.className = "auth-message error";
       }
-      if (tableWrap) tableWrap.hidden = true;
+      if (readPanel) readPanel.hidden = true;
+      const editPanel = detailRoot.querySelector("[data-inquiry-edit-panel]");
+      if (editPanel) editPanel.hidden = true;
       refreshPassmasterSiteNavigation();
       return;
     }
 
     const params = new URLSearchParams(window.location.search);
-    const id = params.get("id") || "1";
+    const idRaw = params.get("id") || "1";
+    const editMode = params.get("edit") === "1";
 
     try {
-      const item = await request(`/inquiries/${id}`);
+      const item = await request(`/inquiries/${idRaw}`);
       const session = getStoredSession();
       const myId = session && session.user ? Number(session.user.id) : 0;
-      if (item.user_id != null && Number(item.user_id) !== myId) {
+      if (item.user_id == null || Number(item.user_id) !== myId) {
         throw new Error("본인이 작성한 문의만 확인할 수 있습니다.");
       }
+
+      const readPanel = detailRoot.querySelector("[data-inquiry-readonly-panel]");
+      const editPanel = detailRoot.querySelector("[data-inquiry-edit-panel]");
+      const editForm = detailRoot.querySelector("[data-inquiry-edit-form]");
+      const errorNode = detailRoot.querySelector("[data-inquiry-error]");
+
       const fields = {
         id: `INQ-${item.id}`,
         type: item.type || "-",
@@ -645,6 +761,7 @@
         title: item.title || "-",
         userName: item.user_name || "-",
         createdAt: formatDateTime(item.created_at),
+        updatedAt: formatDateTime(item.updated_at || item.created_at),
         content: item.content || "-",
       };
 
@@ -653,19 +770,79 @@
         if (node) node.textContent = value;
       });
 
-      const errorNode = detailRoot.querySelector("[data-inquiry-error]");
-      if (errorNode) {
+      if (editForm) {
+        if (editForm.type) editForm.type.value = item.type || "";
+        if (editForm.title) editForm.title.value = item.title || "";
+        if (editForm.content) editForm.content.value = item.content || "";
+      }
+
+      const cancelAnchor = detailRoot.querySelector("[data-inquiry-edit-cancel]");
+      const baseQs = `${window.location.pathname}?id=${encodeURIComponent(String(item.id))}`;
+      if (cancelAnchor) cancelAnchor.setAttribute("href", baseQs);
+
+      if (readPanel && editPanel) {
+        if (editMode) {
+          readPanel.hidden = true;
+          editPanel.hidden = false;
+          if (errorNode) {
+            errorNode.textContent =
+              "제목·유형·내용을 수정한 뒤 저장하세요. (처리 상태는 운영팀이 관리합니다.)";
+            errorNode.className = "auth-message info";
+          }
+        } else {
+          readPanel.hidden = false;
+          editPanel.hidden = true;
+          if (errorNode) {
+            errorNode.textContent = "문의 상세 조회가 완료되었습니다.";
+            errorNode.className = "auth-message success";
+          }
+        }
+      } else if (errorNode && !editMode) {
         errorNode.textContent = "문의 상세 조회가 완료되었습니다.";
         errorNode.className = "auth-message success";
       }
+
+      if (editForm && editForm.dataset.pmInquiryEditBound !== "1") {
+        editForm.dataset.pmInquiryEditBound = "1";
+        editForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const messageNode = editForm.querySelector("[data-inquiry-edit-message]");
+          const submitBtn = editForm.querySelector("[data-inquiry-edit-submit]");
+          const typeVal = editForm.type ? editForm.type.value.trim() : "";
+          const titleVal = editForm.title ? editForm.title.value.trim() : "";
+          const contentVal = editForm.content ? editForm.content.value.trim() : "";
+          if (!typeVal || !titleVal || !contentVal) {
+            if (messageNode) showMessage(messageNode, "유형·제목·내용을 모두 입력해 주세요.", "error");
+            return;
+          }
+          try {
+            if (submitBtn) submitBtn.disabled = true;
+            if (messageNode) showMessage(messageNode, "저장 중입니다...", "info");
+            const updated = await request(`/me/inquiries/${idRaw}`, {
+              method: "PATCH",
+              body: JSON.stringify({ type: typeVal, title: titleVal, content: contentVal }),
+            });
+            window.location.href = `${window.location.pathname}?id=${encodeURIComponent(String(updated.id))}`;
+          } catch (error) {
+            if (messageNode) showMessage(messageNode, error.message, "error");
+          } finally {
+            if (submitBtn) submitBtn.disabled = false;
+          }
+        });
+      }
     } catch (error) {
       const errorNode = detailRoot.querySelector("[data-inquiry-error]");
+      const readPanel = detailRoot.querySelector("[data-inquiry-readonly-panel]");
+      const editPanel = detailRoot.querySelector("[data-inquiry-edit-panel]");
+      if (readPanel) readPanel.hidden = true;
+      if (editPanel) editPanel.hidden = true;
       if (errorNode) {
         errorNode.textContent = `문의 상세를 불러오지 못했습니다: ${error.message}`;
         errorNode.className = "auth-message error";
       }
     }
     refreshPassmasterSiteNavigation();
+    syncSupportGuestMemberSections();
   }
 
   async function handleAdminInquiryStatusSubmit(event) {
@@ -717,10 +894,11 @@
         tableBody.innerHTML = "<tr><td colspan='6'>조회 결과가 없습니다.</td></tr>";
       } else {
         items.forEach((item) => {
+          const hiddenNote = item.user_hidden_at ? " · 작성자 목록삭제됨" : "";
           const tr = document.createElement("tr");
           tr.innerHTML = `
             <td>INQ-${item.id}</td>
-            <td>${item.user_name}</td>
+            <td>${item.user_name}${hiddenNote}</td>
             <td>${item.type}</td>
             <td><a href="./detail-001.html?id=${item.id}">${item.title}</a></td>
             <td>${normalizeStatus(item.status)}</td>
@@ -755,6 +933,10 @@
         content: item.content || "-",
         status: normalizeStatus(item.status),
         createdAt: formatDateTime(item.created_at),
+        userListHidden: item.user_hidden_at
+          ? `${formatDateTime(item.user_hidden_at)} (회원이 내 목록에서만 숨김 · DB 유지)`
+          : "—",
+        updatedAt: formatDateTime(item.updated_at || item.created_at),
         assigneeName: item.assignee_name || "미배정",
       };
       Object.entries(fields).forEach(([key, value]) => {
@@ -888,8 +1070,7 @@
       }
       ordered.forEach((o) => {
         const tr = document.createElement("tr");
-        const linkKey = courseOpeningClientLinkKey(o);
-        const href = enrollApplyHref(linkKey);
+        const detailHref = certInfoHrefFromOpening(o);
         const titleCell = enrollPublic ? formatEnrollPublicCourseTitle(o.course_title) : o.course_title || "-";
         const periodCell = enrollPublic
           ? "2개월 (입금 확인 후 학습 기간 안내)"
@@ -903,7 +1084,7 @@
             <td>${titleCell}</td>
             <td>${periodCell}</td>
             <td>${priceCell}</td>
-            <td><a class="pm-btn pm-btn-primary" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${href}">상세·신청 안내</a></td>
+            <td><a class="pm-btn pm-btn-primary" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${detailHref}">상세·신청 안내</a></td>
           `;
         } else {
           tr.innerHTML = `
@@ -912,7 +1093,7 @@
             <td>${periodCell}</td>
             <td>${o.application_status || "-"}</td>
             <td>${priceCell}</td>
-            <td><a class="pm-btn pm-btn-primary" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${href}">상세·신청 안내</a></td>
+            <td><a class="pm-btn pm-btn-primary" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${detailHref}">상세·신청 안내</a></td>
           `;
         }
         tbody.appendChild(tr);
@@ -965,15 +1146,19 @@
             showMessage(
               status,
               certSlug
-                ? `${CERT_SLUG_LABEL_MAP[certSlug] || certSlug} 관련 모집 ${list.length}건입니다. 버튼을 누르면 신청서 작성으로 이동합니다.`
-                : `모집 ${list.length}건을 불러왔습니다. 버튼을 누르면 신청서 작성으로 이동합니다.`,
+                ? `${CERT_SLUG_LABEL_MAP[certSlug] || certSlug} 관련 모집 ${list.length}건입니다. 표의 안내 버튼은 과정 일반정보 페이지로 연결되며, 신청은 하단의 신청서 작성으로 진행할 수 있습니다.`
+                : `모집 ${list.length}건을 불러왔습니다. 표의 안내 버튼은 과정 일반정보로 이동하고, 신청은 하단에서 진행합니다.`,
               "success"
             );
           } else {
             showMessage(status, "현재 신청 가능한 공개 모집이 없습니다.", "info");
           }
         } else if (allRows.length) {
-          showMessage(status, `모집 ${allRows.length}건을 불러왔습니다. 버튼을 누르면 신청서 작성으로 이동합니다.`, "success");
+          showMessage(
+            status,
+            `모집 ${allRows.length}건을 불러왔습니다. 표의 안내 버튼은 과정 일반정보로 이동합니다.`,
+            "success"
+          );
         } else {
           showMessage(status, "현재 신청 가능한 공개 모집이 없습니다.", "info");
         }
@@ -1233,6 +1418,15 @@
       if (Number.isFinite(saved) && saved > 0) {
         const remembered = openingsCache.find((o) => courseOpeningClientLinkKey(o) === saved);
         if (remembered) activeOpeningId = saved;
+      }
+    }
+    if (!activeOpeningId) {
+      const certWishFromUrl = String(new URLSearchParams(window.location.search).get("cert") || "")
+        .trim()
+        .toLowerCase();
+      if (certWishFromUrl) {
+        const match = openingsCache.find((o) => openingMatchesCertSlug(o, certWishFromUrl));
+        if (match) activeOpeningId = courseOpeningClientLinkKey(match);
       }
     }
 
@@ -1943,22 +2137,30 @@
       const rows = await request("/me/payments");
       tbody.innerHTML = "";
       if (!Array.isArray(rows) || !rows.length) {
-        tbody.innerHTML = "<tr><td colspan='5'>결제 내역이 없습니다.</td></tr>";
+        tbody.innerHTML = "<tr><td colspan='6'>결제 내역이 없습니다.</td></tr>";
         return;
       }
       rows.forEach((p) => {
         const tr = document.createElement("tr");
+        const appStatus = String(p.enrollment_approval_status || "").trim().toLowerCase();
+        const approvalAt =
+          appStatus === "approved" && p.approval_related_at
+            ? formatDateTime(String(p.approval_related_at))
+            : "-";
+        const submittedAt =
+          p.enrollment_created_at != null ? formatDateTime(String(p.enrollment_created_at)) : "-";
         tr.innerHTML = `
           <td>${p.id}</td>
           <td>${p.course_title || "-"}</td>
           <td>${Number(p.amount || 0).toLocaleString("ko-KR")}원</td>
           <td>${toPaymentStatusLabel(p.status)}</td>
-          <td>${p.created_at ? formatDateTime(String(p.created_at)) : "-"}</td>
+          <td>${submittedAt}</td>
+          <td>${approvalAt}</td>
         `;
         tbody.appendChild(tr);
       });
     } catch (error) {
-      tbody.innerHTML = `<tr><td colspan='5'>${error.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan='6'>${error.message}</td></tr>`;
     }
   }
 
@@ -2491,19 +2693,56 @@
         if (msg) showMessage(msg, "신청한 수강 정보가 없어 표시할 학습 데이터가 없습니다.", "info");
         return;
       }
+      let sumPct = 0;
+      appliedOnly.forEach((e) => {
+        sumPct += Math.min(100, Math.max(0, Number(e.progress_percent ?? 0)));
+      });
+      const avgPct =
+        appliedOnly.length > 0 ? Math.round((sumPct / appliedOnly.length) * 10) / 10 : 0;
+      let approved = 0;
+      appliedOnly.forEach((e) => {
+        if (String(e.approval_status || "").toLowerCase() === "approved") approved += 1;
+      });
+      const summary = document.createElement("div");
+      summary.className = "pm-learning-dash-summary";
+      summary.innerHTML = `
+        <div class="pm-learning-stat-card" role="presentation">
+          <span class="pm-learning-stat-label">수강 중 과정</span>
+          <strong class="pm-learning-stat-value">${appliedOnly.length}</strong>
+          <span class="pm-learning-stat-hint">신청 접수 건 기준</span>
+        </div>
+        <div class="pm-learning-stat-card" role="presentation">
+          <span class="pm-learning-stat-label">평균 진도율</span>
+          <strong class="pm-learning-stat-value">${avgPct}%</strong>
+          <span class="pm-learning-stat-hint">표시 과정 진행률 평균</span>
+        </div>
+        <div class="pm-learning-stat-card" role="presentation">
+          <span class="pm-learning-stat-label">학습 개시·가능</span>
+          <strong class="pm-learning-stat-value">${approved}</strong>
+          <span class="pm-learning-stat-hint">승인 완료된 신청 건수</span>
+        </div>
+      `;
+      bars.appendChild(summary);
       appliedOnly.forEach((e) => {
         const pct = Math.min(100, Math.max(0, Number(e.progress_percent ?? 0)));
+        const uid = encodeURIComponent(`e-${e.id}`);
+        const safeTitle = escapeHtmlLite(e.course_title || "과정");
         const rowEl = document.createElement("div");
         rowEl.className = "pm-learning-course-row";
         rowEl.innerHTML = `
-          <div class="pm-learning-course-head">
-            <strong>${e.course_title || "과정"}</strong>
-            <span>${toLearningStatusLabel(e.learning_status)} · ${pct}%</span>
-          </div>
-          <div class="pm-learning-bar-track"><div class="pm-learning-bar-fill" style="width:${pct}%"></div></div>
-          <div class="pm-learning-meta">결제 ${toPaymentStatusLabel(e.payment_status)} · 승인 ${toApprovalStatusLabel(
+          <div class="pm-learning-row-visual">
+            <div class="pm-learning-ring-wrap" aria-hidden="true">${learningProgressRingSvg(pct, uid)}</div>
+            <div class="pm-learning-row-body">
+              <div class="pm-learning-course-head">
+                <strong>${safeTitle}</strong>
+                <span>${toLearningStatusLabel(e.learning_status)}</span>
+              </div>
+              <div class="pm-learning-bar-track" role="presentation" aria-label="진도 ${pct}퍼센트"><div class="pm-learning-bar-fill" style="width:${pct}%"></div></div>
+              <div class="pm-learning-meta">결제 ${toPaymentStatusLabel(e.payment_status)} · 승인 ${toApprovalStatusLabel(
           e.approval_status
-        )}</div>`;
+        )}</div>
+            </div>
+          </div>`;
         bars.appendChild(rowEl);
       });
       if (msg) showMessage(msg, `신청 과정 학습 현황 ${appliedOnly.length}건을 불러왔습니다.`, "success");
@@ -2517,30 +2756,40 @@
     const tbody = document.querySelector("[data-api='mypage-inquiries-body']");
     const msg = document.querySelector("[data-api='mypage-inquiries-message']");
     if (!tbody) return;
+    bindMemberInquiryDeleteDelegation(tbody, mountMypageInquiriesSection);
     try {
       const rows = await request("/me/inquiries");
       const list = Array.isArray(rows) ? rows : [];
       tbody.innerHTML = "";
       if (!list.length) {
         tbody.innerHTML =
-          "<tr><td colspan='5'>등록한 문의가 없습니다. 아래 버튼으로 새 문의를 작성할 수 있습니다.</td></tr>";
+          "<tr><td colspan='6'>등록한 문의가 없습니다. 아래 버튼으로 새 문의를 작성할 수 있습니다.</td></tr>";
         if (msg) showMessage(msg, "문의 내역이 없습니다.", "info");
         return;
       }
       list.slice(0, 20).forEach((item) => {
         const tr = document.createElement("tr");
-        const detailHref = `../../support/inquiry/detail-001.html?id=${encodeURIComponent(String(item.id))}`;
+        const detailBase = "../../support/inquiry/detail-001.html";
+        const editHref = `${detailBase}?id=${encodeURIComponent(String(item.id))}&edit=1`;
+        const viewHref = `${detailBase}?id=${encodeURIComponent(String(item.id))}`;
         tr.innerHTML = `
-          <td>INQ-${item.id}</td>
+          <td>
+            <div>INQ-${item.id}</div>
+            <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+              <a class="pm-btn pm-btn-ghost" style="padding:4px 8px;font-size:12px" href="${editHref}">수정</a>
+              <button type="button" class="pm-btn pm-btn-ghost" style="padding:4px 8px;font-size:12px" data-pm-inquiry-delete="${item.id}">삭제</button>
+            </div>
+          </td>
           <td>${item.type || "-"}</td>
-          <td><a href="${detailHref}">${item.title || "-"}</a></td>
+          <td><a href="${viewHref}">${item.title || "-"}</a></td>
           <td>${normalizeStatus(item.status)}</td>
-          <td>${formatDateTime(item.created_at)}</td>`;
+          <td>${formatDateTime(item.created_at)}</td>
+          <td><a class="pm-btn pm-btn-primary" style="display:inline-flex;padding:6px 10px;font-size:13px" href="${viewHref}">내용 보기</a></td>`;
         tbody.appendChild(tr);
       });
       if (msg) showMessage(msg, `최근 문의 ${Math.min(list.length, 20)}건을 표시합니다.`, "success");
     } catch (error) {
-      tbody.innerHTML = `<tr><td colspan='5'>${error.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan='6'>${error.message}</td></tr>`;
       if (msg) showMessage(msg, error.message, "error");
     }
   }
@@ -2667,6 +2916,7 @@
     mountProfileSummary();
     mountLearningDashboard();
     mountMypageInquiriesSection();
+    hydrateMypageCourseDetailQuickLink();
   }
 
   window.addEventListener("DOMContentLoaded", mountAuthForms);

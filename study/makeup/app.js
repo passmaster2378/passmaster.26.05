@@ -7,6 +7,9 @@
   const CERT_SLUG = "makeup";
   /** 수강·결제·승인 전 무료 체험으로 풀 수 있는 문항 수(과목명·문항 순서 기준 앞쪽 구간). */
   const FREE_TRIAL_QUESTION_LIMIT = 100;
+  const SESSION_RESUME_KEY = "makeupSessionResume";
+  const ENROLL_APPLY_MAKEUP_HREF = "../../enroll/apply/index.html?cert=makeup";
+  const MAIN_SITE_HREF = "../../index.html";
   const DEFAULT_REMOTE_API_BASE = "https://passmaster-26-05.onrender.com/api";
   const isLocalHost =
     window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
@@ -333,13 +336,17 @@
     const q = studyQueue[studyIndex];
     if (!q) return;
     if (E.trialModeStrip && !hasFullMakeupAccess) {
-      E.trialModeStrip.textContent = `무료 체험 모드 · 앞쪽 ${FREE_TRIAL_QUESTION_LIMIT}문항만 제공(전체 문제은행 약 ${bankFull.length}문항). 결제 승인 완료 시 전체 이용.`;
+      E.trialModeStrip.textContent = `100문제 무료체험 · 학습 제공 범위 ${FREE_TRIAL_QUESTION_LIMIT}문항(문제은행 전체 약 ${bankFull.length}문항). 결제 승인 시 전체 이용.`;
     }
     const meta = currentStudyMeta();
     if (E.qRoundLabel) E.qRoundLabel.textContent = meta.label;
     const cacheKey = `${studyRound}:${q.uniqueId}:${studyIndex}`;
     if (!studyDisplayCache.has(cacheKey)) {
-      const originalOptions = ["1", "2", "3", "4"].map((k) => q.options[k]).filter(Boolean);
+      const originalOptions = ["1", "2", "3", "4"].map((k) => {
+        const t = q.options[k];
+        const s = t != null ? String(t).trim() : "";
+        return s || `※ 보기 보완 필요 (선택지 ${k}번)`;
+      });
       const originalAnswer = String(q.answer).replace(/[^1-4]/, "") || "1";
       let displayOptions = [...originalOptions];
       let correctIndex = Math.max(0, Number(originalAnswer) - 1);
@@ -442,12 +449,24 @@
   function onStudyTimeout() {
     if (studyPhase !== "idle") return;
     studyPhase = "answered";
+    clearStudyTimer();
     const q = studyQueue[studyIndex];
     studyWrong.add(q.uniqueId);
     highlightStudyResult(-1);
     E.qExplain.hidden = false;
     E.qExplainText.textContent = `시간 초과(오답 처리) — 학습: ${q.explanation || "해설이 없습니다."}`;
     E.qNavNext.disabled = false;
+    const timed = studyRound >= 2 && studyRound <= 5;
+    if (timed) {
+      window.setTimeout(() => {
+        if (screen !== "quiz") return;
+        if (studyIndex >= studyQueue.length - 1) endStudyRound();
+        else {
+          studyIndex += 1;
+          renderStudyQuestion();
+        }
+      }, 1100);
+    }
   }
 
   function onStudyPick(optIdx) {
@@ -479,9 +498,196 @@
     renderStudyQuestion();
   }
 
+  function wireTrialEndedDialogOnce() {
+    const dlg = document.getElementById("trial-end-dialog");
+    const btnEnroll = document.getElementById("trial-end-enroll");
+    const btnMain = document.getElementById("trial-end-main");
+    if (!dlg || !btnEnroll || !btnMain || dlg.dataset.wired === "1") return;
+    dlg.dataset.wired = "1";
+    dlg.addEventListener("cancel", (ev) => {
+      ev.preventDefault();
+    });
+    btnEnroll.addEventListener("click", () => {
+      try {
+        dlg.close();
+      } catch (_e) {
+        /* ignore */
+      }
+      window.location.href = ENROLL_APPLY_MAKEUP_HREF;
+    });
+    btnMain.addEventListener("click", () => {
+      try {
+        dlg.close();
+      } catch (_e) {
+        /* ignore */
+      }
+      window.location.href = MAIN_SITE_HREF;
+    });
+  }
+
+  function mockHistoryToRows() {
+    return mockHistory.map((h) => ({
+      round: h.round,
+      correct: h.correct,
+      wrong: h.wrong,
+      passed: h.passed,
+      wrongIds: [...h.wrongIds],
+      byCatWrong: { ...h.byCatWrong },
+    }));
+  }
+
+  function mockHistoryFromRows(rows) {
+    return (Array.isArray(rows) ? rows : []).map((h) => ({
+      round: h.round,
+      correct: h.correct,
+      wrong: h.wrong,
+      passed: h.passed,
+      wrongIds: new Set(h.wrongIds || []),
+      byCatWrong: { ...(h.byCatWrong || {}) },
+    }));
+  }
+
+  function clearSessionResume() {
+    try {
+      window.localStorage.removeItem(SESSION_RESUME_KEY);
+    } catch (_e) {
+      /* ignore */
+    }
+  }
+
+  function saveSessionResume() {
+    if (screen === "loading" || screen === "hub") return;
+    const payload = {
+      v: 1,
+      at: Date.now(),
+      screen,
+      fullAccess: hasFullMakeupAccess,
+      studyRound,
+      studyIndex,
+      studyPhase,
+      studyQueueIds: studyQueue.map((q) => q.uniqueId),
+      studyWrongIds: [...studyWrong],
+      mockRound,
+      mockIndex,
+      mockQueueIds: mockQueue.map((q) => q.uniqueId),
+      mockStats: {
+        correct: mockStats.correct,
+        wrong: mockStats.wrong,
+        wrongIds: [...mockStats.wrongIds],
+        byCatWrong: { ...mockStats.byCatWrong },
+      },
+      expectedMockRound,
+      canEnterFinalReview,
+      mockHistory: mockHistoryToRows(),
+    };
+    try {
+      window.localStorage.setItem(SESSION_RESUME_KEY, JSON.stringify(payload));
+    } catch (_e) {
+      /* ignore */
+    }
+  }
+
+  function loadSessionResumeRaw() {
+    try {
+      const raw = window.localStorage.getItem(SESSION_RESUME_KEY);
+      if (!raw) return null;
+      const o = JSON.parse(raw);
+      return o && o.v === 1 ? o : null;
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  function tryResumeSession() {
+    const saved = loadSessionResumeRaw();
+    if (!saved) {
+      alert("저장된 이어풀기 정보가 없습니다.");
+      return;
+    }
+    if (saved.fullAccess !== hasFullMakeupAccess) {
+      clearSessionResume();
+      alert("이어풀기 정보가 현재 이용 권한과 맞지 않아 초기화했습니다.");
+      return;
+    }
+    const byId = new Map(bank.map((q) => [q.uniqueId, q]));
+    const mapIds = (ids) => {
+      const out = [];
+      for (const id of ids || []) {
+        const row = byId.get(id);
+        if (!row) return null;
+        out.push(row);
+      }
+      return out;
+    };
+    clearStudyTimer();
+    clearMockTimer();
+    studyDisplayCache = new Map();
+
+    if (saved.screen === "quiz") {
+      const sq = mapIds(saved.studyQueueIds);
+      if (!sq || !sq.length) {
+        clearSessionResume();
+        alert("문항 목록을 복원할 수 없어 이어풀기를 삭제했습니다.");
+        return;
+      }
+      studyRound = saved.studyRound || 1;
+      studyIndex = Math.min(Math.max(0, saved.studyIndex || 0), sq.length - 1);
+      studyQueue = sq;
+      studyWrong = new Set(saved.studyWrongIds || []);
+      studyPhase = "idle";
+      mockHistory = mockHistoryFromRows(saved.mockHistory || []);
+      expectedMockRound = saved.expectedMockRound || 1;
+      canEnterFinalReview = Boolean(saved.canEnterFinalReview);
+      setScreen("quiz");
+      renderStudyQuestion();
+      updateAdminPanel("이어풀기 · 학습 화면 복귀");
+      return;
+    }
+
+    if (saved.screen === "mock") {
+      const mq = mapIds(saved.mockQueueIds);
+      if (!mq || !mq.length) {
+        clearSessionResume();
+        alert("모의고사 문항을 복원할 수 없어 이어풀기를 삭제했습니다.");
+        return;
+      }
+      mockRound = saved.mockRound || 1;
+      mockIndex = Math.min(Math.max(0, saved.mockIndex || 0), MOCK_TOTAL - 1);
+      mockQueue = mq;
+      mockWrapped = mockQueue.map((q) => ({ ...window.MakeupQuestionEngine.shuffleDisplayOptions(q), base: q }));
+      const ms = saved.mockStats || {};
+      mockStats = {
+        correct: Number(ms.correct) || 0,
+        wrong: Number(ms.wrong) || 0,
+        wrongIds: new Set(ms.wrongIds || []),
+        byCatWrong: { ...(ms.byCatWrong || {}) },
+      };
+      mockHistory = mockHistoryFromRows(saved.mockHistory || []);
+      expectedMockRound = saved.expectedMockRound || 1;
+      canEnterFinalReview = Boolean(saved.canEnterFinalReview);
+      setScreen("mock");
+      renderMockQuestion();
+      updateAdminPanel("이어풀기 · 모의고사 복귀");
+      return;
+    }
+
+    alert("저장된 화면 상태를 복원할 수 없습니다.");
+  }
+
   function endStudyRound() {
     clearStudyTimer();
     if (studyRound === 1) {
+      if (!hasFullMakeupAccess) {
+        wireTrialEndedDialogOnce();
+        const dlg = document.getElementById("trial-end-dialog");
+        if (dlg && typeof dlg.showModal === "function") dlg.showModal();
+        else if (window.confirm("100문제 무료체험을 마쳤습니다. 수강신청서 작성 페이지로 이동할까요?")) {
+          window.location.href = ENROLL_APPLY_MAKEUP_HREF;
+        } else {
+          window.location.href = MAIN_SITE_HREF;
+        }
+        return;
+      }
       studyRound = 2;
       studyQueue = window.MakeupQuestionEngine.fisherYates([...bank]);
       studyIndex = 0;
@@ -547,7 +753,7 @@
     const w = mockWrapped[mockIndex];
     if (!w) return;
     if (E.trialModeStripMock && !hasFullMakeupAccess) {
-      E.trialModeStripMock.textContent = `무료 체험 모드 · 앞쪽 ${FREE_TRIAL_QUESTION_LIMIT}문항만 포함(전체 약 ${bankFull.length}문항). 모의 고사 역시 해당 범위에서만 출제됩니다.`;
+      E.trialModeStripMock.textContent = `100문제 무료체험 · 모의고사도 동일 ${FREE_TRIAL_QUESTION_LIMIT}문항 범위에서만 출제됩니다(전체 약 ${bankFull.length}문항).`;
     }
     const q = w.base;
     pushShuffleAudit({
@@ -800,7 +1006,7 @@
     const cats = Object.keys(byCat).sort((a, b) => byCat[b] - byCat[a]);
     const maxW = Math.max(1, ...Object.values(byCat), 1);
     const trialDashBanner = !hasFullMakeupAccess
-      ? `<div class="trial-callout" role="status"><strong>무료 체험 집계</strong>는 앞쪽 ${FREE_TRIAL_QUESTION_LIMIT}문항 영역까지입니다. (전체 은행 약 ${bankFull.length}문항) <a href="../../enroll/index.html?cert=makeup#enroll-openings" style="font-weight:800;color:#ad1457">수강신청 후 전체 이용</a></div>`
+      ? `<div class="trial-callout" role="status"><strong>100문제 무료체험 집계</strong>까지 반영합니다. (전체 은행 약 ${bankFull.length}문항) <a href="../../enroll/index.html?cert=makeup#enroll-openings" style="font-weight:800;color:#ad1457">수강신청 후 전체 이용</a></div>`
       : "";
     E.dashCharts.innerHTML = `
 ${trialDashBanner}
@@ -927,17 +1133,31 @@ ${trialDashBanner}
     }
     if (E.loadErr) E.loadErr.hidden = true;
     const enrollHrefHub = "../../enroll/index.html?cert=makeup#enroll-openings";
+    const savedResume = loadSessionResumeRaw();
+    const showResume =
+      savedResume && savedResume.fullAccess === hasFullMakeupAccess && savedResume.screen !== "hub";
+    const resumeHubBanner = showResume
+      ? `<div class="trial-callout" role="status" style="border-color:#90caf9;background:linear-gradient(135deg,#eef7ff,#ffffff)">
+          <strong>이어서 풀기</strong>
+          <p>이전에 저장해 둔 진행 위치가 있습니다. 학습·모의고사 중이었다면 이어서 시작할 수 있습니다.</p>
+          <div class="trial-actions">
+            <button type="button" class="mq-bigbtn" id="btn-resume-session" style="width:100%;border:0">저장된 위치에서 계속</button>
+            <button type="button" class="flow-subbtn" id="btn-clear-resume" style="width:100%">저장 삭제</button>
+          </div>
+        </div>`
+      : "";
     const trialHubBanner = !hasFullMakeupAccess
       ? `<div class="trial-callout" role="status">
-          <strong>무료 체험 · 로그인 회원 전용</strong>
-          <p>지금은 과정 순서상 <strong>${Math.min(FREE_TRIAL_QUESTION_LIMIT, bankFull.length)}문항</strong>만 풀어볼 수 있습니다. (문제은행 전체 약 <strong>${bankFull.length}</strong>문항)</p>
-          <p>실제 필기 학습에는 약 천 문제 전후 규모의 은행이 제공되며, <strong>수강 결제 및 승인이 완료</strong>되면 이 페이지에서 전체 문항·학습 루프를 바로 이용할 수 있습니다.</p>
+          <strong>100문제 무료체험 · 로그인 회원 전용</strong>
+          <p>회원가입·로그인 후 <strong>${Math.min(FREE_TRIAL_QUESTION_LIMIT, bankFull.length)}문제</strong>까지 무료로 풀어볼 수 있습니다. (결제·승인 완료 시 전체 약 <strong>${bankFull.length}</strong>문항 이용)</p>
+          <p>무료체험 100문제를 모두 마치면 이어서 수강신청할지 선택할 수 있는 안내가 표시됩니다.</p>
           <div class="trial-actions">
             <a class="mq-bigbtn mq-bigbtn-link" href="${enrollHrefHub}">전체 이용 · 수강신청</a>
           </div>
         </div>`
       : "";
     E.hubActions.innerHTML = `
+      ${resumeHubBanner}
       ${trialHubBanner}
       <div class="flow-wrap" aria-label="문제 풀이 진행 그래프">
         <section class="flow-hero">
@@ -1085,7 +1305,22 @@ ${trialDashBanner}
         window.location.href = "./review-share.html";
       });
     }
+    const resumeBtn = document.getElementById("btn-resume-session");
+    if (resumeBtn) {
+      resumeBtn.addEventListener("click", () => {
+        tryResumeSession();
+      });
+    }
+    const clearResumeBtn = document.getElementById("btn-clear-resume");
+    if (clearResumeBtn) {
+      clearResumeBtn.addEventListener("click", () => {
+        if (!window.confirm("저장된 이어풀기를 삭제할까요?")) return;
+        clearSessionResume();
+        renderHub();
+      });
+    }
     document.getElementById("btn-start-study").addEventListener("click", () => {
+      clearSessionResume();
       studyWrong = new Set();
       mockHistory = [];
       expectedMockRound = 1;
@@ -1102,13 +1337,20 @@ ${trialDashBanner}
   }
 
   function goHub() {
-    if (!window.confirm("중단하면 이 세션 진행이 초기화됩니다. 처음 화면으로 돌아갈까요?")) return;
+    if (screen === "hub") return;
+    if (
+      !window.confirm(
+        "학습을 중단하고 처음 화면으로 나갈까요?\n\n지금까지 진행이 저장되며, 다음에 이어서 풀 수 있습니다."
+      )
+    ) {
+      return;
+    }
+    saveSessionResume();
     clearStudyTimer();
     clearMockTimer();
-    studyRound = 0;
     setScreen("hub");
     renderHub();
-    updateAdminPanel("세션 중단 후 허브 복귀");
+    updateAdminPanel("중단·저장 후 허브 복귀");
   }
 
   function adminStartStudyRound(targetRound) {
@@ -1173,8 +1415,8 @@ ${trialDashBanner}
     startMockRound(target);
   }
 
-  E.btnStop.addEventListener("click", goHub);
-  E.btnPrevTop.addEventListener("click", () => advanceStudy(-1));
+  if (E.btnStop) E.btnStop.addEventListener("click", goHub);
+  if (E.btnPrevTop) E.btnPrevTop.addEventListener("click", () => advanceStudy(-1));
   E.qNavPrev.addEventListener("click", () => advanceStudy(-1));
   E.qNavNext.addEventListener("click", () => advanceStudy(1));
   if (E.adminToggle) {
@@ -1195,6 +1437,7 @@ ${trialDashBanner}
     setScreen("loading");
     if (E.loadErr) E.loadErr.hidden = true;
     if (!getStoredSession()?.token) {
+      redirectToStudyLogin();
       return;
     }
     window.MakeupQuestionEngine.loadMakeupBank()
@@ -1226,6 +1469,7 @@ ${trialDashBanner}
         bank = hasFullMakeupAccess ? bankFull : trialSubset;
 
         await hydrateStudyArtifactRemote();
+        wireTrialEndedDialogOnce();
         setScreen("hub");
         renderHub();
         updateAdminPanel("문항 로드 성공");
