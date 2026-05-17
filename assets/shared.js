@@ -2095,7 +2095,8 @@ function updateNavigationByAuth(session) {
     document.querySelector(".pm-header .pm-logo") || document.querySelector(".pm-logo");
 
   const pagesLink = nav.querySelector("a[href*='pages.html']");
-  const enrollLink = nav.querySelector("a[href*='enroll/index.html']");
+  const enrollLink =
+    nav.querySelector("a[href*='enroll/index.html']") || nav.querySelector("a[data-cert-enroll-apply]");
   const myCoursesLink = nav.querySelector("a[href*='my-courses/index.html']");
 
   function removeStudentLogoutLink() {

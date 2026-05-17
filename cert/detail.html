@@ -47,7 +47,7 @@
           <a href="../login.html">로그인</a>
           <a href="../register.html">회원가입</a>
           <a href="../index.html#cert-courses">자격증 목록</a>
-          <a href="../enroll/index.html">수강신청</a>
+          <a href="../enroll/apply/index.html" data-cert-enroll-apply>수강신청</a>
         </nav>
       </header>
 
@@ -66,7 +66,7 @@
         <div class="pm-cta-row" id="cert-cta-row">
           <a class="pm-btn pm-btn-ghost" href="../index.html#cert-courses">목록으로</a>
           <a class="pm-btn pm-btn-ghost" id="cert-info-link" href="./info.html" hidden>일반 정보</a>
-          <a class="pm-btn pm-btn-primary" href="../enroll/index.html#enroll-openings">수강 신청</a>
+          <a class="pm-btn pm-btn-primary" href="../enroll/apply/index.html" data-cert-enroll-apply>수강 신청</a>
         </div>
       </main>
 
@@ -101,6 +101,19 @@
 
       const params = new URLSearchParams(window.location.search);
       const slug = (params.get("slug") || "").trim().toLowerCase();
+
+      function syncCertDetailEnrollLinks(certSlug) {
+        const key = String(certSlug || "").trim().toLowerCase();
+        const href =
+          key && Object.prototype.hasOwnProperty.call(CERT_META, key)
+            ? `../enroll/apply/index.html?cert=${encodeURIComponent(key)}`
+            : "../enroll/apply/index.html";
+        document.querySelectorAll("[data-cert-enroll-apply]").forEach((a) => {
+          a.setAttribute("href", href);
+        });
+      }
+      syncCertDetailEnrollLinks(slug);
+
       const meta = CERT_META[slug];
 
       const titleEl = document.getElementById("cert-title");
