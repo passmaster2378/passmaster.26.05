@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PASSmaster | 로그인</title>
+    <link rel="dns-prefetch" href="https://passmaster-26-05.onrender.com" />
+    <link rel="preconnect" href="https://passmaster-26-05.onrender.com" crossorigin />
     <link rel="stylesheet" href="./assets/shared.css" />
     <style>
       :root {
@@ -268,6 +270,12 @@
        */
       // window.PASSMASTER_API_BASE = "https://YOUR-SERVICE.onrender.com/api";
       // window.PASSMASTER_OAUTH_API_BASE = window.PASSMASTER_API_BASE;
+      (function () {
+        var base = window.PASSMASTER_API_BASE || "https://passmaster-26-05.onrender.com/api";
+        base = String(base).replace(/\/+$/, "");
+        if (!base.endsWith("/api")) base += "/api";
+        fetch(base + "/health", { method: "GET", mode: "cors" }).catch(function () {});
+      })();
     </script>
     <script defer src="./assets/auth-client.js"></script>
   </body>

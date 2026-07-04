@@ -884,27 +884,19 @@ async function getActiveQuestionSetSummary(courseId) {
  * 서버 부팅 시 upsert 후 신청 가능 opening이 없으면 상시 모집 opening을 추가한다.
  */
 const CANONICAL_PASSMASTER_COURSES = [
-  { code: "forklift", title: "지게차기능사 국가자격증 필기 문제 풀이", category: "기능사·장비" },
-  { code: "excavator", title: "굴착기기능사 국가자격증 필기 문제 풀이", category: "기능사·장비" },
-  { code: "electric", title: "전기기능사 국가자격증 필기 문제 풀이", category: "전기" },
-  { code: "welding", title: "피복아크용접기능사 국가자격증 필기 문제 풀이", category: "용접" },
-  { code: "carrepair", title: "자동차정비기능사 국가자격증 필기 문제 풀이", category: "정비" },
-  { code: "beautician", title: "일반미용사 국가자격증 필기 문제 풀이", category: "미용" },
-  { code: "makeup", title: "메이크업 미용사 국가자격증 필기 문제 풀이", category: "미용" },
-  { code: "skin", title: "피부미용사 국가자격증 필기 문제 풀이", category: "미용" },
-  { code: "nail", title: "네일미용사 국가자격증 필기 문제 풀이", category: "미용" },
-  { code: "elevator", title: "승강기능사 국가자격증 필기 문제 풀이", category: "설비" },
+  { code: "forklift", title: "지게차운전기능사 국가자격증 필기 문제 풀이", category: "기능사·장비" },
   { code: "cookkr", title: "한식조리기능사 국가자격증 필기 문제 풀이", category: "외식업" },
   { code: "cookwest", title: "양식조리기능사 국가자격증 필기 문제 풀이", category: "외식업" },
-  { code: "cookcn", title: "중식조리기능사 국가자격증 필기 문제 풀이", category: "외식업" },
   { code: "cookjp", title: "일식조리기능사 국가자격증 필기 문제 풀이", category: "외식업" },
-  { code: "bakery", title: "제빵기능사 국가자격증 필기 문제 풀이", category: "식품" },
+  { code: "cookcn", title: "중식조리기능사 국가자격증 필기 문제 풀이", category: "외식업" },
   { code: "confection", title: "제과기능사 국가자격증 필기 문제 풀이", category: "식품" },
-  { code: "landscape", title: "조경기능사 국가자격증 필기 문제 풀이", category: "조경·산림" },
-  { code: "hazmat", title: "위험물기능사 국가자격증 필기 문제 풀이", category: "안전·환경" },
-  { code: "info_proc", title: "정보처리기능사 국가자격증 필기 문제 풀이", category: "전산·IT" },
-  { code: "comp_app", title: "컴퓨터활용능력 필기 학습 과정", category: "전산·IT" },
-  { code: "word_proc", title: "워드프로세서 필기 학습 과정", category: "전산·OA" },
+  { code: "bakery", title: "제빵기능사 국가자격증 필기 문제 풀이", category: "식품" },
+  { code: "electric", title: "전기기능사 국가자격증 필기 문제 풀이", category: "전기" },
+  { code: "beautician", title: "일반미용사(헤어) 국가자격증 필기 문제 풀이", category: "미용" },
+  { code: "skin", title: "피부미용사 국가자격증 필기 문제 풀이", category: "미용" },
+  { code: "nail", title: "네일미용사 국가자격증 필기 문제 풀이", category: "미용" },
+  { code: "makeup", title: "메이크업미용사 국가자격증 필기 문제 풀이", category: "미용" },
+  { code: "barber", title: "이용사 국가자격증 필기 문제 풀이", category: "미용" },
 ];
 
 const LEGACY_DEMO_TECH_COURSE_CODES = ["IS", "EE", "IT"];
@@ -912,7 +904,19 @@ const LEGACY_DEMO_TECH_COURSE_CODES = ["IS", "EE", "IT"];
 async function upsertCanonicalCoursesAndOpenings() {
   const defaultPrice = 9900;
   /** 제거된 canonical 과정: 목록에서 빠진 코드는 계속 오픈 상태로 남지 않도록 닫는다 */
-  const REMOVED_CANONICAL_CODES = ["construction", "cad_arch"];
+  const REMOVED_CANONICAL_CODES = [
+    "construction",
+    "cad_arch",
+    "excavator",
+    "welding",
+    "carrepair",
+    "elevator",
+    "landscape",
+    "hazmat",
+    "info_proc",
+    "comp_app",
+    "word_proc",
+  ];
 
   for (const row of CANONICAL_PASSMASTER_COURSES) {
     await run(

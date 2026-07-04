@@ -2,6 +2,7 @@
   const DEFAULT_REMOTE_API_BASE = "https://passmaster-26-05.onrender.com/api";
   const DEFAULT_TIMEOUT_MS = 30000;
   const AUTH_TIMEOUT_MS = 45000;
+  const API_WARMUP_TIMEOUT_MS = 12000;
   const isLocalHost =
     window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
   const isFileProtocol = window.location.protocol === "file:";
@@ -52,27 +53,19 @@
 
   /** 메인 랜딩 자격증 카드 slug ↔ 표시명 (모집 필터·cert 딥링크와 동일) */
   const CERT_SLUG_LABEL_MAP = {
-    forklift: "지게차기능사",
-    excavator: "굴착기기능사",
-    electric: "전기기능사",
-    welding: "피복아크용접기능사",
-    carrepair: "자동차정비기능사",
-    beautician: "일반미용사",
-    makeup: "메이크업 미용사",
-    skin: "피부미용사",
-    nail: "네일미용사",
-    elevator: "승강기능사",
+    forklift: "지게차운전기능사",
     cookkr: "한식조리기능사",
     cookwest: "양식조리기능사",
-    cookcn: "중식조리기능사",
     cookjp: "일식조리기능사",
-    bakery: "제빵기능사",
+    cookcn: "중식조리기능사",
     confection: "제과기능사",
-    landscape: "조경기능사",
-    hazmat: "위험물기능사",
-    info_proc: "정보처리기능사",
-    comp_app: "컴퓨터활용능력",
-    word_proc: "워드프로세서",
+    bakery: "제빵기능사",
+    electric: "전기기능사",
+    beautician: "일반미용사(헤어)",
+    skin: "피부미용사",
+    nail: "네일미용사",
+    makeup: "메이크업미용사",
+    barber: "이용사",
   };
 
   function openingMatchesCertSlug(o, slug) {
@@ -441,11 +434,9 @@
 
   async function warmupApi() {
     if (apiWarmupPromise) return apiWarmupPromise;
-    apiWarmupPromise = fetchWithTimeout(`${API_BASE}/health`, { method: "GET" }, AUTH_TIMEOUT_MS)
-      .catch(() => null)
-      .finally(() => {
-        apiWarmupPromise = null;
-      });
+    apiWarmupPromise = fetchWithTimeout(`${API_BASE}/health`, { method: "GET" }, API_WARMUP_TIMEOUT_MS).catch(
+      () => null
+    );
     return apiWarmupPromise;
   }
 
@@ -464,8 +455,8 @@
 
     try {
       submitButton.disabled = true;
-      showMessage(messageNode, "서버 연결 확인 후 로그인 중입니다...", "info");
-      await warmupApi();
+      showMessage(messageNode, "로그인 중입니다...", "info");
+      warmupApi().catch(() => null);
       const data = await request("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
@@ -489,7 +480,7 @@
         : fallbackNext;
       setTimeout(() => {
         window.location.href = next;
-      }, 800);
+      }, 350);
     } catch (error) {
       showMessage(messageNode, error.message, "error");
     } finally {
@@ -531,8 +522,8 @@
 
     try {
       submitButton.disabled = true;
-      showMessage(messageNode, "서버 연결 확인 후 회원가입 처리 중입니다...", "info");
-      await warmupApi();
+      showMessage(messageNode, "회원가입 처리 중입니다...", "info");
+      warmupApi().catch(() => null);
       await request("/auth/register", {
         method: "POST",
         body: JSON.stringify({ name, email, phone: digits, password }),
@@ -3370,7 +3361,7 @@
 
   async function mountAuthForms() {
     warmupApi().catch(() => null);
-    await mountOAuthButtons();
+
     if (consumeOAuthHashReturn() === true) {
       refreshPassmasterSiteNavigation();
       syncSupportGuestMemberSections();
@@ -3398,15 +3389,15 @@
 
     const loginForm = document.querySelector("[data-auth-form='login']");
     if (loginForm) {
-      warmupApi();
       loginForm.addEventListener("submit", handleLoginSubmit);
     }
 
     const registerForm = document.querySelector("[data-auth-form='register']");
     if (registerForm) {
-      warmupApi();
       registerForm.addEventListener("submit", handleRegisterSubmit);
     }
+
+    const oauthPromise = mountOAuthButtons();
 
     const inquiryForm = document.querySelector("[data-support-form='inquiry-new']");
     if (inquiryForm) {
@@ -3485,6 +3476,7 @@
     mountLearningFinalReportPage();
     mountMypageInquiriesSection();
     hydrateMypageCourseDetailQuickLink();
+    await oauthPromise;
   }
 
   window.addEventListener("DOMContentLoaded", mountAuthForms);
