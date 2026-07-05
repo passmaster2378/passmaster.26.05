@@ -2057,16 +2057,37 @@ function removeDuplicateMypageHubNav(nav, protectedLinks, mypageHref) {
   });
 }
 
-function updateNavigationByAuth(session) {
-  const nav =
-    document.querySelector(".pm-header nav.pm-nav") ||
-    document.querySelector(".pm-header .pm-nav") ||
-    document.querySelector("nav.pm-nav");
-  if (!nav) return;
+/**
+ * `cert/info.html` 등 과정 일반 정보 본문의 `data-cert-auth-guest|member` 표시 동기화.
+ * 헤더의 로그인/회원가입 슬롯은 `[data-cert-auth-guest]`를 유지한 채 `updateNavigationByAuth`만이
+ * 교체하므로, 본문(헤더 바깥)의 게스트 전용 CTA만 여기서 숨긴다.
+ */
+function syncCertInfoPageAuthMarks(session) {
+  const member = Boolean(session && session.user);
 
-  let nonLogoutAnchors = Array.from(nav.querySelectorAll(":scope > a")).filter(
-    (a) => !a.hasAttribute("data-pm-logout")
-  );
+  document.querySelectorAll("[data-cert-auth-member]").forEach((el) => {
+    el.hidden = !member;
+    el.style.display = !member ? "none" : "";
+  });
+
+  document.querySelectorAll("[data-cert-auth-guest]").forEach((el) => {
+    if (el.closest("header.pm-header") || el.closest(".pm-header")) return;
+    el.hidden = member;
+    el.style.display = member ? "none" : "";
+  });
+}
+
+function updateNavigationByAuth(session) {
+  try {
+    const nav =
+      document.querySelector(".pm-header nav.pm-nav") ||
+      document.querySelector(".pm-header .pm-nav") ||
+      document.querySelector("nav.pm-nav");
+    if (!nav) return;
+
+    let nonLogoutAnchors = Array.from(nav.querySelectorAll(":scope > a")).filter(
+      (a) => !a.hasAttribute("data-pm-logout")
+    );
   let loginLink = nonLogoutAnchors.find((a) => /login\.html/i.test(a.getAttribute("href") || ""));
   let registerLink = nonLogoutAnchors.find((a) =>
     /register\.html/i.test(a.getAttribute("href") || "")
@@ -2216,9 +2237,12 @@ function updateNavigationByAuth(session) {
   });
   removeDuplicateMypageHubNav(nav, [loginLink, registerLink], myInfoHref);
 
-  sweepNonPrivilegedAdminFromNav(nav, session, loginLink, registerLink);
+    sweepNonPrivilegedAdminFromNav(nav, session, loginLink, registerLink);
 
-  bindStudentLogoutLink();
+    bindStudentLogoutLink();
+  } finally {
+    syncCertInfoPageAuthMarks(session);
+  }
 }
 
 window.__PASSMASTER_REFRESH_NAV__ = function passmasterRefreshNavFromAuth() {
