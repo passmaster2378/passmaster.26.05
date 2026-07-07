@@ -1222,9 +1222,18 @@ async function seedData() {
   }
 }
 
-app.get("/api/health", async (req, res) => {
-  const row = await get("SELECT now() AS now");
-  res.json({ ok: true, serverTime: row.now });
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true, serverTime: new Date().toISOString() });
+});
+
+app.get("/api/health/db", async (req, res) => {
+  try {
+    const row = await get("SELECT now() AS now");
+    res.json({ ok: true, dbTime: row.now });
+  } catch (error) {
+    console.error("health/db failed:", error);
+    return sendError(res, 503, "DB 연결을 확인할 수 없습니다.");
+  }
 });
 
 app.get("/api/docs", async (req, res) => {
@@ -2828,9 +2837,11 @@ async function start() {
   await initSchema();
   await migrateAuthOAuthColumns();
   await migrateUserPhoneColumn();
-  await seedData();
   app.listen(PORT, () => {
     console.log(`PASSmaster API server running on http://localhost:${PORT}`);
+    seedData().catch((error) => {
+      console.error("seedData failed:", error);
+    });
   });
 }
 

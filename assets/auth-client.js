@@ -434,10 +434,42 @@
 
   async function warmupApi() {
     if (apiWarmupPromise) return apiWarmupPromise;
-    apiWarmupPromise = fetchWithTimeout(`${API_BASE}/health`, { method: "GET" }, API_WARMUP_TIMEOUT_MS).catch(
-      () => null
-    );
+    apiWarmupPromise = fetchWithTimeout(`${API_BASE}/health`, { method: "GET" }, API_WARMUP_TIMEOUT_MS)
+      .then((res) => (res && res.ok ? res : null))
+      .catch(() => null);
     return apiWarmupPromise;
+  }
+
+  function resetApiWarmup() {
+    apiWarmupPromise = null;
+  }
+
+  /** Render 휴면 해제 등: health 성공할 때까지 재시도하며 진행 메시지를 갱신한다. */
+  async function ensureApiReady(messageNode, options = {}) {
+    const maxAttempts = Number(options.maxAttempts || 6);
+    const timeoutMs = Number(options.timeoutMs || 25000);
+    const gapMs = Number(options.gapMs || 1200);
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const label =
+        attempt === 0
+          ? "서버 연결을 확인하는 중입니다..."
+          : `서버를 준비하는 중입니다... (${attempt + 1}/${maxAttempts}, 휴면 해제 시 최대 1~2분)`;
+      showMessage(messageNode, label, "info");
+      resetApiWarmup();
+      try {
+        const res = await fetchWithTimeout(`${API_BASE}/health`, { method: "GET" }, timeoutMs);
+        if (res.ok) return true;
+      } catch (_error) {
+        /* cold start / network — retry */
+      }
+      if (attempt < maxAttempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, gapMs));
+      }
+    }
+    throw new Error(
+      `API 서버에 연결할 수 없습니다. (${API_BASE}) 잠시 후 다시 시도해 주세요. Render 대시보드에서 서버 상태도 확인해 주세요.`
+    );
   }
 
   async function handleLoginSubmit(event) {
@@ -455,12 +487,12 @@
 
     try {
       submitButton.disabled = true;
-      showMessage(messageNode, "로그인 중입니다...", "info");
-      warmupApi().catch(() => null);
+      await ensureApiReady(messageNode);
+      showMessage(messageNode, "로그인 확인 중입니다...", "info");
       const data = await request("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
-      }, { timeoutMs: AUTH_TIMEOUT_MS, retryNetworkError: true });
+      }, { timeoutMs: 30000, retryNetworkError: true });
       localStorage.setItem("passmaster_auth", JSON.stringify(data));
       showMessage(messageNode, `${data.user.name}님, 로그인 되었습니다.`, "success");
       const params = new URLSearchParams(window.location.search);
@@ -523,7 +555,7 @@
     try {
       submitButton.disabled = true;
       showMessage(messageNode, "회원가입 처리 중입니다...", "info");
-      warmupApi().catch(() => null);
+      await ensureApiReady(messageNode);
       await request("/auth/register", {
         method: "POST",
         body: JSON.stringify({ name, email, phone: digits, password }),
